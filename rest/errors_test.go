@@ -1,8 +1,10 @@
 package rest_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
@@ -153,6 +155,46 @@ func TestAnErrorCarryingItsOwnStatusIsNotSanitised(t *testing.T) {
 	}
 	if !strings.Contains(resp.Body.String(), "author role") {
 		t.Errorf("the hook's own message should reach the client: %s", resp.Body)
+	}
+}
+
+// The other half of the same seam: a hook that returned a plain error meant to
+// refuse, and got a 500 for it.
+//
+// Nothing can fix that automatically — an unclassified error is unclassified —
+// so the check is on the one channel that reaches the person who wrote the
+// hook. #293 reports shipping exactly this and finding it only by asserting on
+// a status code; the sentence that would have explained it was in a comment in
+// rest/errors.go, which is not where someone reading their server's log is
+// looking.
+func TestTheUnclassifiedLogNamesTheStatusAHookShouldHaveReturned(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(prev)
+
+	reg := sqlb.NewRegistry()
+	sqlb.On[Post](reg).BeforeCreate(func(context.Context, *Post) error {
+		return errors.New("only a parent may add a child")
+	})
+
+	db := newFakeDB(t, reply{cols: postCols()})
+	api := mount(t, sqlb.New(db.db).WithHooks(reg), postOptions())
+
+	resp := api.Post("/posts", map[string]any{
+		"org_id": "acme", "title": "Hello", "body": "text",
+	})
+	if resp.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500: %s", resp.Code, resp.Body)
+	}
+	logged := buf.String()
+	if !strings.Contains(logged, "huma.Error403Forbidden") {
+		t.Errorf("the log line should name the call that turns this into a refusal:\n%s", logged)
+	}
+	// The response must not gain the hint along with the log: it is advice for
+	// whoever wrote the hook, not for whoever provoked it.
+	if strings.Contains(resp.Body.String(), "huma.Error403Forbidden") {
+		t.Errorf("the hint reached the client:\n%s", resp.Body)
 	}
 }
 

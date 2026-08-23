@@ -13,6 +13,8 @@ package migrate
 // by then the SQL is a string and the choice has already been made. So this is
 // an option on Diff, which is what turns two registries into statements.
 
+import "github.com/jryannel/sqlb/schema"
+
 // Option configures Diff.
 type Option func(*diffOptions)
 
@@ -45,31 +47,23 @@ func MinPostgres(major int) Option {
 	return func(o *diffOptions) { o.minPG = major }
 }
 
-// builtinDefaults maps a generator's canonical spelling — the one
-// schema.GenUUIDv7 and friends produce, and the one introspect reads back — to
-// a built-in available from some major version onward.
-//
-// A list rather than a capability system, because it has one entry and an
-// abstraction whose second implementation is hypothetical constrains the first
-// for no benefit (ADR-0015 rejected one for the same reason). Add the second
-// entry before generalising.
-var builtinDefaults = []struct {
-	canonical string
-	builtin   string
-	since     int
-}{
-	{canonical: "uuid_generate_v7()", builtin: "uuidv7()", since: 18},
-}
-
 // resolve returns the spelling to emit for a raw default expression.
+//
+// The table is schema.TargetDefaults rather than one of this package's own.
+// It used to live here, which was defensible while this was the only code that
+// read it; it stopped being so once schema.Registry.Lint needed the same pairs
+// to recognise a column that had spelled a target's answer out by hand with
+// schema.Expr (#293). Two copies of "uuidv7() is what GenUUIDv7 renders from 18
+// onward" is one copy too many — a lint rule that drifted from this function
+// would advise against SQL this function itself emits.
 //
 // Anything unrecognised is returned untouched: schema.Expr takes arbitrary SQL,
 // and rewriting something this does not understand is exactly the guessing this
 // project refuses elsewhere.
 func (o diffOptions) resolve(raw string) string {
-	for _, b := range builtinDefaults {
-		if raw == b.canonical && o.minPG >= b.since {
-			return b.builtin
+	for _, b := range schema.TargetDefaults() {
+		if raw == b.Canonical && o.minPG >= b.Since {
+			return b.Builtin
 		}
 	}
 	return raw

@@ -169,7 +169,62 @@ func GenUUIDv7() *Default { return &Default{Raw: "uuid_generate_v7()"} }
 func GenUUIDv4() *Default { return &Default{Raw: "gen_random_uuid()"} }
 
 // Expr defaults the column to an arbitrary SQL expression.
+//
+// Nothing downstream questions what is in here — that is the point of it — so
+// a raw string that happens to spell what a helper renders has quietly opted
+// out of the helper's remaining job. See [TargetDefaults] for the one case
+// where that costs something, and the lint rule that names it.
 func Expr(sql string) *Default { return &Default{Raw: sql} }
 
 // Value defaults the column to a literal.
 func Value(v any) *Default { return &Default{Value: v} }
+
+// TargetDefault records that a [Default] helper renders differently depending
+// on which Postgres the DDL is generated for.
+//
+// [Default.Raw] holds the canonical spelling whatever the target — the helper
+// is a name for an intent, and which SQL that intent becomes is decided when
+// the DDL is rendered, not when the column is declared.
+type TargetDefault struct {
+	// Canonical is the helper's own Raw: what [Default.Raw] holds, what
+	// introspect maps every spelling back to on the way in, and what a target
+	// older than Since is given.
+	Canonical string
+
+	// Builtin is the spelling available from Since onward, which needs no
+	// extension installed.
+	Builtin string
+
+	// Since is the Postgres major version that introduced Builtin.
+	Since int
+
+	// Helper is how the constructor is spelled in source, for a diagnostic
+	// that has to name it.
+	Helper string
+}
+
+// TargetDefaults lists the defaults whose rendered SQL depends on the Postgres
+// version being targeted.
+//
+// One table, because two would drift. migrate reads it to pick the spelling to
+// emit (see migrate.MinPostgres) and [Registry.Lint] reads it to recognise a
+// column that spelled one target's answer out by hand with [Expr]. Those two
+// have to agree by construction: a lint rule that disagreed with the renderer
+// would be advising against SQL the renderer itself produces.
+//
+// A list rather than a capability system, because it has one entry and an
+// abstraction whose second implementation is hypothetical constrains the first
+// for no benefit (ADR-0015 rejected one for the same reason). Add the second
+// entry before generalising.
+//
+// A fresh slice per call, rather than an exported variable: this is a fact
+// about the DSL, and a caller that could append to it could make the renderer
+// and the lint rule disagree after all.
+func TargetDefaults() []TargetDefault {
+	return []TargetDefault{{
+		Canonical: GenUUIDv7().Raw,
+		Builtin:   "uuidv7()",
+		Since:     18,
+		Helper:    "schema.GenUUIDv7()",
+	}}
+}

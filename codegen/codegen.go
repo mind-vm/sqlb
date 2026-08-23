@@ -36,6 +36,15 @@ type Options struct {
 	// Empty means no client is emitted at all, which is the right default for a
 	// project that has no TypeScript consumer.
 	//
+	// Relative to Dir, not to the module root, and the difference is worth a
+	// sentence because getting it wrong is silent. With Dir "sqlbdata" in a
+	// module that is itself a subdirectory, reaching a frontend beside the
+	// module takes two levels — "../../web/src/api" — and one level writes a
+	// complete, correct client into sqlbdata/../web/src/api, which nothing
+	// imports while the real frontend goes on building against the client it
+	// already had. generate warns when this directory and its parent both had
+	// to be created, which is what that mistake looks like from here (#290).
+	//
 	// Three files land there. The runtime and the client are dependency-free;
 	// the queries file holds the queryOptions, infiniteQueryOptions and
 	// mutationOptions factories and takes @tanstack/react-query as a peer
@@ -108,6 +117,9 @@ type Options struct {
 	// "mobile/lib/api" in a repository whose Flutter app lives beside its
 	// server. Empty means no client is emitted, which is the right default for
 	// a project that has no Dart consumer.
+	//
+	// Relative to Dir rather than the module root, with the same two-level
+	// arithmetic and the same silent failure as [Options.TSDir]; see there.
 	//
 	// Two files land there — the client and the runtime library it exports —
 	// and neither imports anything: not a pub package, not even dart:io. There
@@ -561,6 +573,83 @@ func generate(opts Options) (written []string, rewrote int, err error) {
 		written = append(written, path)
 	}
 	return written, rewrote, nil
+}
+
+// strandedClientDir is a TypeScript or Dart client directory that generate had
+// to create along with its parent.
+//
+// The mistake it exists for is one "../" too few (#290). TSDir and DartDir
+// resolve against Dir rather than against the module root, so a repository
+// whose frontend sits beside its Go module needs two levels to reach it, and
+// one level lands the client *inside* the module — where it is created, written
+// correctly and imported by nothing. Neither tsc nor the Flutter build has
+// anything to say about that: the real application goes on compiling against
+// the client it already had, both stay green, and the first symptom is someone
+// opening the generated client months later and finding it describes a schema
+// that has moved.
+//
+// The reported path did not help either, and could not: filepath.Join cleans
+// "sqlbdata/../web/src/api" down to "web/src/api", which is a correct
+// module-root-relative path that reads exactly like the repository's real web/
+// directory. So the signal here is not the path — it is that the *tree* was
+// new, which is the one thing that differs between the two cases.
+//
+// A warning rather than a refusal, because nothing here can know which was
+// meant: emitting into a directory that does not exist yet is legitimate the
+// first time, and the second run is silent because by then it does not.
+//
+// Scoped to the two clients whose consumer is not a Go compiler. A CLIDir or
+// ClientDir that resolved somewhere unintended is still a Go package, and the
+// import that stops resolving says so on the next build. SkillDir's usual value
+// is ".claude/skills", a two-level tree that legitimately does not exist in a
+// repository that has not had an agent in it yet, so it would warn on the very
+// case it is meant to be quiet about.
+type strandedClientDir struct {
+	field      string // the Options field, so the message names what to edit
+	configured string // the value as the project wrote it
+	resolved   string // where it actually landed, absolute where that is knowable
+}
+
+// strandedClientDirs reports the client directories generate is about to create
+// from nothing. It has to be called before generate, which creates them.
+func strandedClientDirs(opts Options) []strandedClientDir {
+	var out []strandedClientDir
+	for _, c := range []struct{ field, dir string }{
+		{"TSDir", opts.TSDir},
+		{"DartDir", opts.DartDir},
+	} {
+		if c.dir == "" {
+			continue
+		}
+		path := filepath.Join(opts.Dir, c.dir)
+		if isDir(path) || isDir(filepath.Dir(path)) {
+			continue
+		}
+		resolved := path
+		if abs, err := filepath.Abs(path); err == nil {
+			resolved = abs
+		}
+		out = append(out, strandedClientDir{field: c.field, configured: c.dir, resolved: resolved})
+	}
+	return out
+}
+
+func isDir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
+
+// warning is what the driver prints. It carries the absolute path because the
+// relative one is the half of this that already looked right.
+func (s strandedClientDir) warning(dir string) string {
+	return fmt.Sprintf(
+		"sqlb: %s %q named a directory that did not exist, nor did its parent — created %s\n"+
+			"sqlb:   %s resolves against Options.Dir (%q), not against the module root, so a "+
+			"directory beside the Go module takes one \"../\" more than it reads like.\n"+
+			"sqlb:   A client is emitted beside the code that imports it. If nothing there imports "+
+			"it, the application is still building against the client it already had, and will keep "+
+			"doing so without complaining.\n",
+		s.field, s.configured, s.resolved, s.field, dir)
 }
 
 // Check reports which generated files are missing or out of date, without

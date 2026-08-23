@@ -215,3 +215,61 @@ func TestProjectRefusesAnUnknownVerb(t *testing.T) {
 		t.Errorf("the error did not quote the verb it did not understand:\n%s", out)
 	}
 }
+
+// #290's layout, both ways round: a Go module with the clients beside it.
+//
+//	sokrates/
+//	├── server/   the Go module — Dir is "sqlbdata" inside it
+//	├── web/      React, consumes the TypeScript client
+//	└── mobile/   Flutter, consumes the Dart client
+//
+// Reaching web/ from Dir takes two levels. With one, the client lands in
+// server/web/src/api: created, correct, and imported by nothing, while the
+// real web app goes on compiling against the client it already had. Every
+// build stays green and the reported path — "web/src/api/client.gen.ts", which
+// filepath.Join cleaned back down to a module-root-relative path — reads
+// exactly like the right answer.
+func TestGenerateWarnsWhenAClientDirectoryHadToBeInvented(t *testing.T) {
+	root := t.TempDir()
+	// The repository as it really is: the frontends exist, beside the module.
+	for _, dir := range []string{"server/sqlbdata", "web/src", "mobile/lib"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(filepath.Join(root, "server"))
+
+	p := codegen.Project{Options: codegen.Options{
+		Registry: fixture(),
+		Dir:      "sqlbdata",
+		Package:  "gen",
+		TSDir:    "../web/src/api",       // one ../ short
+		DartDir:  "../../mobile/lib/api", // correct
+	}}
+
+	code, out := run(t, p, "generate")
+	if code != 0 {
+		t.Fatalf("generate: exit %d, output:\n%s", code, out)
+	}
+	if !strings.Contains(out, "TSDir") {
+		t.Errorf("the TypeScript client was written into a tree that did not exist and "+
+			"nothing said so:\n%s", out)
+	}
+	// The absolute path is the half the relative report could not carry: it is
+	// the only spelling that distinguishes server/web from web.
+	if want := filepath.Join(root, "server", "web", "src", "api"); !strings.Contains(out, want) {
+		t.Errorf("the warning should name where the client actually landed (%s):\n%s", want, out)
+	}
+	// The correct one is beside an existing mobile/lib, so it must be silent —
+	// a warning that fires on the documented layout is a warning nobody reads.
+	if strings.Contains(out, "DartDir") {
+		t.Errorf("the Dart client landed beside the Flutter app and was still flagged:\n%s", out)
+	}
+
+	// Second run: the directory exists now, so there is nothing left to notice.
+	// This is why it is a warning and not a refusal — and why it has to be
+	// asked before generate rather than after.
+	if _, again := run(t, p, "generate"); strings.Contains(again, "TSDir") {
+		t.Errorf("the warning repeated on a run that created nothing:\n%s", again)
+	}
+}

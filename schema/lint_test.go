@@ -324,3 +324,60 @@ func TestLintCatchesAnExpensiveInverse(t *testing.T) {
 		t.Errorf("an indexed, filterable foreign key should not be flagged: %v", ok.Lint())
 	}
 }
+
+// The rule that closes #293's first ask, and the false positive that would
+// make it useless.
+//
+// A raw default is indistinguishable from a helper's by value — GenUUIDv7 and
+// Expr both produce a *Default with a Raw string, and every other reader in the
+// pipeline treats that string as the helper's identity (codegen renders it back
+// out as the constructor, introspect maps it back in). So the rule cannot fire
+// on the canonical spelling without firing on every column that used the
+// helper. What it fires on instead is the spelling no helper produces but
+// migrate emits: the target-specific builtin.
+func TestLintNamesTheHelperBehindAHandWrittenBuiltinDefault(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("a",
+		schema.UUID("id").PrimaryKey().Default(schema.Expr("uuidv7()")),
+	)
+
+	var got *schema.Diagnostic
+	for _, d := range r.Lint() {
+		if d.Rule == "raw-default-has-helper" {
+			got = &d
+		}
+	}
+	if got == nil {
+		t.Fatalf("Expr(\"uuidv7()\") should be flagged, got:\n%s", r.Lint())
+	}
+	if got.Column != "id" {
+		t.Errorf("the diagnostic should name the column, got %q", got.Column)
+	}
+	// The whole value of the rule is that it names the call to write instead.
+	// A message that only said "this is raw SQL" would send the reader looking.
+	if !strings.Contains(got.Fix, "schema.GenUUIDv7()") {
+		t.Errorf("the fix should name the constructor, got %q", got.Fix)
+	}
+	if got.Severity != schema.SeverityWarn {
+		t.Errorf("giving up the portability the helper provides is a warning, got %q", got.Severity)
+	}
+}
+
+func TestLintIsQuietOnDefaultsItCannotDistinguishFromAHelper(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("a",
+		schema.UUIDv7("id").PrimaryKey(),
+		// The canonical spelling: what GenUUIDv7 itself produces, so flagging
+		// it would flag every column in every schema that used the helper.
+		schema.UUID("other").Default(schema.GenUUIDv7()),
+		// A composite the helper could not have produced. migrate's resolve
+		// leaves this alone too — both match exactly or not at all.
+		schema.Text("note").Default(schema.Expr("coalesce(uuidv7()::text, '')")),
+		schema.Timestamp("at").Default(schema.Now()),
+	)
+	for _, d := range r.Lint() {
+		if d.Rule == "raw-default-has-helper" {
+			t.Errorf("nothing here spells a target-specific builtin: %s", d)
+		}
+	}
+}
