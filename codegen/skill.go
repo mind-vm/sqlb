@@ -74,7 +74,67 @@ func renderSkill(opts Options) ([]byte, error) {
 	skillInternalTables(&b, internal)
 	skillObligations(&b, m)
 	skillLimits(&b, m)
+	skillSiblings(&b, opts)
 	return []byte(b.String()), nil
+}
+
+// staticSkills are the skills this repository ships that are true in every
+// project, named here so the generated one can point at them.
+//
+// The list is checked against skills/ by TestTheGeneratedSkillNamesEverySibling
+// rather than trusted, which is the same bargain the rest of this file makes:
+// a generated file that is confidently wrong about something is worse than one
+// that says nothing.
+var staticSkills = []struct{ name, answers string }{
+	{
+		"sqlb-authoring",
+		"the DSL vocabulary this file's lists are written in — which column constructors and " +
+			"capability flags exist, what each enforces, and which combinations are refused",
+	},
+	{
+		"sqlb-queries",
+		"where the builder ends and `Raw` or hand-written SQL begins, plus the failure modes " +
+			"that compile, pass their tests and are wrong at runtime",
+	},
+	{
+		"sqlb-adoption",
+		"whether an existing codebase should adopt sqlb at all — a census, a ratio and a pilot",
+	},
+}
+
+// skillSiblings points at the static skills.
+//
+// This is the whole of #291, and the argument is placement rather than content.
+// The documents existed, were good, and did not reach the agent doing the work:
+// a consumer finished an entire port — making mistakes `sqlb-authoring` covers
+// by name — without learning it existed. This file is the only sqlb artefact
+// guaranteed to be in a consumer's repository and in front of an agent from the
+// first turn, and it named none of them.
+//
+// It belongs directly after "What this file does not say", because that section
+// is where a reader has just been told the four things this file will not
+// answer — and three of them are what the siblings are for.
+func skillSiblings(b *strings.Builder, opts Options) {
+	b.WriteString("\n## Where the rest of it is\n\n")
+	b.WriteString("This file is generated from one project's schema. The vocabulary it is " +
+		"written in is not per-project, and sqlb ships it as skills of its own:\n\n")
+	for _, s := range staticSkills {
+		fmt.Fprintf(b, "- **`%s`** — %s\n", s.name, s.answers)
+	}
+	b.WriteString("\nLoad `sqlb-authoring` for \"does `Filterable` exist, and what does `Scoped` " +
+		"enforce\"; this file for \"can I filter *this* column\". They do not overlap: " +
+		"capabilities are opt-in, so what the vocabulary offers and what this schema turned on " +
+		"are different questions.\n\n")
+	b.WriteString("Generating this file does not install them: this is the one emitter that " +
+		"writes into a directory sqlb does not own, so it writes exactly one file and nothing " +
+		"beside it. ")
+	fmt.Fprintf(b, "They go in `%s/`, next to this one:\n\n", opts.SkillDir)
+	b.WriteString("```bash\n" +
+		"npx skills add jryannel/sqlb\n" +
+		"```\n\n")
+	fmt.Fprintf(b, "That is your invocation and not part of sqlb's build — nothing in the library "+
+		"depends on Node. A skill is a directory with a `SKILL.md` in it, so if you would rather "+
+		"not, a checkout and `cp -r skills/sqlb-* %s/` is the same thing.\n", opts.SkillDir)
 }
 
 // skillFrontmatter writes the YAML header. The description is the trigger rather
