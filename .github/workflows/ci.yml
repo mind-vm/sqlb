@@ -70,6 +70,7 @@ jobs:
       # notice it falling behind schema/field.go.
       - run: mise run column-check
       - run: mise run lint-check
+      - run: mise run map-check
       # And the same shape again, over the decision citations. The Decisions
       # section of docs/architecture.md carries no numbers, so a number that
       # names two decisions -- as 0059 did, from two branches at once --

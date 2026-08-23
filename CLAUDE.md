@@ -18,7 +18,7 @@ Read in this order, and stop as soon as you have what you need:
    Go way instead, as `// Command sqlb …` at the head of `cmd/sqlb/main.go`.
 2. **[docs/architecture.md](docs/architecture.md)** for how the pieces fit and
    why the seams are where they are — including its
-   **[Decisions](docs/architecture.md#decisions)** section, 58 of them, and
+   **[Decisions](docs/architecture.md#decisions)** section, 64 of them, and
    they are *load-bearing rather than historical*. A decision here is usually
    the answer to "why is this not simpler", and reversing one without reading
    it is the most common way to spend an afternoon rediscovering a rejected
@@ -43,12 +43,13 @@ the API reference is the Go doc comments.
 
 ## Layout
 
-Six Go modules. `go test ./...` at the root covers **only the first**:
+Fourteen Go modules. The six worth knowing before you start are below, and
+`go test ./...` at the root covers **only the first** of them:
 
 | | |
 |---|---|
-| `.` | the engine — builder, compiler, hooks, model cache. 19 files at the root, which is the package |
-| `pgtest/` | round-trip tests against real Postgres in containers. Its own module so the engine's suite stays database-free |
+| `.` | the engine — builder, compiler, hooks, model cache. 22 files at the root, which is the package |
+| `pgtest/` | round-trip tests against a real Postgres. Its own module so the engine's suite stays database-free. It takes a DSN and starts nothing — `mise run pg-up` provides one, and `sqlbtest.Fresh` makes a database per test on it |
 | `example/tasks/`, `example/fxapp/` | worked applications, each with its own gate |
 | `example/auth-workos/` | a `sqlb.Verifier[T]` adapter for WorkOS AuthKit — its own module so the WorkOS SDK and JWT/JWKS dependencies never reach sqlb core's `go.mod` |
 | `example/attachments/` | presigned direct-to-S3 uploads: the row-before-bytes ordering, and a stdlib SigV4 presigner cross-checked against `aws-sdk-go-v2`. Its own module for the same reason, though it ended up needing no dependency at all |
@@ -71,8 +72,9 @@ for reproducing a CI failure rather than for routine use — CI is the gate. The
 database-backed suites read a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
-`tagline-check`, `column-check`, `adr-check`, `test-race`, `test-pg`, `test-ts`,
-`test-dart`, `test-cli` — run on their own and `mise tasks` describes all 36.
+`tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
+`test-race`, `test-pg`, `test-ts`, `test-dart`, `test-cli` — run on their own and
+`mise tasks` describes all 39.
 
 **`mise run site-check` needs no npm install.** It is the fast way to find out
 whether a docs edit can be published, and the check that catches a link whose
@@ -134,8 +136,8 @@ exclusions, one test failed and named the constraint while the fixpoint test
 ([docs/architecture.md, "Tooling scoped to tracked files"](docs/architecture.md#tooling-scoped-to-tracked-files)).
 
 **Prefer a failing check to a written-down rule.** `generate-check`,
-`eject-check`, `impact-check`, `deps-check`, `column-check`, `adr-check` and
-`bisect-check` all exist
+`eject-check`, `impact-check`, `deps-check`, `column-check`, `lint-check`,
+`adr-check`, `map-check` and `bisect-check` all exist
 because a convention that is only documented is a convention that drifts. If
 you are about to add a paragraph telling someone to remember something,
 consider whether it can fail in CI instead. `deps-check` is a plain case: the

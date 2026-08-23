@@ -29,9 +29,11 @@ package main
 // having, and it is a choice with consequences a scaffold should not make
 // silently — the same reporter measured a container per package at 17.3s cold
 // against a single long-lived compose Postgres at 4.0s cold and 0.4s warm, and
-// an adopter who inherits the first shape rarely revisits it. sqlb.md carries
-// the skip-if-no-DSN pattern instead, which is the seam that lets both kinds
-// live in one `go test ./...`.
+// an adopter who inherits the first shape rarely revisits it. sqlb.md points at
+// sqlbtest.Fresh instead, which takes a DSN and starts nothing, and at the build
+// tag that keeps the default `go test ./...` green on a machine with no
+// Postgres — rather than a skip, because a suite that passes quietly when it
+// cannot reach a database reports coverage it does not have.
 //
 // The emitted source uses no raw string literals, so this template needs no
 // backtick gymnastics and stays one plain literal to read.
@@ -50,7 +52,7 @@ const initPredicateTest = `package {{.Pkg}}
 //
 // What this cannot answer is "does this query return the right rows", which
 // needs a real Postgres. Both are worth having — see sqlb.md, "Testing", for
-// the pattern that keeps them in one go test ./... run.
+// sqlbtest.Fresh and the build tag that keeps go test ./... green without one.
 
 import (
 	"context"
