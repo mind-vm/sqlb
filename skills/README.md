@@ -37,6 +37,16 @@ this one says what the capability vocabulary is in the first place. Load the
 generated one for "can I filter `tasks.author_id`" and this one for "does
 `Filterable` exist" or "what does `Scoped` enforce".
 
+The generated skill says so itself, in a "Where the rest of it is" section that
+names all three of these and how to install them. That is deliberate placement
+rather than politeness: it is the only sqlb artefact guaranteed to be in a
+consumer's repository and in front of an agent from the first turn, and while it
+named none of them, a consumer finished an entire port making mistakes
+`sqlb-authoring` covers by name without learning it existed (#291). The list is
+generated from `codegen/skill.go` and checked against this directory, so a skill
+added or renamed here cannot leave every consumer's repository advertising one
+that is not there.
+
 ## Installing
 
 The ecosystem CLI ([`skills`](https://github.com/vercel-labs/skills)) takes an

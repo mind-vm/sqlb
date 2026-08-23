@@ -190,6 +190,46 @@ type subqueryWalk struct {
 	// values can be handed back to themselves — and this walk would follow the
 	// cycle before the compiler ever got the chance to refuse it.
 	seen map[Subquery]bool
+
+	// authored is the set of nested queries the statement already carried
+	// before its hooks ran. Anything found outside it was added by a hook, and
+	// the refusal for that case is a different one — see check.
+	//
+	// nil means the caller did not ask the question, and everything is treated
+	// as authored, which is the message this refusal has always given.
+	//
+	// A Subquery is safe as a map key because the interface's methods are
+	// unexported, so every implementation is a *Builder[T] and every value is a
+	// pointer. seen above already depends on this.
+	authored map[Subquery]bool
+
+	// hook and owner name the registration and the model, for the refusal that
+	// has to tell a reader where the predicate came from and what to change.
+	hook  string
+	owner string
+}
+
+// set is the walk's result as a lookup, for handing to a later walk as its
+// authored set.
+func (w *subqueryWalk) set() map[Subquery]bool {
+	out := make(map[Subquery]bool, len(w.found))
+	for _, q := range w.found {
+		out[q] = true
+	}
+	return out
+}
+
+// authoredIn is set for a statement whose clauses are already in hand, which is
+// the shape [Update] and [Delete] reach this by.
+func authoredIn(preds []Pred, exprs []Expr) map[Subquery]bool {
+	var w subqueryWalk
+	for _, p := range preds {
+		w.pred(p)
+	}
+	for _, e := range exprs {
+		w.expr(e)
+	}
+	return w.set()
 }
 
 func (w *subqueryWalk) pred(p Pred) {
@@ -243,26 +283,70 @@ func (w *subqueryWalk) expr(e Expr) {
 
 // check refuses the statement if any nested query would run without the hooks
 // that confine its model's reads.
+//
+// Two refusals, for one condition, because the fix is not the same in both
+// places. Resolving the inner query first is the answer for a subquery the
+// caller wrote, and it needs an Executor — which a hook does not have. A hook
+// is handed the statement and nothing else, so at the one place this is most
+// likely to be hit (inside a scoping rule, which is exactly where a predicate
+// reaching another table lives) the advice given was true-sounding and
+// inapplicable, and the reporter of #288 arrived at the real answer by trial
+// and error instead (denormalising the column, which was the better schema
+// anyway).
 func (w *subqueryWalk) check(ctx context.Context, exec Executor) error {
 	for _, q := range w.found {
 		name, err := q.subUnresolved(ctx, exec)
 		if err != nil {
 			return err
 		}
-		if name != "" {
-			return fmt.Errorf(
-				"sqlb: this statement nests a query over %s, whose reads are confined by a "+
-					"registered query hook that a nested SELECT does not run; resolve it first — "+
-					"sub, err := sqlb.Query[%s]()….Resolved(ctx, db) — and nest the result",
-				name, name)
+		if name == "" {
+			continue
 		}
+		if w.authored != nil && !w.authored[q] {
+			return fmt.Errorf(
+				"sqlb: a registered %s hook added a predicate nesting a query over %s, whose "+
+					"reads are confined by a query hook that a nested SELECT does not run. "+
+					"Resolving the inner query first is the fix elsewhere and is not one here: "+
+					"a hook is handed the statement and no executor to resolve with. Either "+
+					"denormalise onto %s the column this rule needs, so it becomes a plain "+
+					"predicate, or register the rule on %s instead, where its reads are already "+
+					"confined when they are issued",
+				w.hookName(), name, w.ownerName(), name)
+		}
+		return fmt.Errorf(
+			"sqlb: this statement nests a query over %s, whose reads are confined by a "+
+				"registered query hook that a nested SELECT does not run; resolve it first — "+
+				"sub, err := sqlb.Query[%s]()….Resolved(ctx, db) — and nest the result",
+			name, name)
 	}
 	return nil
 }
 
+// hookName and ownerName degrade to something readable rather than to an empty
+// string, so a call site that reaches check without naming itself produces a
+// clumsy sentence rather than a broken one.
+func (w *subqueryWalk) hookName() string {
+	if w.hook == "" {
+		return "query"
+	}
+	return w.hook
+}
+
+func (w *subqueryWalk) ownerName() string {
+	if w.owner == "" {
+		return "the table being confined"
+	}
+	return w.owner
+}
+
 // guardNested is the check as a statement's clauses reach it.
-func guardNested(ctx context.Context, exec Executor, preds []Pred, exprs []Expr) error {
-	var w subqueryWalk
+//
+// authored is what the statement carried before its hooks ran, or nil when the
+// caller has not distinguished; hook and owner name the registration and the
+// model for the refusal that needs them.
+func guardNested(ctx context.Context, exec Executor, preds []Pred, exprs []Expr,
+	authored map[Subquery]bool, hook, owner string) error {
+	w := subqueryWalk{authored: authored, hook: hook, owner: owner}
 	for _, p := range preds {
 		w.pred(p)
 	}

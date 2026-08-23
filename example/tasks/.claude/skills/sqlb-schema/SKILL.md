@@ -165,3 +165,21 @@ A declaration that rows are confined is an obligation, not a comment. These tabl
 - **This is what a request may ask for, not what a table holds.** There is no column listing here on purpose — the types, the nullability and which columns are read-only are all in the generated models, and repeating them made this file twice as long without making a request more likely to be accepted. The models and the declaration are where a column's shape lives.
 - **Nothing here says how to write a query.** Where the builder ends and `Raw` or hand-written SQL begins is a separate question, and the failure modes that matter there compile and pass their tests.
 - **One column has one wire spelling,** derived from its name. There is no mapping layer and no per-field override in either direction, so the column names above are also the JSON field names.
+
+## Where the rest of it is
+
+This file is generated from one project's schema. The vocabulary it is written in is not per-project, and sqlb ships it as skills of its own:
+
+- **`sqlb-authoring`** — the DSL vocabulary this file's lists are written in — which column constructors and capability flags exist, what each enforces, and which combinations are refused
+- **`sqlb-queries`** — where the builder ends and `Raw` or hand-written SQL begins, plus the failure modes that compile, pass their tests and are wrong at runtime
+- **`sqlb-adoption`** — whether an existing codebase should adopt sqlb at all — a census, a ratio and a pilot
+
+Load `sqlb-authoring` for "does `Filterable` exist, and what does `Scoped` enforce"; this file for "can I filter *this* column". They do not overlap: capabilities are opt-in, so what the vocabulary offers and what this schema turned on are different questions.
+
+Generating this file does not install them: this is the one emitter that writes into a directory sqlb does not own, so it writes exactly one file and nothing beside it. They go in `.claude/skills/`, next to this one:
+
+```bash
+npx skills add jryannel/sqlb
+```
+
+That is your invocation and not part of sqlb's build — nothing in the library depends on Node. A skill is a directory with a `SKILL.md` in it, so if you would rather not, a checkout and `cp -r skills/sqlb-* .claude/skills/` is the same thing.

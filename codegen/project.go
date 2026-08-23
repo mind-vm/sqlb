@@ -233,6 +233,8 @@ func Run(p Project, args []string, stdout, stderr io.Writer) int {
 		return runMigrate(p, opts.Registry, rest, stdout, stderr)
 
 	case "generate":
+		// Asked before generating, because generating is what creates them.
+		stranded := strandedClientDirs(opts)
 		written, rewrote, err := generate(opts)
 		if err != nil {
 			line(stderr, err)
@@ -248,6 +250,14 @@ func Run(p Project, args []string, stdout, stderr io.Writer) int {
 		// to (#269), and saying "wrote" of a file nothing was written to would
 		// be the wrong report of that.
 		say(stderr, "sqlb: %d files, %d rewritten\n", len(written), rewrote)
+		// A client whose whole directory tree had to be invented is almost
+		// always a path that resolved somewhere other than intended, and it is
+		// the one mistake here that leaves every build green (#290). Printed
+		// after the count so the number and the paths above it are the report,
+		// and this is the exception to it.
+		for _, s := range stranded {
+			say(stderr, "%s", s.warning(opts.Dir))
+		}
 		// The nudge that closes #204: `go mod tidy` run before generate had
 		// no way to see an import generate is only now writing — outbox's
 		// SSE handler pulling in huma's adapters/sse package is the case

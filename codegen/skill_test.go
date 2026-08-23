@@ -486,3 +486,51 @@ func TestSkillWithNoRESTSurface(t *testing.T) {
 		t.Errorf("expected the no-surface note:\n%s", skill)
 	}
 }
+
+// #291: the generated skill is the only sqlb artefact guaranteed to be in a
+// consumer's repository and in front of an agent from the first turn, and it
+// named its siblings zero times. A consumer finished an entire port — making
+// mistakes `sqlb-authoring` covers by name — without learning it existed.
+//
+// So the pointer is generated rather than written down, and this is the check
+// that keeps it honest: a skill added to or renamed in skills/ that the emitter
+// does not know about would leave every consumer's repository advertising a
+// directory that is not there, or missing one that is.
+func TestTheGeneratedSkillNamesEverySibling(t *testing.T) {
+	skill, _, _ := renderSkillInto(t, fixture(), "./blogschema")
+
+	entries, err := os.ReadDir(filepath.Join("..", "skills"))
+	if err != nil {
+		t.Fatalf("reading skills/: %v", err)
+	}
+	found := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		found++
+		if !strings.Contains(skill, "`"+e.Name()+"`") {
+			t.Errorf("skills/%s ships with sqlb and the generated skill does not name it; "+
+				"a consumer holding this file has no way to know it exists", e.Name())
+		}
+	}
+	if found == 0 {
+		t.Fatal("no skill directories found, so this check proved nothing")
+	}
+	// The other direction: a name the emitter advertises that nothing ships is
+	// worse than an omission, because it sends a reader looking.
+	for _, want := range []string{"sqlb-authoring", "sqlb-queries", "sqlb-adoption"} {
+		if !strings.Contains(skill, want) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join("..", "skills", want, "SKILL.md")); err != nil {
+			t.Errorf("the generated skill points at %s, which is not in skills/: %v", want, err)
+		}
+	}
+	// The install line has to name the directory this project actually
+	// configured, not a hardcoded .claude/skills — the whole point is that a
+	// sibling lands beside this file.
+	if !strings.Contains(skill, ".claude/skills/") {
+		t.Errorf("the generated skill does not say where a sibling goes:\n%s", skill)
+	}
+}

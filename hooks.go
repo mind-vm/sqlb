@@ -173,6 +173,24 @@ func On[T any](r *Registry) *Hooks[T] {
 // A refusal — no tenant, no permission — is the commonest error this hook
 // returns, and a plain one answers 500 over REST; see the Hooks doc comment
 // above for the status rule and the fix.
+//
+// # A scoping rule cannot use a subquery over another hooked model
+//
+// A nested SELECT does not run the hooks that confine the table it names, so it
+// is refused rather than compiled unconfined (see [Subquery]). Everywhere else
+// the answer is to resolve the inner query first with [Builder.Resolved], and
+// here it is not available: this hook is handed the query and no executor.
+//
+// The two fixes that are available, in the order they are usually right:
+//
+//   - Denormalise the column the rule needs onto T, and make the rule a plain
+//     predicate. This is often the better schema anyway — it is the same
+//     argument that put the tenant column on the table in the first place.
+//   - Register the rule on the other model instead, so its reads are confined
+//     where they are issued rather than where they are referenced.
+//
+// The refusal says this too, and says it differently from the one a caller's
+// own subquery gets, because the fix is not the same (#288).
 func (h *Hooks[T]) BeforeQuery(fn func(context.Context, *Builder[T]) error) *Hooks[T] {
 	h.register(scopedFn[func(context.Context, *Builder[T]) error]{fn: fn})
 	return h
@@ -231,7 +249,19 @@ func (h *Hooks[T]) Scope(name string) *ScopedHooks[T] {
 // Only the three hooks that narrow which rows a statement addresses are here.
 // BeforeCreate is not: it stamps a row on the way in rather than confining a
 // set, so there is nothing for a reader to be released from, and a create that
-// skipped it would write a row with no tenant rather than see more of them.
+// skipped it would write a row with no tenant rather than see more of them. A
+// released read fails visibly; a released stamp fails silently.
+//
+// The cost of that is real and lands on the creates with no request behind them
+// — a fixture, a seed, an import, a job — which cannot be released and so must
+// satisfy the hook. The shape that works is a fallback inside the hook: take
+// the tenant from the claims when there are claims, from the row when there are
+// none, and refuse when there is neither. Returning nil unconditionally in the
+// no-claims branch is the mistake it exists to avoid, and it is the one
+// [#289] reports having to derive under time pressure. See the "create side"
+// section of docs/queries/hooks.md for the worked version.
+//
+// [#289]: https://github.com/jryannel/sqlb/issues/289
 type ScopedHooks[T any] struct {
 	hooks *Hooks[T]
 	name  string

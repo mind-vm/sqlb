@@ -105,6 +105,13 @@ func runQuery(ctx context.Context, db Executor, query string, args ...any) (rowS
 // so resolving the same builder twice does not accumulate their predicates.
 func (b *Builder[T]) Resolved(ctx context.Context, db Executor) (*Builder[T], error) {
 	q := b.Clone()
+	// The nested queries the caller wrote, taken before the hooks can add any.
+	// One that appears only afterwards was added by a hook, and the refusal
+	// below has to say something different about it: resolving it first is the
+	// fix everywhere else and a hook has no executor to do it with (#288).
+	var authored subqueryWalk
+	q.walkSubqueries(&authored)
+
 	if err := hooksFor[T](db).runBeforeQuery(ctx, q, releasedFrom(db)); err != nil {
 		return nil, err
 	}
@@ -114,7 +121,11 @@ func (b *Builder[T]) Resolved(ctx context.Context, db Executor) (*Builder[T], er
 	// After the hooks rather than before, because a hook is free to add a
 	// predicate carrying a nested query of its own, and one added here is as
 	// unresolved as one the caller wrote.
-	var w subqueryWalk
+	w := subqueryWalk{
+		authored: authored.set(),
+		hook:     "BeforeQuery",
+		owner:    q.model.Type.Name(),
+	}
 	q.walkSubqueries(&w)
 	if err := w.check(ctx, db); err != nil {
 		return nil, err

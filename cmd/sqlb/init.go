@@ -49,6 +49,7 @@ What it writes:
     <pkg>schema/sqlb.go     SqlbProject, so ` + "`sqlb generate`" + ` and ` + "`sqlb migrate`" + ` know where output goes
     migrations/             empty; the first migration is a command away, not a file here
     cmd/server/main.go      rest.NewServer, migrations applied from disk at startup
+    predicate_test.go       two database-free tests of a hook, with sqlbtest
     sqlb.md                 next steps, a command cheat-sheet, and the REST query grammar
 
 <pkg> is the last path segment of -module, lower-cased to a Go identifier.
@@ -112,6 +113,13 @@ func initCmd(args []string, stdout, stderr io.Writer) error {
 		{filepath.Join(data.SchemaPkg, "schema.go"), initSchemaGo},
 		{filepath.Join(data.SchemaPkg, "sqlb.go"), initSqlbGo},
 		{filepath.Join("cmd", "server", "main.go"), initMainGo},
+		// The scaffold is what an adopter copies from, so what it does not
+		// contain is effectively not available. It contained no test, and
+		// sqlbtest was therefore undiscoverable from the front door: a
+		// consumer wrote an entire tenant boundary and its whole suite against
+		// a real Postgres without learning the package existed (#287). This is
+		// the test they would have wanted first.
+		{"predicate_test.go", initPredicateTest},
 		{"sqlb.md", initSqlbMd},
 	}
 	for _, f := range files {
@@ -135,6 +143,8 @@ func initCmd(args []string, stdout, stderr io.Writer) error {
     %s/sqlb.go
     migrations/            (empty)
     cmd/server/main.go
+    predicate_test.go       two tests of a hook that need no database, so the
+                            suite runs before Postgres does
     sqlb.md                 the next steps below, plus a command and capability
                             cheat-sheet, so they outlive this shell
 
@@ -409,6 +419,78 @@ Run from the module root; ` + "`<pkg>`" + ` below means ` + "`./{{.SchemaPkg}}`"
 need no database; check needs one only when given ` + "`-database`" + `; migrate replays the
 committed migration history into a scratch Postgres (the schema's ` + "`ShadowDB`" + `),
 except for the first migration, which diffs against nothing.
+
+## Testing
+
+Two kinds, and the split is worth keeping.
+
+**Predicates, with no database.** ` + "`predicate_test.go`" + ` is scaffolded and passing.
+` + "`github.com/jryannel/sqlb/sqlbtest`" + ` is a scripted Executor: it parses no SQL and
+evaluates no predicate, and its value is in what it records — the statements
+your code produced and the values it bound. That answers the questions a round
+trip cannot answer at all:
+
+    exec := sqlbtest.New(sqlbtest.Reply{Cols: []string{"id"}})
+    db := sqlb.New(exec).WithHooks(hooks())
+    // ... run the code under test, then:
+    exec.LastStatement()   // did the hook's predicate reach the SQL?
+    exec.LastArgs()        // did the id come from the token, not the body?
+    exec.Statements()      // a refused read must have issued none at all
+
+A refused read is the sharp one: after a round trip, "the query ran and matched
+nothing" and "the query never ran" both look like zero rows, and they are the
+difference between a boundary and a filter that happened to be empty today.
+
+**Rows, against a real Postgres.** Whether a query returns the right rows needs a
+database, and nothing above can stand in for it. Keep both in one
+` + "`go test ./...`" + ` by skipping when there is no DSN:
+
+    func testDB(t *testing.T) *pgxpool.Pool {
+        t.Helper()
+        dsn := os.Getenv("{{.EnvPrefix}}_TEST_DATABASE_URL")
+        if dsn == "" || testing.Short() {
+            t.Skip("set {{.EnvPrefix}}_TEST_DATABASE_URL for the round-trip tests")
+        }
+        // ... open, migrate, t.Cleanup(close)
+    }
+
+Both conditions, not just the env var: a developer who has exported the DSN
+otherwise has no way to get the fast lane back, and ` + "`go test -short ./...`" + ` is what
+the inner loop wants.
+
+A ` + "`compose.yaml`" + ` with one long-lived Postgres is usually the right shape for that
+DSN — the same server ` + "`sqlb migrate`" + ` already needs for its shadow replay. A
+container per package is the alternative, and it is materially slower: one
+reported port measured 17.3s cold that way against 4.0s cold and 0.4s warm with
+a shared server, on the same machine for a comparable number of tests.
+
+## Skills
+
+If you work on this project with a coding agent, sqlb ships skills for it.
+
+The static ones cover the DSL vocabulary, where the builder ends and
+hand-written SQL begins, and whether a codebase should adopt sqlb at all:
+
+    npx skills add jryannel/sqlb
+
+That is your invocation, not part of the build; nothing in sqlb depends on Node,
+and a skill is a directory with a ` + "`SKILL.md`" + ` in it, so a checkout and
+` + "`cp -r skills/sqlb-* .claude/skills/`" + ` is the same thing.
+
+One more is generated from *this* schema — which columns each resource will
+actually accept, which is the answer no static document can carry, because
+capabilities are opt-in and therefore per-project. It is opt-in because it
+writes into a directory sqlb does not own. Set it in ` + "`{{.SchemaPkg}}/sqlb.go`" + `:
+
+    Options: codegen.Options{
+        Package:  "{{.Pkg}}",
+        SkillDir: ".claude/skills",
+    }
+
+` + "`sqlb check`" + ` fails when that file has drifted from the schema, which is the only
+reason writing instructions into a repository is safe: a skill that disagrees
+with the schema is worse than no skill, since it is confidently wrong about the
+one thing it exists to know.
 
 ## Schema capability vocabulary
 

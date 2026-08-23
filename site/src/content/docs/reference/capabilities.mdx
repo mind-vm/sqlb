@@ -119,12 +119,22 @@ These are reported by `Validate()`, all at once rather than one per run.
 | `search-without-trigram` | A searchable column with no trigram index behind its substring match |
 | `unindexed-expand` | An expandable reference whose column is not indexed |
 | `unindexed-inverse-expand` | The same, in the reverse direction, where it matters more |
+| `unindexed-ref` | A reference nothing above has spoken for: the write side, where deleting the row it points at scans this table to enforce the referential action |
 | `uncapped-inverse-overflow` | An expanded collection whose cap the caller has no filterable column to page past |
+| `computed-without-index` | A computed column marked filterable or sortable, which evaluates the expression per candidate row and no index can serve |
+| `raw-default-has-helper` | A `Default(Expr(…))` spelling out what a helper renders on one Postgres version, so the declaration has answered a question the helper was still asking |
+| `text-required-on-create` | A `Text` column with no default and not nullable, so create requires it — correct far more often than not, and worth knowing before the 422 |
 | `list-without-sort` | A list endpoint with no sortable column, so every client gets primary-key order and none can ask for another |
 | `list-without-filters` | A list endpoint with nothing filterable |
 | `no-max-page-size` | No `MaxPageSize`, so the package default applies as the hard ceiling |
+| `page-size-without-list` | `DefaultPageSize` or `MaxPageSize` set while `OpList` is absent, so there is no page for them to bound |
 | `create-without-key` | A create operation on a table with no primary key |
 | `unnamespaced-table` | A table declared outside a module where one was expected |
+
+This table is the enumeration, and `mise run lint-check` fails when it and
+`schema/lint.go` disagree in either direction — it was added because the table
+had gone three rules stale, which is the failure mode a written-down rule has
+and a check does not.
 
 Each diagnostic carries the fix. Run both from a test — the loop is `go test`,
 not a CLI.

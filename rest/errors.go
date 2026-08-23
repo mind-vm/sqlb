@@ -146,8 +146,18 @@ func asHumaError(ctx context.Context, err error, resource string) error {
 	if errors.As(err, &status) {
 		return err
 	}
+	// The log line names the fix, because this is the exact moment someone is
+	// confused: a hook that returned a plain error to refuse a request reaches
+	// here, and a deliberate refusal answered as 500 reads as an outage rather
+	// than as the boundary working. The comment above says the same thing to a
+	// reader of this file; the reporter of #293 shipped the 500 and found it
+	// only by asserting on a status code, which is the tell that the sentence
+	// was in the wrong place.
 	slog.ErrorContext(ctx, "rest: unclassified error answering as 500",
-		"resource", resource, "err", err)
+		"resource", resource, "err", err,
+		"hint", "a hook that meant to refuse should return a huma.StatusError — "+
+			"huma.Error403Forbidden(...) for a caller who may not, huma.Error422UnprocessableEntity(...) "+
+			"for a body that is wrong — which is carried through instead of being read as a failure")
 	return newError(http.StatusInternalServerError, "the request could not be completed")
 }
 

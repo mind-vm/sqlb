@@ -37,6 +37,35 @@ predicate has to be read as *text*, for a raw statement that must count the same
 rows or for a test asserting the scope is in force. See
 [Inspecting](inspecting.md#resolved-which-renders-the-statement-that-runs).
 
+### A rule cannot reach through a subquery
+
+Sooner or later a confining rule needs a column the table does not carry — a
+transcript turn scoped by the session's owner, where only the session knows who
+that is. The obvious shape is a nested query, and sqlb refuses it:
+
+```go
+sqlb.On[TutorMessage](reg).BeforeQuery(func(ctx context.Context, q *sqlb.Builder[TutorMessage]) error {
+    // refused: a nested SELECT does not run TutorSession's own hooks
+    q.Where(sqlb.F("session_id").InQuery(
+        sqlb.Query[TutorSession]().Select(sqlb.F("id")).Where(...),
+    ))
+    return nil
+})
+```
+
+The refusal is the same one any nested query over a confined model gets, and for
+the same reason: a nested SELECT is compiled, not run, so the inner query would
+be unconfined exactly where its absence is invisible. Elsewhere the fix is to
+resolve the inner query first with `Resolved(ctx, db)`. Inside a hook that is not
+available — a hook is handed the query and no executor — so the refusal names the
+two fixes that are:
+
+- **Denormalise the column onto the confined table** and make the rule a plain
+  predicate. Usually the better schema anyway: it is the same argument that put
+  the tenant column there in the first place.
+- **Register the rule on the other model**, so its reads are confined where they
+  are issued rather than where they are referenced.
+
 ### When one surface is the exception
 
 A `BeforeQuery` confines every reader of the model, which is the point of it and
@@ -555,6 +584,58 @@ surface](../rest/admin.md) is the version with the guard attached.
 Reach for the second registry when there is no principal at all — sign-in, a
 migration, a test fixture. Reach for a named scope when there *is* one and a
 single rule cannot answer for it.
+
+### The create side is not releasable, and what to write instead
+
+`Scope` covers `BeforeQuery`, `BeforeUpdate` and `BeforeDelete` — the three that
+narrow which rows a statement addresses. `BeforeCreate` is deliberately absent:
+it stamps a row on the way in rather than confining a set, so a create that
+skipped it would write a row with *no* tenant rather than see more of them. A
+released read fails visibly; a released stamp fails silently, and the row is
+still there tomorrow.
+
+The consequence is that every create goes through a hook that wants the
+request's claims — including the creates that have no request. A fixture, a
+seed, an import, a job that materialises a row
+([#289](https://github.com/jryannel/sqlb/issues/289)) all arrive at the same
+place:
+
+```
+tenant_test.go:114: seeding a child: auth: no family in context
+```
+
+The pattern that works is a fallback in the hook itself, and the important half
+is that it fails closed:
+
+```go
+sqlb.On[Child](reg).BeforeCreate(func(ctx context.Context, row *Child) error {
+    familyID, err := auth.FamilyID(ctx)
+    if err != nil {
+        // No claims: a fixture, a seed, an import, a job. Trust the row only
+        // if it named a tenant itself.
+        if row.FamilyID != "" {
+            return nil
+        }
+        return err   // no claims and no tenant is still refused
+    }
+    if !isParent(ctx) {
+        return errParentOnly
+    }
+    row.FamilyID = familyID   // stamp; never trust the body when there is a caller
+    return nil
+})
+```
+
+Read the two branches as one rule: *the tenant comes from the claims when there
+are claims, and from the row only when there are none, and never from nowhere.*
+Returning `nil` unconditionally in the no-claims branch is the mistake this
+shape exists to avoid — it writes rows with no tenant, which is precisely what
+keeping `BeforeCreate` out of `Scope` is protecting.
+
+A trusted caller then needs no special handle at all: it supplies the tenant on
+the row, and the same registry serves it. That is a smaller escalation than a
+second handle, because the thing being trusted is one field of one row rather
+than every rule at once.
 
 ## Next
 

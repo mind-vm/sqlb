@@ -146,6 +146,43 @@ func (r *Registry) Lint() Diagnostics {
 				})
 			}
 
+			// A raw default that spells out what a helper renders on one
+			// particular target.
+			//
+			// Expr takes arbitrary SQL and nothing downstream questions it, so
+			// the column works — on that target. What it gave up is that the
+			// helper was still asking migrate which Postgres this migration is
+			// for, and the raw string has answered once, in the declaration,
+			// for every target there will ever be. The reporter of #293 wrote
+			// Expr("uuidv7()") believing GenUUIDv7 needed the pg_uuidv7
+			// extension; it does not on 18, and the hand-written version is
+			// the one that stops being portable.
+			//
+			// Exact match, like the renderer's own resolve: an expression that
+			// merely contains the builtin — coalesce(uuidv7()::text, '') — is
+			// a composite the helper could not have produced, and rewriting it
+			// is not being proposed.
+			if d.Default != nil {
+				for _, td := range TargetDefaults() {
+					if d.Default.Raw != td.Builtin {
+						continue
+					}
+					add(Diagnostic{
+						Rule: "raw-default-has-helper", Table: t.name, Column: d.Name,
+						Severity: SeverityWarn,
+						Message: fmt.Sprintf(
+							"the default %s is what %s renders once the migration targets Postgres %d; "+
+								"written out here it is %s on every target, including the ones that do not have it",
+							td.Builtin, td.Helper, td.Since, td.Builtin),
+						Fix: fmt.Sprintf(
+							"use %s and let migrate.MinPostgres(%d) choose the spelling; without it the helper "+
+								"emits %s, which needs the extension",
+							td.Helper, td.Since, td.Canonical),
+					})
+					break
+				}
+			}
+
 			// A filterable column with no index leading a btree means every
 			// request that uses it scans the table.
 			if d.Filterable && !d.Hidden && !indexed[d.Name] && !isLowCardinality(d) {

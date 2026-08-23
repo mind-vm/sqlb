@@ -60,8 +60,9 @@ needs the network to resolve a module it just started depending on, and
 disk is `blogschema/schema.go` (one `Task` table, exposed as CRUD), the four
 generated files [step 2](#2-generate) below produces from it, and a
 `cmd/server/main.go` built on [`rest.Serve`](../rest/README.md#serve-the-whole-server)
-with migrations applied from disk at startup — `<dir>` must not already
-contain a `go.mod`.
+with migrations applied from disk at startup, plus a `predicate_test.go` that
+passes without a database ([step 5](#5-scope-every-read)) — `<dir>` must not
+already contain a `go.mod`.
 
 The rest of this page builds the same shape by hand, one decision at a time —
 worth reading once a single table stops being enough.
@@ -293,9 +294,33 @@ A table can also *declare* that it expects to be scoped, so the missing
 registration is caught at startup rather than discovered in production. See
 [Hooks](../queries/hooks.md).
 
+And then prove it reached the statement. A test against a real database sees
+the right rows whether the hook narrowed the query or the fixture happened to
+hold only matching ones, and it sees zero rows whether a read was refused or
+merely matched nothing — which is the difference between a boundary and an
+empty filter. `sqlbtest` records the SQL your code produced and the values it
+bound, so both are answerable in a test that needs no Postgres:
+
+```go
+exec := sqlbtest.New(sqlbtest.Reply{Cols: []string{"id", "title"}})
+db := sqlb.New(exec).WithHooks(reg)
+
+if _, err := sqlb.Query[blog.Post]().All(orgCtx("acme"), db); err != nil {
+    t.Fatal(err)
+}
+if !strings.Contains(exec.LastStatement(), `"org_id" = $1`) {
+    t.Errorf("the scoping hook did not reach the statement:\n%s", exec.LastStatement())
+}
+```
+
+`sqlb init` scaffolds this test, and [Testing](../queries/testing.md) has the
+rest — including the pattern that keeps these and the round-trip ones in one
+`go test ./...`.
+
 ## Next
 
 - [Your first app](first-app.md) — a complete worked one, small enough to read
 - [Concepts](../concepts/README.md) — the five ideas the rest of this rests on
 - [Declaring tables](../schema/README.md) — the full column vocabulary
 - [Queries](../queries/README.md) — predicates, aggregates, transactions
+- [Testing](../queries/testing.md) — predicates with no database, rows with one

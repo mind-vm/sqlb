@@ -2,6 +2,7 @@ package sqlb_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -212,4 +213,87 @@ func TestAnEmptyScopeNamePanics(t *testing.T) {
 		}
 	}()
 	sqlb.On[User](sqlb.NewRegistry()).Scope("")
+}
+
+// The create side, which Scope deliberately does not cover, and the shape that
+// has to stand in for it (#289).
+//
+// BeforeCreate stamps a row rather than confining a set, so releasing it would
+// write a row with no tenant instead of showing one more row — a released read
+// fails visibly, a released stamp fails silently. The cost lands on the creates
+// with no request behind them, which cannot be released and so must satisfy the
+// hook: a fixture, a seed, an import, a job.
+//
+// docs/queries/hooks.md documents the fallback that answers for them. This is
+// that hook, and all three of its branches, because the one that matters is the
+// one a reader is most likely to write as an unconditional `return nil` — and
+// that mistake passes any test which only ever creates rows with claims
+// present.
+//
+// The stamp is read through a second BeforeCreate rather than off the row
+// afterwards: an insert scans its RETURNING back over the row it was handed, so
+// by the time Exec returns, what is in the field is what the database said and
+// not what the policy decided.
+func TestTheTrustedCreatePathStampsFallsBackAndStillFailsClosed(t *testing.T) {
+	type callerKey struct{}
+
+	var stamped []string
+	reg := sqlb.NewRegistry()
+	sqlb.On[User](reg).
+		BeforeCreate(func(ctx context.Context, row *User) error {
+			org, ok := ctx.Value(callerKey{}).(string)
+			if !ok {
+				// No claims: a fixture, a seed, an import, a job. Trust the
+				// row only if it named a tenant itself.
+				if row.OrgID != "" {
+					return nil
+				}
+				return errors.New("no tenant in this context")
+			}
+			row.OrgID = org // stamp; never trust the body when there is a caller
+			return nil
+		}).
+		BeforeCreate(func(_ context.Context, row *User) error {
+			stamped = append(stamped, row.OrgID)
+			return nil
+		})
+
+	request := context.WithValue(context.Background(), callerKey{}, "org-from-claims")
+	trusted := context.Background()
+
+	insert := func(t *testing.T, ctx context.Context, row *User) error {
+		t.Helper()
+		stamped = nil
+		h := txHarness(t)
+		_, err := sqlb.InsertRows(row).Exec(ctx, sqlb.New(h.db).WithHooks(reg))
+		return err
+	}
+
+	t.Run("a request stamps from the claims, not from the body", func(t *testing.T) {
+		row := &User{ID: "u1", Email: "a@b.c", Name: "Ada", OrgID: "somebody-elses-org"}
+		if err := insert(t, request, row); err != nil {
+			t.Fatalf("Insert: %v", err)
+		}
+		if len(stamped) != 1 || stamped[0] != "org-from-claims" {
+			t.Errorf("the body's tenant survived a request that had claims: %v", stamped)
+		}
+	})
+
+	t.Run("a trusted caller supplying the tenant is allowed through", func(t *testing.T) {
+		row := &User{ID: "u2", Email: "b@b.c", Name: "Grace", OrgID: "org-from-the-seed"}
+		if err := insert(t, trusted, row); err != nil {
+			t.Fatalf("a seed naming its own tenant should be allowed: %v", err)
+		}
+		if len(stamped) != 1 || stamped[0] != "org-from-the-seed" {
+			t.Errorf("the fallback did not leave the row's own tenant alone: %v", stamped)
+		}
+	})
+
+	t.Run("neither claims nor a tenant is still refused", func(t *testing.T) {
+		row := &User{ID: "u3", Email: "c@b.c", Name: "Alan"}
+		if err := insert(t, trusted, row); err == nil {
+			t.Error("a create with no claims and no tenant was written; this is the branch " +
+				"an unconditional `return nil` gets wrong, and the row is unowned forever")
+		}
+	})
 }
