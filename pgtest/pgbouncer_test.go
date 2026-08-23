@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
 // These tests measure the claims ADR-0019 makes from documentation rather than
@@ -37,45 +38,44 @@ import (
 // compose.yaml is the reference for all three.
 const poolerEnv = "SQLB_TEST_PGBOUNCER"
 
-// pooledDSNFor renders a connection string to a database through the shared
-// pooler, which is configured with a wildcard [databases] entry so that any
-// database name is forwarded.
-var pooledDSNFor func(database string) string
-
-var poolerOnce sync.Once
-var poolerErr error
-
-// requirePooler resolves the pooler's address on first use.
-//
-// Lazily, so that the twenty-nine tests in this module that never speak to a
-// pooler do not fail when only Postgres is up. That is a weaker demand than
-// TestMain making it mandatory, and deliberately so: the pooler is one
-// component of one ADR's topology, and needing docker compose in full to run
-// an unrelated test was friction with nothing behind it.
-func requirePooler(t *testing.T) {
-	t.Helper()
-	poolerOnce.Do(func() {
-		pooledDSNFor, poolerErr = dsnRenderer(poolerEnv)
-	})
-	if poolerErr != nil {
-		t.Fatalf("pgtest: %v", poolerErr)
-	}
-}
-
 // pooler creates a database and returns DSNs to it through the pooler and
 // around it.
+//
+// The pooler's address is resolved here rather than in TestMain, so that the
+// twenty-nine tests in this module that never speak to a pooler do not fail
+// when only Postgres is up. That is a weaker demand than making it mandatory,
+// and deliberately so: the pooler is one component of one decision's topology,
+// and needing docker compose in full to run an unrelated test was friction with
+// nothing behind it.
 func pooler(t *testing.T) (pooledDSN, directDSN string) {
 	t.Helper()
-	requirePooler(t)
 
-	name := databaseName(t)
-	mustExec(t, admin, `CREATE DATABASE `+quoteIdent(name))
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(),
-			`DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
+	// Created on Postgres directly. A pooler in transaction pooling cannot
+	// carry a CREATE DATABASE anyway, which is the first thing its topology
+	// tells you about itself.
+	directDSN = sqlbtest.FreshDSN(t, serverDSN(t))
+	return throughPooler(t, directDSN), directDSN
+}
 
-	return pooledDSNFor(name), dsn(name)
+// throughPooler points a direct DSN's database at the pooler instead.
+//
+// The pooler is configured with a wildcard [databases] entry, so any database
+// name is forwarded — what changes between the two strings is the host and
+// nothing else, which is the property the tests below are about.
+func throughPooler(t *testing.T, direct string) string {
+	t.Helper()
+
+	base, err := url.Parse(sqlbtest.DSN(t, poolerEnv, "run `mise run pg-up` first"))
+	if err != nil {
+		t.Fatalf("pgtest: %s is not a valid URL: %v", poolerEnv, err)
+	}
+	target, err := url.Parse(direct)
+	if err != nil {
+		t.Fatalf("pgtest: the database's own DSN is not a valid URL: %v", err)
+	}
+	through := *base
+	through.Path = target.Path
+	return through.String()
 }
 
 // TestTheQueryPathWorksThroughThePooler is the claim that matters most, because

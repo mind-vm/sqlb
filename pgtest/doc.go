@@ -11,7 +11,9 @@
 //
 // compose.yaml at the repository root defines all three, `mise run pg-up`
 // starts them, and every database-backed mise task depends on that. In CI they
-// are service containers on the same ports. There is deliberately no
+// are service containers on the same ports. Creating a database per test on one
+// of them is [sqlbtest.Fresh]'s job — this module used to carry those eighty
+// lines itself, in six variants, and so did eight other suites. There is deliberately no
 // skip-when-absent path and no fallback that starts a container: a suite that
 // silently passes when it cannot reach a database is worse than one that fails,
 // because it reports coverage it does not have. An unset variable is a fatal
@@ -67,4 +69,5 @@
 // That starts the servers if they are not already up, and runs with -parallel 8
 // — a cap rather than the core-count default, because each test's pool is
 // capped at 8 and the connection ceiling is the product of the two.
+// [sqlbtest.Fresh]: https://pkg.go.dev/github.com/jryannel/sqlb/sqlbtest#Fresh
 package pgtest

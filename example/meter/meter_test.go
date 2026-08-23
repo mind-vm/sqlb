@@ -24,144 +24,31 @@ package meter_test
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jryannel/sqlb"
 	_ "github.com/jryannel/sqlb/example/meter/meterschema"
 	"github.com/jryannel/sqlb/migrate"
 	"github.com/jryannel/sqlb/schema"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
-// pgEnv names the Postgres these tests run against. They do not start one.
-const pgEnv = "SQLB_TEST_POSTGRES"
-
-var (
-	once     sync.Once
-	admin    *pgxpool.Pool
-	dsnFor   func(database string) string
-	startErr error
-)
-
-func TestMain(m *testing.M) {
-	code := m.Run()
-	if admin != nil {
-		admin.Close()
-	}
-	os.Exit(code)
-}
-
-func startPostgres() {
-	ctx := context.Background()
-
-	base := os.Getenv(pgEnv)
-	if base == "" {
-		startErr = fmt.Errorf(
-			"%s is not set.\nThese tests need a Postgres; they do not start one.\n"+
-				"  export %s='postgres://user:pass@localhost:5432/postgres?sslmode=disable'",
-			pgEnv, pgEnv)
-		return
-	}
-	u, err := url.Parse(base)
-	if err != nil {
-		startErr = fmt.Errorf("%s is not a valid URL: %w", pgEnv, err)
-		return
-	}
-	dsnFor = func(database string) string {
-		v := *u
-		v.Path = "/" + database
-		return v.String()
-	}
-
-	if admin, err = pgxpool.New(ctx, dsnFor("postgres")); err != nil {
-		startErr = fmt.Errorf("opening the admin connection: %w", err)
-		return
-	}
-	if err := admin.Ping(ctx); err != nil {
-		startErr = fmt.Errorf("%s is set but nothing answered: %w", pgEnv, err)
-	}
-}
-
-// freshDatabase returns a *sqlb.DB connected to an empty database that has
-// just had meterschema.Meter's declared DDL applied to it — the CREATE TABLE
-// and the CREATE UNIQUE INDEX both, in the order migrate.Diff emits them.
+// freshDatabase returns a handle to a database of its own, built from what the
+// registry declares.
 //
-// A database per test, not a server per test: CREATE DATABASE is
-// milliseconds, and a table sharing concurrency tests with another eventually
-// depends on the order they run in — which is exactly the property
-// TestArithmeticUpsertUnderConcurrency cannot afford to be uncertain about.
+// The eighty lines this used to be — an admin pool behind a sync.Once, a name
+// derived from the test, create, drop, apply — were the same eighty lines as in
+// eight other suites in this repository. They are sqlbtest.Fresh now.
 func freshDatabase(t *testing.T) *sqlb.DB {
 	t.Helper()
-
-	once.Do(startPostgres)
-	if startErr != nil {
-		t.Fatalf("meter: %v", startErr)
-	}
-
-	name := databaseName(t)
-	mustExec(t, `DROP DATABASE IF EXISTS `+quoteIdent(name))
-	mustExec(t, `CREATE DATABASE `+quoteIdent(name))
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(), `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsnFor(name))
-	if err != nil {
-		t.Fatalf("connecting to %s: %v", name, err)
-	}
-	t.Cleanup(pool.Close)
-
-	changes, err := migrate.Diff(nil, schema.DefaultRegistry(), migrate.MinPostgres(18))
-	if err != nil {
-		t.Fatalf("migrate.Diff: %v", err)
-	}
-	for _, c := range changes {
-		if strings.TrimSpace(c.Up) == "" {
-			continue
-		}
-		if _, err := pool.Exec(ctx, c.Up); err != nil {
-			t.Fatalf("applying declared DDL: %v\n%s", err, c.Up)
-		}
-	}
-
+	pool := sqlbtest.Fresh(t,
+		sqlbtest.DSN(t, "SQLB_TEST_POSTGRES", "run `mise run pg-up` first"),
+		sqlbtest.Declared(schema.DefaultRegistry(), migrate.MinPostgres(18)),
+	)
 	return sqlb.New(pool)
-}
-
-func databaseName(t *testing.T) string {
-	name := strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_':
-			return r
-		case r >= 'A' && r <= 'Z':
-			return r + ('a' - 'A')
-		default:
-			return '_'
-		}
-	}, t.Name())
-
-	const max = 40
-	if len(name) > max {
-		name = name[:max]
-	}
-	return fmt.Sprintf("t_%s_%d", name, time.Now().UnixNano()%1e9)
-}
-
-func quoteIdent(s string) string {
-	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
-}
-
-func mustExec(t *testing.T, query string) {
-	t.Helper()
-	if _, err := admin.Exec(context.Background(), query); err != nil {
-		t.Fatalf("exec failed: %v\n%s", err, strings.TrimSpace(query))
-	}
 }
 
 // Meter is the row struct these tests query and write through — the runtime

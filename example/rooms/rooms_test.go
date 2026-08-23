@@ -17,11 +17,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jryannel/sqlb"
 	"github.com/jryannel/sqlb/example/rooms"
 	"github.com/jryannel/sqlb/migrate"
 	"github.com/jryannel/sqlb/schema"
+	"github.com/jryannel/sqlb/sqlbtest"
 
 	// Imported for its side effect: declaring Room and Booking registers them
 	// in schema.DefaultRegistry(), which migrateSchema below diffs against an
@@ -32,26 +32,23 @@ import (
 
 // roomsDB migrates a fresh database from the declared schema and returns a
 // *sqlb.DB over it.
+//
+// The database, its name, its cleanup and the DSN it came from are
+// sqlbtest.Fresh's — this file used to sit beside a main_test.go carrying the
+// eighty lines that did it by hand, which is now deleted.
 func roomsDB(t *testing.T) *sqlb.DB {
 	t.Helper()
-	ctx := context.Background()
-
-	dsn := freshDatabase(t)
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	t.Cleanup(pool.Close)
-
-	changes, err := migrate.Diff(nil, schema.DefaultRegistry(), migrate.MinPostgres(18))
-	if err != nil {
-		t.Fatalf("diff: %v", err)
-	}
-	for _, c := range changes {
-		if _, err := pool.Exec(ctx, c.Up); err != nil {
-			t.Fatalf("applying change %q: %v\n%s", c.Comment, err, c.Up)
-		}
-	}
+	pool := sqlbtest.Fresh(t,
+		sqlbtest.DSN(t, "SQLB_TEST_POSTGRES", "run `mise run pg-up` first"),
+		// Eight, because the contention test below races eight goroutines
+		// through this one pool: a pool smaller than the racers waits on itself
+		// and demonstrates nothing about the constraint.
+		sqlbtest.MaxConns(8),
+		// The extension the exclusion needs comes with it: migrate.Diff detects
+		// that pairing a scalar = with a range && needs btree_gist and emits the
+		// CREATE EXTENSION itself.
+		sqlbtest.Declared(schema.DefaultRegistry(), migrate.MinPostgres(18)),
+	)
 	return sqlb.New(pool)
 }
 

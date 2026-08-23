@@ -1,7 +1,6 @@
 package pgtest
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
 // `sqlb survey` end to end, which is the only place its Phase C runs at all.
@@ -41,19 +41,13 @@ func runSurvey(t *testing.T, src, dst string, args ...string) string {
 // it is the scratch the round trip renders into.
 func surveyDB(t *testing.T, suffix string) (*pgxpool.Pool, string) {
 	t.Helper()
-	ctx := context.Background()
-	name := databaseName(t) + "_" + suffix
-	mustExec(t, admin, `DROP DATABASE IF EXISTS `+quoteIdent(name))
-	mustExec(t, admin, `CREATE DATABASE `+quoteIdent(name))
-	pool, err := pgxpool.New(ctx, dsn(name))
-	if err != nil {
-		t.Fatalf("opening %s: %v", name, err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-		_, _ = admin.Exec(ctx, `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-	return pool, dsn(name)
+	// suffix is kept for what it says at the call sites — which of the two
+	// databases this is — rather than for uniqueness: sqlbtest names each one
+	// after the test and the moment, so two calls in one test are already two
+	// databases.
+	_ = suffix
+	pool := sqlbtest.Fresh(t, serverDSN(t), sqlbtest.MaxConns(poolSize))
+	return pool, pool.Config().ConnString()
 }
 
 // The report a clean schema gets. Phase C compared after one round, and a
