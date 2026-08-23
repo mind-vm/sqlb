@@ -153,6 +153,12 @@ run = '''
 cd "$MISE_PROJECT_ROOT/example/auth-workos" && go test ./...
 '''
 
+[tasks.test-attachments]
+description = "Run the presigned-upload example's suite. Database-free and bucket-free, like test-auth-workos: the flow runs against sqlbtest's scripted Executor and an httptest endpoint holding objects in a map, so what it gates is the ordering — a row before the bytes, an object removed only after the commit — rather than anything a container would answer. The signature is gated against aws-sdk-go-v2's, pinned as a golden. The suite that needs real storage skips unless SQLB_TEST_S3_ENDPOINT names one; example/attachments/README.md has the RustFS and MinIO invocations."
+run = '''
+cd "$MISE_PROJECT_ROOT/example/attachments" && go test ./...
+'''
+
 [tasks.test-ts]
 description = "Typecheck the generated TypeScript client and run its encoder tests. The typecheck is the test: the client's whole claim is that a misspelled column, an operator its column type does not accept, or a sort on a column that did not opt in fails at tsc. example/tasks/web/src/refusals.ts asserts each of those with @ts-expect-error, so a generator that widened a type would fail here."
 dir = "example/tasks/web"
@@ -212,6 +218,7 @@ cd "$MISE_PROJECT_ROOT/pgtest" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/tasks" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/fxapp" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/auth-workos" && go vet ./...
+cd "$MISE_PROJECT_ROOT/example/attachments" && go vet ./...
 '''
 
 [tasks.lint]
@@ -223,6 +230,7 @@ cd "$MISE_PROJECT_ROOT/pgtest" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/tasks" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/fxapp" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/auth-workos" && golangci-lint run
+cd "$MISE_PROJECT_ROOT/example/attachments" && golangci-lint run
 '''
 
 [tasks.lint-fix]
@@ -325,7 +333,7 @@ mise run heal
 # that need nothing but Go still pass. Every module, because `heal` regenerates
 # code the examples compile against and a break there is invisible from the root.
 echo
-for mod in . pgtest example/tasks example/fxapp example/auth-workos; do
+for mod in . pgtest example/tasks example/fxapp example/auth-workos example/attachments; do
   (cd "$MISE_PROJECT_ROOT/$mod" && go build ./...)
 done
 go test ./...
@@ -344,7 +352,7 @@ run = '''
 # Every module, because pgtest and the two examples have a go.mod each and an
 # untidied one there fails in CI exactly as confusingly as an untidied one here.
 status=0
-for mod in . pgtest example/tasks example/fxapp example/auth-workos; do
+for mod in . pgtest example/tasks example/fxapp example/auth-workos example/attachments; do
   cd "$MISE_PROJECT_ROOT/$mod"
   cp go.mod go.mod.bak
   [ -f go.sum ] && cp go.sum go.sum.bak
