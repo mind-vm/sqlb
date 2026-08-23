@@ -272,3 +272,78 @@ func TestTheGuardReachesANestedNestedQuery(t *testing.T) {
 		t.Errorf("error does not name the model: %v", err)
 	}
 }
+
+// #288: the refusal a scoping hook hits, and why it cannot be the same one.
+//
+// A rule confining User's reads needs to reach subPost — the row it is
+// narrowing by does not carry the column — so it adds a predicate nesting a
+// query over a model that is itself confined. The refusal is right: a nested
+// SELECT does not run the hooks that confine the table it names, so the inner
+// query would be unconfined by construction.
+//
+// What was wrong was the advice. Resolved needs an Executor and a BeforeQuery
+// hook is handed the query and nothing else, so at the one place this is most
+// likely to be hit the suggested fix could not be applied. The reporter reached
+// the real answer — denormalise the column, which was the better schema anyway
+// — by trial and error rather than from the message.
+func TestARefusalInsideAHookNamesTheFixesAHookCanActuallyApply(t *testing.T) {
+	h := subHarness(t)
+	reg := sqlb.NewRegistry()
+	sqlb.On[subPost](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[subPost]) error {
+		q.Where(sqlb.F("org_id").Eq("org1"))
+		return nil
+	})
+	sqlb.On[User](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[User]) error {
+		q.Where(sqlb.F("id").InQuery(sqlb.Query[subPost]().Select(sqlb.F("author_id"))))
+		return nil
+	})
+	db := h.handle(reg)
+
+	_, err := sqlb.Query[User]().All(context.Background(), db)
+	if err == nil {
+		t.Fatal("a hook nested a confined model without its scope")
+	}
+	msg := err.Error()
+
+	// It has to say where the predicate came from: the caller wrote no
+	// subquery, and being told "this statement nests a query" sends them
+	// looking through code that does not contain one.
+	if !strings.Contains(msg, "BeforeQuery") {
+		t.Errorf("the refusal does not say a hook added the predicate: %v", err)
+	}
+	// The two fixes a hook can actually apply, and the model each names.
+	for _, want := range []string{"denormalise", "User", "subPost"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the refusal does not mention %q: %v", want, err)
+		}
+	}
+	// And it must not advise the one call that is unavailable here. This is the
+	// whole of the issue: the message read as actionable and was not.
+	if strings.Contains(msg, "Resolved(ctx, db)") {
+		t.Errorf("the refusal still advises a call a hook has no executor for: %v", err)
+	}
+}
+
+// The caller-written case keeps the advice that works for it, because there
+// Resolved is exactly right and nothing else is as short.
+func TestARefusalOutsideAHookStillAdvisesResolved(t *testing.T) {
+	h := subHarness(t)
+	reg := sqlb.NewRegistry()
+	sqlb.On[subPost](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[subPost]) error {
+		q.Where(sqlb.F("org_id").Eq("org1"))
+		return nil
+	})
+	db := h.handle(reg)
+
+	sub := sqlb.Query[subPost]().Select(sqlb.F("author_id"))
+	_, err := sqlb.Query[User]().Where(sqlb.F("id").InQuery(sub)).All(context.Background(), db)
+	if err == nil {
+		t.Fatal("a confined model was nested without its scope")
+	}
+	if !strings.Contains(err.Error(), "Resolved(ctx, db)") {
+		t.Errorf("the caller's own subquery lost the advice that fits it: %v", err)
+	}
+	if strings.Contains(err.Error(), "BeforeQuery hook added") {
+		t.Errorf("a subquery the caller wrote was blamed on a hook: %v", err)
+	}
+}

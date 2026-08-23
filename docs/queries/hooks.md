@@ -37,6 +37,35 @@ predicate has to be read as *text*, for a raw statement that must count the same
 rows or for a test asserting the scope is in force. See
 [Inspecting](inspecting.md#resolved-which-renders-the-statement-that-runs).
 
+### A rule cannot reach through a subquery
+
+Sooner or later a confining rule needs a column the table does not carry — a
+transcript turn scoped by the session's owner, where only the session knows who
+that is. The obvious shape is a nested query, and sqlb refuses it:
+
+```go
+sqlb.On[TutorMessage](reg).BeforeQuery(func(ctx context.Context, q *sqlb.Builder[TutorMessage]) error {
+    // refused: a nested SELECT does not run TutorSession's own hooks
+    q.Where(sqlb.F("session_id").InQuery(
+        sqlb.Query[TutorSession]().Select(sqlb.F("id")).Where(...),
+    ))
+    return nil
+})
+```
+
+The refusal is the same one any nested query over a confined model gets, and for
+the same reason: a nested SELECT is compiled, not run, so the inner query would
+be unconfined exactly where its absence is invisible. Elsewhere the fix is to
+resolve the inner query first with `Resolved(ctx, db)`. Inside a hook that is not
+available — a hook is handed the query and no executor — so the refusal names the
+two fixes that are:
+
+- **Denormalise the column onto the confined table** and make the rule a plain
+  predicate. Usually the better schema anyway: it is the same argument that put
+  the tenant column there in the first place.
+- **Register the rule on the other model**, so its reads are confined where they
+  are issued rather than where they are referenced.
+
 ### When one surface is the exception
 
 A `BeforeQuery` confines every reader of the model, which is the point of it and

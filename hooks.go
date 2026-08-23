@@ -173,6 +173,24 @@ func On[T any](r *Registry) *Hooks[T] {
 // A refusal — no tenant, no permission — is the commonest error this hook
 // returns, and a plain one answers 500 over REST; see the Hooks doc comment
 // above for the status rule and the fix.
+//
+// # A scoping rule cannot use a subquery over another hooked model
+//
+// A nested SELECT does not run the hooks that confine the table it names, so it
+// is refused rather than compiled unconfined (see [Subquery]). Everywhere else
+// the answer is to resolve the inner query first with [Builder.Resolved], and
+// here it is not available: this hook is handed the query and no executor.
+//
+// The two fixes that are available, in the order they are usually right:
+//
+//   - Denormalise the column the rule needs onto T, and make the rule a plain
+//     predicate. This is often the better schema anyway — it is the same
+//     argument that put the tenant column on the table in the first place.
+//   - Register the rule on the other model instead, so its reads are confined
+//     where they are issued rather than where they are referenced.
+//
+// The refusal says this too, and says it differently from the one a caller's
+// own subquery gets, because the fix is not the same (#288).
 func (h *Hooks[T]) BeforeQuery(fn func(context.Context, *Builder[T]) error) *Hooks[T] {
 	h.register(scopedFn[func(context.Context, *Builder[T]) error]{fn: fn})
 	return h

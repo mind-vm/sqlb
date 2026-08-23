@@ -727,17 +727,19 @@ func (u *Update[T]) Clone() *Update[T] {
 // The receiver is untouched, as it is in Exec.
 func (u *Update[T]) Resolved(ctx context.Context, db Executor) (*Update[T], error) {
 	stmt := u.Clone()
+	// What the caller wrote, taken before the hooks can add to it: a nested
+	// query that appears only afterwards came from a hook, and the fix for that
+	// one is not the fix for this one. See subqueryWalk.check (#288).
+	authored := authoredIn(stmt.where, updateSetExprs(stmt))
 	if err := hooksFor[T](db).runBeforeUpdate(ctx, stmt, releasedFrom(db)); err != nil {
 		return nil, err
 	}
 	// A WHERE may name a nested query, and one over a confined model has to have
 	// run that model's hooks before it can decide which rows this write touches.
 	// See [Subquery].
-	exprs := make([]Expr, 0, len(stmt.sets))
-	for _, a := range stmt.sets {
-		exprs = append(exprs, a.value)
-	}
-	if err := guardNested(ctx, db, stmt.where, exprs); err != nil {
+	exprs := updateSetExprs(stmt)
+	if err := guardNested(ctx, db, stmt.where, exprs,
+		authored, "BeforeUpdate", ModelOf[T]().Type.Name()); err != nil {
 		return nil, err
 	}
 	// From's query is compiled straight into this statement rather than run,
@@ -918,6 +920,9 @@ func (d *Delete[T]) Clone() *Delete[T] {
 func (d *Delete[T]) Resolved(ctx context.Context, db Executor) (*Delete[T], error) {
 	hooks := hooksFor[T](db)
 	stmt := d.Clone()
+	// See [Update.Resolved]: taken before the hooks so a nested query that only
+	// appears afterwards can be named as theirs.
+	authored := authoredIn(stmt.where, nil)
 	if err := hooks.runBeforeDelete(ctx, stmt, releasedFrom(db)); err != nil {
 		return nil, err
 	}
@@ -929,10 +934,22 @@ func (d *Delete[T]) Resolved(ctx context.Context, db Executor) (*Delete[T], erro
 	stmt.returning = hooks.wantsDeletedRows()
 	// See [Update.Resolved]: a nested query choosing which rows a write removes
 	// is the position where a missing scope matters most.
-	if err := guardNested(ctx, db, stmt.where, nil); err != nil {
+	if err := guardNested(ctx, db, stmt.where, nil,
+		authored, "BeforeDelete", ModelOf[T]().Type.Name()); err != nil {
 		return nil, err
 	}
 	return stmt, nil
+}
+
+// updateSetExprs is the values an UPDATE assigns, which can each carry a nested
+// query of their own. Named because it is now taken twice: once before the
+// hooks run to record what the caller wrote, once after to check it.
+func updateSetExprs[T any](stmt *Update[T]) []Expr {
+	exprs := make([]Expr, 0, len(stmt.sets))
+	for _, a := range stmt.sets {
+		exprs = append(exprs, a.value)
+	}
+	return exprs
 }
 
 func (d *Delete[T]) resolvedSQL(ctx context.Context, db Executor) (string, []any, error) {
