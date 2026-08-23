@@ -31,12 +31,10 @@ import (
 // real project is called more than once per session.
 func shadowDSN(t *testing.T) string {
 	t.Helper()
-	return sqlbtest.FreshDSN(t, serverDSN(t),
-		// The shim the generated DDL for a UUIDv7 primary key needs, installed
-		// the same way freshDB does it and for the same reason — see
-		// main_test.go's shim.
-		sqlbtest.SQL(shim),
-	)
+	// The same bootstrap freshDB installs, for the same reason: the shadow
+	// database has the schema rendered into it, so it needs everything that
+	// DDL assumes exists.
+	return sqlbtest.FreshDSN(t, serverDSN(t), bootstrap()...)
 }
 
 // shadowFunc is the pattern codegen.Project documents, written out: open a

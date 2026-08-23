@@ -58,7 +58,35 @@ func serverDSN(t testing.TB) string {
 // the harness having to configure the server at all.
 const poolSize = 8
 
-// shim is what the generated DDL assumes exists and Postgres does not provide.
+// bootstrap is what the generated DDL assumes exists and Postgres does not
+// provide, as the options that install it.
+//
+// One function rather than two options written out at each call site, because
+// the pairing is the point and it has already been broken once: freshDB,
+// vectorDB and the shadow database each installed both by hand, and a refactor
+// that kept the shim and dropped the extension turned three suites red at once
+// on the only server that has neither. A database created from a template that
+// happens to carry btree_gist cannot tell you that.
+func bootstrap() []sqlbtest.Option {
+	return []sqlbtest.Option{
+		sqlbtest.SQL(shim),
+		// btree_gist, because an exclusion that pairs a scalar `=` with a range
+		// `&&` needs gist to have an operator class for the scalar — which is
+		// the shape every real double-booking constraint has. It ships with
+		// Postgres's contrib, so no image change; it does have to be created,
+		// which is exactly the step Diff renders nothing for and the extension
+		// report exists to name (issues #121, #115).
+		sqlbtest.Extensions("btree_gist"),
+	}
+}
+
+// withBootstrap is the caller's own options plus the bootstrap ones, which is
+// how every database that has sqlb's DDL rendered into it is built.
+func withBootstrap(opts ...sqlbtest.Option) []sqlbtest.Option {
+	return append(opts, bootstrap()...)
+}
+
+// shim is the function the generated DDL assumes exists.
 //
 // schema.GenUUIDv7 emits uuid_generate_v7(), which is the pg_uuidv7 extension's
 // spelling and is documented as requiring it. Postgres 18 has a built-in
@@ -89,17 +117,7 @@ const shim = `
 // are in drift_test.go and sqlbmigrate_test.go and they stay serial.
 func freshDB(t testing.TB) *pgxpool.Pool {
 	t.Helper()
-	return sqlbtest.Fresh(t, serverDSN(t),
-		sqlbtest.MaxConns(poolSize),
-		sqlbtest.SQL(shim),
-		// btree_gist, because an exclusion that pairs a scalar `=` with a range
-		// `&&` needs gist to have an operator class for the scalar — which is
-		// the shape every real double-booking constraint has. It ships with
-		// Postgres's contrib, so no image change; it does have to be created,
-		// which is exactly the step Diff renders nothing for and the extension
-		// report exists to name (issues #121, #115).
-		sqlbtest.Extensions("btree_gist"),
-	)
+	return sqlbtest.Fresh(t, serverDSN(t), withBootstrap(sqlbtest.MaxConns(poolSize))...)
 }
 
 // freshStockDB is the same thing without the shim: a Postgres exactly as it

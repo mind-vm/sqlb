@@ -71,32 +71,29 @@ const vectorEnv = "SQLB_TEST_PGVECTOR"
 // extension would weaken a claim that is currently exact.
 func vectorDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	return sqlbtest.Fresh(t,
-		sqlbtest.DSN(t, vectorEnv, "run `mise run pg-up` first"),
-		sqlbtest.MaxConns(poolSize),
-		// Statement caching off, which is not a detail. Every measurement below
-		// is the same SQL under different session settings, and pgx's default
-		// mode prepares and caches a plan per connection keyed on the text
-		// alone. The first version of this file measured an exact search,
-		// cached its plan, and then got that plan back for the "indexed" query
-		// — reporting a perfect result for the query the file exists to show
-		// failing.
-		//
-		// Worth carrying into ADR-0026 rather than leaving here: a search
-		// operation that sets hnsw.* per statement has this problem too. The
-		// GUC changes and the cached plan does not.
-		sqlbtest.Configure(func(cfg *pgxpool.Config) {
-			cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-		}),
-		// The extension ADR-0026 orders ahead of every table. Here it doubles
-		// as the assertion that the image is the one this file thinks it is.
-		// The tests that exercise sqlb's own DDL drop it again first, so that
-		// what runs is what a project's first migration would run.
-		sqlbtest.Extensions("vector"),
-		// The same uuid_generate_v7 shim freshDB installs, and for the same
-		// reason — see main_test.go's shim.
-		sqlbtest.SQL(shim),
-	)
+	return sqlbtest.Fresh(t, sqlbtest.DSN(t, vectorEnv, "run `mise run pg-up` first"),
+		withBootstrap(
+			sqlbtest.MaxConns(poolSize),
+			// Statement caching off, which is not a detail. Every measurement below
+			// is the same SQL under different session settings, and pgx's default
+			// mode prepares and caches a plan per connection keyed on the text
+			// alone. The first version of this file measured an exact search,
+			// cached its plan, and then got that plan back for the "indexed" query
+			// — reporting a perfect result for the query the file exists to show
+			// failing.
+			//
+			// Worth carrying into ADR-0026 rather than leaving here: a search
+			// operation that sets hnsw.* per statement has this problem too. The
+			// GUC changes and the cached plan does not.
+			sqlbtest.Configure(func(cfg *pgxpool.Config) {
+				cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+			}),
+			// The extension ADR-0026 orders ahead of every table. Here it doubles
+			// as the assertion that the image is the one this file thinks it is.
+			// The tests that exercise sqlb's own DDL drop it again first, so that
+			// what runs is what a project's first migration would run.
+			sqlbtest.Extensions("vector"),
+		)...)
 }
 
 // vectorDim is small because nothing here depends on the width. A real embedding
