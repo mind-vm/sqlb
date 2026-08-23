@@ -178,6 +178,49 @@ dart format --output=none --set-exit-if-changed .
 dart test
 '''
 
+[tasks.dart-sdk-check]
+description = "Analyse the generated Dart client at the language version the pinned SDK actually offers, rather than the one the example package declares. test-dart runs the same analyzer against example/tasks/mobile, whose pubspec says `sdk: ^3.9.0` — and a pubspec constraint fixes the *language version*, so that gate cannot see a diagnostic introduced after 3.9 no matter which SDK runs it. It was green for the whole window in which v0.16.0 shipped a ChangeFeed constructor that Dart 3.12 reports and 3.11 does not (#299), on generated code, which is the one file a consuming project cannot fix for itself."
+run = '''
+set -e
+
+src=example/tasks/mobile
+
+# docs/architecture.md's "Tooling scoped to tracked files" decision.
+if ! git ls-files --error-unmatch "$src/pubspec.yaml" > /dev/null 2>&1; then
+  echo "dart-sdk-check: $src is not tracked, so there is nothing to check against" >&2
+  exit 1
+fi
+
+# The floor comes from the SDK in hand rather than from a literal here, because
+# a literal is exactly what went stale: the example's ^3.9.0 was written when
+# 3.9 was current and silently stopped covering anything after it. Deriving it
+# means bumping `dart` in [tools] widens this check on the same commit, and a
+# diagnostic added in the new release is seen the first time CI runs it.
+full=$(dart --version 2>&1 | sed -n 's/.*version: \([0-9][0-9]*\.[0-9][0-9]*\)\..*/\1/p')
+if [ -z "$full" ]; then
+  echo "dart-sdk-check: could not read a version out of \`dart --version\`" >&2
+  exit 1
+fi
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+# A copy rather than an edit in place: a check that rewrites a tracked file is
+# one that leaves the tree dirty when it fails, and this repository's gates
+# never rewrite (mise run heal is the half that does).
+cp -R "$src/lib" "$src/test" "$src/analysis_options.yaml" "$src/pubspec.yaml" "$work/"
+sed -i.bak "s/^  sdk: .*/  sdk: ^${full}.0/" "$work/pubspec.yaml" && rm -f "$work/pubspec.yaml.bak"
+
+cd "$work"
+dart pub get > /dev/null
+# --fatal-infos for the reason test-dart gives: the client's guarantees are
+# infos, so an analyzer that tolerates them checks nothing. This is also what
+# makes an `// ignore:` in lib/refusals.dart that has stopped being needed a
+# failure here rather than a comment.
+dart analyze --fatal-infos
+
+echo "dart-sdk-check: the generated client analyses clean at language version $full"
+'''
+
 [tasks.test-cli]
 description = "Build the generated command-line client and run its round-trip tests. No Docker: the CLI speaks HTTP, so its tests drive the emitted command tree against an httptest server and assert what reaches the wire — that the flags compose into the filter grammar, that --all walks by cursor, and that a rejection still names what would have been accepted. Separate from `test-demo`, whose other packages need a database, so this stays in the fast half of the gate."
 dir = "example/tasks"
@@ -1056,7 +1099,7 @@ echo "every commit builds, vets and tests green in isolation"
 '''
 
 [tasks.ci]
-description = "The full gate. A faithful mirror of .github/workflows/ci.yml: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check, which is not part of CI at all — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is here to reproduce a CI failure, not to run before every push — CI runs the same checks in two parallel jobs, and running them locally is the same work done serially while starving the machine. `mise run preflight` is what belongs in the push path."
+description = "The full gate. A faithful mirror of .github/workflows/ci.yml: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check, which is not part of CI at all — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is here to reproduce a CI failure, not to run before every push — CI runs the same checks in two parallel jobs, and running them locally is the same work done serially while starving the machine. `mise run preflight` is what belongs in the push path."
 run = '''
 set -e
 mise run vet
@@ -1081,6 +1124,7 @@ mise run test-race
 mise run test-auth-workos
 mise run test-ts
 mise run test-dart
+mise run dart-sdk-check
 mise run test-cli
 # Last because they are the slowest and the only ones needing Docker. It is in the
 # gate rather than beside it because a check nobody remembers to run is one this

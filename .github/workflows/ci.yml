@@ -89,6 +89,12 @@ jobs:
       # guarantees nothing. The Dart SDK alone — the emitted client imports
       # nothing, so no Flutter is installed here (docs/architecture.md, "Dart client").
       - run: mise run test-dart
+      # The same analyzer again, at the language version the pinned SDK
+      # actually offers. test-dart resolves example/tasks/mobile's own
+      # `sdk: ^3.9.0`, and a pubspec constraint fixes the language version — so
+      # that step cannot see a diagnostic introduced after 3.9, and did not see
+      # the one v0.16.0 shipped into every consumer's generated client (#299).
+      - run: mise run dart-sdk-check
       # In this job rather than the postgres one because the generated CLI
       # speaks HTTP: its tests drive the command tree against an httptest
       # server, so what they check — that the flags reach the wire as the

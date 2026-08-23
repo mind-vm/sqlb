@@ -73,8 +73,8 @@ database-backed suites read a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
-`test-race`, `test-pg`, `test-ts`, `test-dart`, `test-cli` — run on their own and
-`mise tasks` describes all 39.
+`test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
+`mise tasks` describes all 40.
 
 **`mise run site-check` needs no npm install.** It is the fast way to find out
 whether a docs edit can be published, and the check that catches a link whose
