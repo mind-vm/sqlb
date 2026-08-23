@@ -76,7 +76,8 @@ rest.Must(rest.Resource[blog.Post, rest.None[blog.Post], rest.None[blog.Post]](a
 That is the mount an application adopting sqlb into an existing REST surface
 reaches for, and it is deliberate rather than unfinished: the app already has
 its writes, and the reasons they stay hand-written are domain reasons that do
-not expire — a create that writes bytes to object storage before the row, a row
+not expire — a create that writes bytes to object storage before the row
+([`example/attachments`](../../example/attachments) is that one, worked through), a row
 born in one domain verb and closed in another, a column whose transition *is*
 the publish that notifies the org, per-field authorization a hook can constrain
 but not express. Reaching for `rest.CRUD` and switching two thirds of it off
