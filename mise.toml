@@ -857,6 +857,74 @@ fi
 echo "lint-check: $(echo $rules | wc -w | tr -d ' ') rules, all reachable from the reference"
 '''
 
+[tasks.map-check]
+description = "Fail if CLAUDE.md's counts have drifted from the repository they describe. CLAUDE.md is the map every agent reads first, and at v0.16.0 every number in it was wrong at once: 58 decisions against 64, 19 root files against 22, 36 mise tasks against 38, and six Go modules against fourteen. A map with wrong numbers is worse than one with none, because it is the document a reader has no reason to doubt. Same shape as column-check and lint-check, and here for the reason CLAUDE.md gives itself: if you are about to write down something someone has to remember, see whether it can fail in CI instead."
+run = '''
+set -e
+
+map=CLAUDE.md
+arch=docs/architecture.md
+
+# docs/architecture.md's "Tooling scoped to tracked files" decision:
+# .claude/worktrees/ holds other checkouts of this repository.
+for f in $map $arch; do
+  if ! git ls-files --error-unmatch "$f" > /dev/null 2>&1; then
+    echo "map-check: $f is not tracked, so there is nothing to check against" >&2
+    exit 1
+  fi
+done
+
+status=0
+
+# claimed extracts one number from the sentence that carries it. Anchored on
+# enough surrounding words that a second number elsewhere in the file cannot be
+# picked up by accident.
+claimed() {
+  grep -oE "$1" "$map" | head -1 | grep -oE '[0-9]+'
+}
+say() {
+  echo "map-check: $map says $1, and the repository has $2" >&2
+  status=1
+}
+
+# Decisions. Every "### " inside the Decisions section, which is the last
+# section in the file.
+want=$(sed -n '/^## Decisions/,$p' "$arch" | grep -c '^### ')
+got=$(claimed 'section, [0-9]+ of them')
+[ "$got" = "$want" ] || say "$got decisions" "$want"
+
+# Root .go files, excluding tests: the sentence says "which is the package".
+want=$(git ls-files '*.go' | grep -v / | grep -cv '_test\.go$')
+got=$(claimed '[0-9]+ files at the root')
+[ "$got" = "$want" ] || say "$got files at the root" "$want"
+
+# Modules. Tracked go.mod files, so a scratch module in an untracked directory
+# does not move the number.
+want=$(git ls-files '*go.mod' | wc -l | tr -d ' ')
+got=$(claimed '^[A-Za-z]+ Go modules' || true)
+words="Zero One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen Sixteen Seventeen Eighteen Nineteen Twenty"
+wantword=$(echo $words | cut -d' ' -f$((want + 1)))
+if ! grep -q "^$wantword Go modules" "$map"; then
+  echo "map-check: $map does not open Layout with \"$wantword Go modules\", and there are $want tracked go.mod files" >&2
+  status=1
+fi
+
+# mise tasks. The count the file offers a reader as "and mise tasks describes
+# all N".
+want=$(mise tasks 2>/dev/null | grep -c '^[a-z]')
+got=$(claimed 'describes all [0-9]+')
+[ "$got" = "$want" ] || say "$got mise tasks" "$want"
+
+if [ "$status" -ne 0 ]; then
+  echo >&2
+  echo "CLAUDE.md is the orientation document. A number in it that nobody checks is" >&2
+  echo "a number that drifts, and it drifts where a reader has no reason to doubt it." >&2
+  exit 1
+fi
+
+echo "map-check: CLAUDE.md's counts match the repository"
+'''
+
 [tasks.adr-check]
 description = "Fail if an ADR number does not name exactly one decision. The Decisions section of docs/architecture.md carries no numbers -- the headings are the identifiers and the numbers survive only in the citations -- so a number meaning two things contradicts no file and breaks no link, and nothing but this notices. It has happened: ADR-0059 was claimed by both the auth seam and the fx wiring decision, from parallel branches each numbering against the pre-consolidation docs/adr/ directory. Checks both directions, because they catch different bugs: a number pointing at two anchors is the collision, and an anchor cited under two numbers is the mislabel -- example/tasks/README.md called the Go CLI decision ADR-0030, which linked correctly and read correctly and was wrong. Also refuses a citation whose anchor is no longer a heading. Deliberately not checked: a bare prose mention that names no anchor, of which ADR-0004 and ADR-0018 are the only ones left with no anchored citation anywhere to define them -- inventing a mapping for those would encode the guess this gate exists to catch."
 run = '''
@@ -988,7 +1056,7 @@ echo "every commit builds, vets and tests green in isolation"
 '''
 
 [tasks.ci]
-description = "The full gate. A faithful mirror of .github/workflows/ci.yml: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check, which is not part of CI at all — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is here to reproduce a CI failure, not to run before every push — CI runs the same checks in two parallel jobs, and running them locally is the same work done serially while starving the machine. `mise run preflight` is what belongs in the push path."
+description = "The full gate. A faithful mirror of .github/workflows/ci.yml: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check, which is not part of CI at all — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is here to reproduce a CI failure, not to run before every push — CI runs the same checks in two parallel jobs, and running them locally is the same work done serially while starving the machine. `mise run preflight` is what belongs in the push path."
 run = '''
 set -e
 mise run vet
@@ -1007,6 +1075,7 @@ mise run eject-check
 mise run tagline-check
 mise run column-check
 mise run lint-check
+mise run map-check
 mise run adr-check
 mise run test-race
 mise run test-auth-workos

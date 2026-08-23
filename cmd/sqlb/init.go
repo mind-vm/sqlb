@@ -442,25 +442,40 @@ nothing" and "the query never ran" both look like zero rows, and they are the
 difference between a boundary and a filter that happened to be empty today.
 
 **Rows, against a real Postgres.** Whether a query returns the right rows needs a
-database, and nothing above can stand in for it. Keep both in one
-` + "`go test ./...`" + ` by skipping when there is no DSN:
+database, and nothing above can stand in for it. ` + "`sqlbtest.Fresh`" + ` is the harness:
+
+    //go:build pg
+
+    // _ "{{.Module}}/{{.SchemaPkg}}" — importing the schema package for its side
+    // effect is what puts the tables in the default registry.
 
     func testDB(t *testing.T) *pgxpool.Pool {
-        t.Helper()
-        dsn := os.Getenv("{{.EnvPrefix}}_TEST_DATABASE_URL")
-        if dsn == "" || testing.Short() {
-            t.Skip("set {{.EnvPrefix}}_TEST_DATABASE_URL for the round-trip tests")
-        }
-        // ... open, migrate, t.Cleanup(close)
+        return sqlbtest.Fresh(t,
+            sqlbtest.DSN(t, "{{.EnvPrefix}}_TEST_DATABASE_URL", "run ` + "`docker compose up -d`" + ` first"),
+            sqlbtest.Declared(schema.DefaultRegistry(), migrate.MinPostgres(18)),
+        )
     }
 
-Both conditions, not just the env var: a developer who has exported the DSN
-otherwise has no way to get the fast lane back, and ` + "`go test -short ./...`" + ` is what
-the inner loop wants.
+A database of its own per test, created on the server the DSN names and dropped
+afterwards, so tests are independent without truncating anything and may run in
+parallel. ` + "`Declared`" + ` builds what the schema declares *now*, at the same
+` + "`MinPostgres`" + ` this project's SqlbProject sets; a suite that means to test the
+migration history should replay it instead, which is ` + "`sqlbtest.SQL`" + ` over the
+files in ` + "`migrations/`" + `.
 
-A ` + "`compose.yaml`" + ` with one long-lived Postgres is usually the right shape for that
-DSN — the same server ` + "`sqlb migrate`" + ` already needs for its shadow replay. A
-container per package is the alternative, and it is materially slower: one
+It takes a DSN and starts nothing — a ` + "`compose.yaml`" + ` with one long-lived Postgres is
+usually the right shape, and it is the same server ` + "`sqlb migrate`" + ` already needs
+for its shadow replay.
+
+Note what is *not* here: a skip when the variable is unset. ` + "`sqlbtest.DSN`" + ` fails the
+test and names the variable, because a suite that passes quietly when it cannot
+reach a database reports coverage it does not have. The build tag is what keeps
+` + "`go test ./...`" + ` green on a machine with no Postgres — the round-trip tests do not
+run rather than running and passing for the wrong reason, and
+` + "`go test -tags pg ./...`" + ` is the full suite. sqlb splits its own the same way, by
+module rather than by tag; a single-module project has the tag.
+
+A container per test is the alternative and it is materially slower: one
 reported port measured 17.3s cold that way against 4.0s cold and 0.4s warm with
 a shared server, on the same machine for a comparable number of tests.
 

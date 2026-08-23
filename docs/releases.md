@@ -14,6 +14,202 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.16.0
+
+2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.16.0)
+
+No breaks. Two new packages' worth of surface — a scratch database for tests and
+a generated change-feed subscriber — and, from a single consumer port, a check
+for each of the three mistakes that port made and shipped.
+
+The theme of the second half is worth stating because it decided what got built.
+[#293](https://github.com/jryannel/sqlb/issues/293) tabulated every authoring
+mistake made porting a nine-table application onto `v0.15.1` against whether a
+mechanism caught it, and the split was total: **everything with a check cost
+minutes, everything without one shipped.** The generated `sqlb-schema` skill was
+loaded from the first turn throughout and changed none of it. So each of the six
+issues that came out of that port is answered with a mechanism where one was
+possible, and the release notes say plainly where one was not.
+
+**Upgrade: regenerate.** Two emitters produce more than they did, so `sqlb check`
+reports drift until `sqlb generate` runs. The TypeScript and Dart clients gain a
+typed change-feed subscriber, and the generated skill gains a section naming its
+siblings. Nothing else moved; `impact-check` reports the REST contract unchanged.
+
+### A scratch database is a DSN and a function call
+
+Every suite wanting a real Postgres wrote the same eighty lines — read a DSN,
+open an admin connection, derive a legal name, drop, create, connect, apply the
+schema, drop again. Nine copies were in this repository alone, and two of them
+carried comments explaining that the fix would not be worth it
+([#292](https://github.com/jryannel/sqlb/pull/292)).
+
+`sqlbtest.Fresh` creates a database per test on a server the caller names,
+applies each option in order, and drops it afterwards; `FreshDSN` is the same for
+a caller that opens its own connection. Options are one list because the order
+they are written in is the order the database is built in — an extension before
+the schema that needs it, the pool size beside both.
+
+It takes a DSN and starts nothing, which is the decision rather than an
+omission: this repository ran the other experiment, and `pgtest/doc.go` records
+the reversal. There is no skip-when-absent path either — `sqlbtest.DSN` fails the
+test naming the variable that was unset, because a suite that passes quietly
+when it cannot reach a database reports coverage it does not have.
+
+### The change-feed subscriber is generated
+
+The feed shipped its client half as raw material: `keysByTable` in TypeScript,
+`TableName` in Dart, and the listener left to whoever consumed it
+([#285](https://github.com/jryannel/sqlb/pull/285)). `example/tasks`' own board
+was the evidence — an index into a lookup table with a cast to make it compile,
+an undefined check, the query keys by hand, and no case at all for an event whose
+key is empty, which is what an unattributable delete looks like on this wire.
+
+A change event now resolves to the queries that read it, in both clients. The
+line it stops at is the one the queries file already draws: a mutation gets a
+`mutationFn` and no `onSuccess`, because what a *write* invalidates is a policy
+question while what a *read* depends on is an address. SSE was already a
+supported surface as of `v0.13` — `rest.Events` mounts the stream and
+`outbox.Dispatcher` makes it durable — and every page a reader would have checked
+said otherwise or said nothing. They now say what it is and how to subscribe.
+
+### A one-function verifier is a func
+
+`Verifier[T]` is a one-method interface and most real verifiers are a single
+function closing over one dependency. Writing one still cost a named struct plus
+a `Verify` method that did nothing but call through.
+`VerifierFunc[T]` is the `http.HandlerFunc` shape for it
+([#279](https://github.com/jryannel/sqlb/issues/279)). The interface stays: a
+verifier with real state — a JWKS refresher with a background goroutine — is
+better as a named type, and the interface is what lets both spellings mount.
+
+### Three mistakes that shipped, and now cannot
+
+**A raw default that spells out what a helper renders.** The reporter believed
+`GenUUIDv7` needed the `pg_uuidv7` extension and wrote `Expr("uuidv7()")`. It
+does need the extension — until `MinPostgres(18)`, which is exactly the question
+the helper was still asking and the raw string has now answered once, for every
+target. The new `raw-default-has-helper` lint rule names the constructor.
+
+It cannot fire on the canonical spelling, because `GenUUIDv7()` and
+`Expr("uuid_generate_v7()")` produce identical values and every other reader
+already treats `Raw` as the helper's identity. What it fires on is the spelling
+no helper produces but the renderer emits — which meant the rule and the renderer
+had to be reading the same table, so `schema.TargetDefaults` is now that table
+and `migrate` reads it instead of its own copy. A rule that had drifted would
+advise against SQL `migrate` itself writes.
+
+**A hook's plain error answering 500 where 403 belonged.** `rest/errors.go`
+already said in a comment that a deliberate refusal should carry its status. The
+person who needs that sentence is reading a log, not that file, so the
+unclassified-error line now names `huma.Error403Forbidden`. Nothing reaches the
+response: it is advice for whoever wrote the hook, not for whoever provoked it.
+
+**A client directory with one `../` too few**
+([#290](https://github.com/jryannel/sqlb/issues/290)). `TSDir` resolves against
+`Dir` rather than the module root, so one level short wrote a complete, correct
+TypeScript client into `server/web/src/api`, where nothing imported it while the
+real frontend went on building against the client it already had. `tsc` stayed
+green, `vite build` stayed green, and the first symptom weeks later was a
+generated client describing a schema that had moved.
+
+The reported path could not have helped and never could: `filepath.Join` cleans
+`sqlbdata/../web/src/api` down to `web/src/api`, a correct module-root-relative
+path that reads exactly like the repository's real `web/`. What differs between
+the two cases is that the *tree* was new, so `generate` now warns when a
+TypeScript or Dart client directory **and its parent** both had to be created,
+and carries the absolute path. Scoped to the two clients whose consumer is not a
+Go compiler — a misplaced `CLIDir` is still a Go package and the import says so
+on the next build.
+
+### Two things an adopter could not find
+
+`sqlbtest` was undiscoverable from the front door
+([#287](https://github.com/jryannel/sqlb/issues/287)): `sqlb init` emitted six
+files, none of them a test, and the emitted `sqlb.md` did not contain the word.
+A consumer wrote an entire tenant boundary and its whole suite against a real
+Postgres without learning the package existed. `init` now emits a passing
+`predicate_test.go`, and the two tests it writes are the two questions a round
+trip cannot answer *at all* — did the hook's predicate reach the statement, and
+did the refusal issue no statement. Zero rows and no query look identical from
+outside, and they are the difference between a boundary and a filter that
+matched nothing today. The emitted test is compiled and run in CI against a
+freshly initialised, freshly generated project, because it names symbols on both
+sides and a rename would break every project created afterwards.
+
+The static skills were undiscoverable for the same reason
+([#291](https://github.com/jryannel/sqlb/issues/291)). The generated
+`sqlb-schema` skill is the only sqlb artefact guaranteed to be in a consumer's
+repository and in front of an agent from the first turn, and it named the others
+zero times — so an agent held this project's capability lists with no pointer to
+the vocabulary those lists are written in. It now names them, generated so it
+cannot drift, and checked against `skills/` in both directions.
+
+### A refusal that could not be acted on
+
+The nested-query guard told the reader to resolve the inner query with
+`Resolved(ctx, db)`. That needs an `Executor`, and a `BeforeQuery` hook is handed
+the query and nothing else — so at the one place the guard is most likely to
+fire, inside a scoping rule, the message read as actionable and was not
+([#288](https://github.com/jryannel/sqlb/issues/288)).
+
+`Resolved` already walked the statement's subqueries after running the hooks;
+walking before as well makes anything new provably a hook's, at no cost to a
+statement that nests nothing. Both refusals stay — the caller-written one keeps
+`Resolved`, which is right for it, and the hook one names what a hook can
+actually do: denormalise the column onto the table being confined, or register
+the rule on the other model. `Update` and `Delete` get the same split.
+
+### Where a check was not possible
+
+`WithoutScope` cannot release `BeforeCreate`, so every create goes through a hook
+wanting the request's claims — including the creates with no request behind them:
+a fixture, a seed, an import, a job
+([#289](https://github.com/jryannel/sqlb/issues/289)). The rule is right, and
+sharper than the existing comment gave: a released *read* fails visibly, a
+released *stamp* does not, and the row is still wrong tomorrow.
+
+The fallback that answers for it is now written down beside the `WithoutScope`
+worked example and grounded in a test of all three branches, because the branch
+carrying the load is the one a reader is most likely to write as an
+unconditional `return nil` — and that mistake passes any test which only ever
+creates rows with claims present.
+
+### Fixes
+
+`rest.Serve` handed `mount` an `Executor` rather than the `*sqlb.DB` it had
+built, so every mount function opened with a type assertion
+([#277](https://github.com/jryannel/sqlb/issues/277)). A `TransientError`
+returned by pointer read as a rejected credential rather than a provider outage
+([#278](https://github.com/jryannel/sqlb/issues/278)).
+
+### Gates and documentation
+
+`lint-check` and `map-check` join `column-check` and `adr-check`. Both earned
+themselves on the commit that added them: the lint reference table had gone four
+rules stale, and every count in `CLAUDE.md` was wrong at once — 58 decisions
+against 64, 19 root files against 22, 36 tasks against 38, six Go modules against
+fourteen. A map with wrong numbers is worse than one with none, because it is the
+document a reader has no reason to doubt.
+
+New pages for the auth seam and the second stage it does not cover
+([#280](https://github.com/jryannel/sqlb/issues/280)), for how a library ships
+tables ([#281](https://github.com/jryannel/sqlb/issues/281)), and for the
+boundary a hand-written CLI endpoint sits behind
+([#257](https://github.com/jryannel/sqlb/issues/257)). `WithoutScope` gained the
+worked example it went unfound for
+([#276](https://github.com/jryannel/sqlb/issues/276)).
+
+`example/attachments` is presigned direct-to-S3 uploads, and it exists to answer
+whether sqlb should grow a Django-style `FileField`. It should not: the database
+half of an attachment is three ordinary columns, and everything actually hard is
+the ordering between a row Postgres owns and bytes it never sees. The row is
+written first and born pending; the size comes from a `HEAD` against the storage
+rather than from the client; the object is deleted in an `AfterCommit` callback,
+because inside the transaction a rollback would leave a row pointing at bytes
+that are gone. Its `s3/` is SigV4 against the standard library, cross-checked
+byte for byte against `aws-sdk-go-v2` rather than trusted.
+
 ## v0.15.1
 
 2026-08-19 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.15.1)
