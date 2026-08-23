@@ -96,6 +96,10 @@ func (r *Registry) Lint() Diagnostics {
 
 	for _, t := range r.Tables() {
 		indexed := t.indexedColumns()
+		// What the declaration guarantees about every read of this table, which
+		// is what decides whether an unindexed column below costs a scan of the
+		// table or of one tenant's rows — and which index would fix it (#296).
+		scope := scopeOf(t, indexed)
 
 		for _, f := range t.fields {
 			d := f.Desc()
@@ -185,7 +189,8 @@ func (r *Registry) Lint() Diagnostics {
 
 			// A filterable column with no index leading a btree means every
 			// request that uses it scans the table.
-			if d.Filterable && !d.Hidden && !indexed[d.Name] && !isLowCardinality(d) {
+			if d.Filterable && !d.Hidden && !indexed[d.Name] && !isLowCardinality(d) &&
+				!scope.single {
 				// Searchable implies Filterable, so a column that declared
 				// only the first has no .Filterable() to drop. Advising it
 				// sends the reader looking for a call that is not there.
@@ -193,11 +198,27 @@ func (r *Registry) Lint() Diagnostics {
 				if d.Searchable {
 					drop = ".Searchable(), which implies Filterable,"
 				}
+				msg := "column is filterable but is not the leading column of any index, " +
+					"so filtering on it scans the table"
+				fix := fmt.Sprintf("add .Index(%q) to the table, or drop %s from the column", d.Name, drop)
+				if scope.confined() {
+					// The unqualified version overstates the cost by the number
+					// of tenants, and — worse — advises an index Postgres will
+					// mostly decline to use. The predicate is never this column
+					// alone; it is the scope's and then this one, so the index
+					// that serves it leads with the scope (#296).
+					msg = fmt.Sprintf(
+						"column is filterable and is not indexed with %q, which every read of this "+
+							"table is confined by, so filtering on it scans one tenant's rows",
+						scope.column)
+					fix = fmt.Sprintf("%s, or drop %s from the column",
+						scope.composite(d.Name), drop)
+				}
 				add(Diagnostic{
 					Rule: "unindexed-filter", Table: t.name, Column: d.Name,
 					Severity: SeverityWarn,
-					Message:  "column is filterable but is not the leading column of any index, so filtering on it scans the table",
-					Fix:      fmt.Sprintf("add .Index(%q) to the table, or drop %s from the column", d.Name, drop),
+					Message:  msg,
+					Fix:      fix,
 				})
 			}
 
@@ -209,18 +230,39 @@ func (r *Registry) Lint() Diagnostics {
 			// list ends with the key so the page boundary is unambiguous
 			// (ADR-0027), and an index on the sort column alone cannot serve
 			// the cursor's seek.
-			if d.Sortable && !indexed[d.Name] {
+			if d.Sortable && !indexed[d.Name] && !scope.single {
+				pk := pkColumn(t)
 				fix := fmt.Sprintf("add .Index(%q) if this table will grow", d.Name)
-				if pk := pkColumn(t); pk != "" && pk != d.Name {
+				if pk != "" && pk != d.Name {
 					fix = fmt.Sprintf(
 						"add .AddIndex(schema.Index{Columns: []string{%q, %q}}) if this table will grow; "+
 							"the key is the second column because a paged list orders by it to break ties",
 						d.Name, pk)
 				}
+				msg := "column is sortable but not indexed, so each page re-sorts the matching rows"
+				if scope.confined() {
+					// Same correction as the filter rule, one column longer: a
+					// paged list under a scope is WHERE scope = $1 ORDER BY this
+					// column, then the key to break the tie, and the index that
+					// serves all three in one seek spells them in that order.
+					msg = fmt.Sprintf(
+						"column is sortable and is not indexed with %q, which every read of this "+
+							"table is confined by, so each page re-sorts one tenant's rows",
+						scope.column)
+					cols := []string{d.Name}
+					if pk != "" && pk != d.Name {
+						cols = append(cols, pk)
+					}
+					fix = scope.composite(cols...) + " if this table will grow"
+					if len(cols) > 1 {
+						fix += "; the scope leads because every read carries its predicate, and the " +
+							"key is last because a paged list orders by it to break ties"
+					}
+				}
 				add(Diagnostic{
 					Rule: "unindexed-sort", Table: t.name, Column: d.Name,
 					Severity: SeverityInfo,
-					Message:  "column is sortable but not indexed, so each page re-sorts the matching rows",
+					Message:  msg,
 					Fix:      fix,
 				})
 			}
@@ -393,6 +435,62 @@ func (r *Registry) Lint() Diagnostics {
 
 // Lint checks the default registry.
 func Lint() Diagnostics { return defaultRegistry.Lint() }
+
+// tenantScope is what a table's declaration guarantees about every read of it.
+//
+// Scoped is an obligation rather than a note: rest.Resource refuses to mount a
+// resource whose exposed operations have no hook behind them (ADR-0030), so an
+// *exposed* table with a Scoped column either carries that column's predicate on
+// every generated read or the server does not start. That is enough to say what
+// an unindexed filter on such a table actually costs, without Lint knowing
+// anything about which hooks a registry happens to hold (#296).
+//
+// Restricted to exposed tables because that is where the obligation bites. A
+// Scoped column on an internal table states the same intent and is checked by
+// nothing, so the diagnostics there keep the unqualified wording.
+//
+// The scope column has to be indexed itself for any of this to follow. An
+// unindexed one means the scope predicate is the scan, and the diagnostic
+// naming *that* column is the one worth reading first — so this reports nothing
+// and the other rules speak plainly.
+type tenantScope struct {
+	// column is the Scoped column every read is confined by, or empty when the
+	// table has none this can rely on.
+	column string
+	// single reports that the scope predicate selects at most one row, because
+	// the scope column is also the primary key or unique. A table keyed by its
+	// own tenant has one row per caller, so nothing else about it can be slow.
+	single bool
+}
+
+func (s tenantScope) confined() bool { return s.column != "" }
+
+func scopeOf(t *TableDef, indexed map[string]bool) tenantScope {
+	if t.rest == nil {
+		return tenantScope{}
+	}
+	for _, f := range t.fields {
+		d := f.Desc()
+		if !d.Scoped || !indexed[d.Name] {
+			continue
+		}
+		return tenantScope{column: d.Name, single: d.PrimaryKey || d.Unique}
+	}
+	return tenantScope{}
+}
+
+// composite spells the index that serves a predicate on col, scope column
+// first, because every read carries the scope's predicate and none carries
+// col's alone.
+func (s tenantScope) composite(cols ...string) string {
+	all := append([]string{s.column}, cols...)
+	quoted := make([]string, len(all))
+	for i, c := range all {
+		quoted[i] = fmt.Sprintf("%q", c)
+	}
+	return fmt.Sprintf("add .AddIndex(schema.Index{Columns: []string{%s}})",
+		strings.Join(quoted, ", "))
+}
 
 // indexedColumns returns the columns that lead an index, are unique, or are the
 // primary key — the ones Postgres can seek on directly.

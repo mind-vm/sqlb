@@ -131,6 +131,15 @@ These are reported by `Validate()`, all at once rather than one per run.
 | `create-without-key` | A create operation on a table with no primary key |
 | `unnamespaced-table` | A table declared outside a module where one was expected |
 
+Two of those read the table's `Scoped` column before they speak. On an exposed
+table whose scope column is indexed, every generated read carries that column's
+predicate — `Scoped` is an obligation, so the resource either has a hook behind
+it or does not mount — which changes both halves of the diagnostic:
+`unindexed-filter` and `unindexed-sort` say the scan costs one tenant's rows
+rather than the table, and the index they name leads with the scope column,
+because the predicate is never the filtered column alone. A table keyed by its
+own scope has one row per caller, so neither rule fires on it at all.
+
 This table is the enumeration, and `mise run lint-check` fails when it and
 `schema/lint.go` disagree in either direction — it was added because the table
 had gone three rules stale, which is the failure mode a written-down rule has

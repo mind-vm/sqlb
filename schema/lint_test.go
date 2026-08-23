@@ -381,3 +381,150 @@ func TestLintIsQuietOnDefaultsItCannotDistinguishFromAHelper(t *testing.T) {
 		}
 	}
 }
+
+// #296: on a table whose reads are confined, the unqualified advice is wrong
+// twice over — it overstates the cost by the number of tenants, and it names an
+// index Postgres will mostly decline to use.
+//
+// The predicate on a scoped table is never the filtered column alone. It is the
+// scope's, then the column's, so the index that serves it leads with the scope.
+// A reader who followed the old fix built a single-column index that did not
+// help and concluded the linter was not worth following, which is the outcome
+// that costs the most.
+//
+// Nothing here needs to know which hooks a registry holds. Scoped is an
+// obligation — rest.Resource refuses to mount an exposed resource with no hook
+// behind it — so an exposed scoped table either carries that predicate on every
+// read or the server does not start.
+func TestLintAdvisesTheCompositeIndexOnAConfinedTable(t *testing.T) {
+	r := schema.NewRegistry()
+	orgs := r.Table("orgs", schema.UUIDv7("id").PrimaryKey())
+	r.Table("posts",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Ref("org", orgs).Filterable().ReadOnly().Scoped(),
+		schema.Varchar("subject", 40).Filterable().Sortable(),
+	).
+		Index("org_id").
+		Expose(schema.REST{Path: "/posts", Ops: schema.Reads, MaxPageSize: 100})
+
+	byRule := map[string]schema.Diagnostic{}
+	for _, d := range r.Lint() {
+		byRule[d.Rule] = d
+	}
+
+	filter, ok := byRule["unindexed-filter"]
+	if !ok {
+		t.Fatalf("the diagnostic should still fire — a scan of one tenant's rows is still a "+
+			"scan:\n%s", r.Lint())
+	}
+	if !strings.Contains(filter.Fix, `[]string{"org_id", "subject"}`) {
+		t.Errorf("the fix should name the composite, scope first, got %q", filter.Fix)
+	}
+	if strings.Contains(filter.Message, "scans the table") {
+		t.Errorf("the message still claims a table scan on a confined table: %q", filter.Message)
+	}
+	if !strings.Contains(filter.Message, "org_id") {
+		t.Errorf("the message should name what confines the read, got %q", filter.Message)
+	}
+
+	sort, ok := byRule["unindexed-sort"]
+	if !ok {
+		t.Fatal("the sort diagnostic should still fire")
+	}
+	// Scope, sort column, key: the order a paged list under a scope actually
+	// runs, and the order one index can serve in a single seek.
+	if !strings.Contains(sort.Fix, `[]string{"org_id", "subject", "id"}`) {
+		t.Errorf("the fix should lead with the scope and end with the key, got %q", sort.Fix)
+	}
+}
+
+// The unconfined case has to keep the advice that fits it, or this is a
+// regression dressed as a fix.
+func TestLintKeepsThePlainAdviceWhereNothingConfinesTheTable(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("posts",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Varchar("subject", 40).Filterable(),
+	).
+		Expose(schema.REST{Path: "/posts", Ops: schema.Reads, MaxPageSize: 100})
+
+	for _, d := range r.Lint() {
+		if d.Rule != "unindexed-filter" {
+			continue
+		}
+		if !strings.Contains(d.Message, "scans the table") {
+			t.Errorf("an unconfined table really does scan, and the message stopped saying so: %q",
+				d.Message)
+		}
+		if !strings.Contains(d.Fix, `.Index("subject")`) {
+			t.Errorf("the single-column index is right here, got %q", d.Fix)
+		}
+		return
+	}
+	t.Fatalf("no unindexed-filter diagnostic:\n%s", r.Lint())
+}
+
+// A scope column that is not itself indexed guarantees nothing worth reasoning
+// from: the scope predicate is the scan. The rule that names *that* column is
+// the one to read first, so the others keep the plain wording rather than
+// pointing at a composite led by an unindexed column.
+func TestLintDoesNotLeanOnAnUnindexedScopeColumn(t *testing.T) {
+	r := schema.NewRegistry()
+	orgs := r.Table("orgs", schema.UUIDv7("id").PrimaryKey())
+	r.Table("posts",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Ref("org", orgs).Filterable().ReadOnly().Scoped(), // no Index
+		schema.Varchar("subject", 40).Filterable(),
+	).
+		Expose(schema.REST{Path: "/posts", Ops: schema.Reads, MaxPageSize: 100})
+
+	for _, d := range r.Lint() {
+		if d.Rule == "unindexed-filter" && d.Column == "subject" &&
+			strings.Contains(d.Fix, "org_id") {
+			t.Errorf("advised a composite led by a column that is not indexed either: %q", d.Fix)
+		}
+	}
+}
+
+// A table keyed by its own tenant has one row per caller, so nothing else about
+// it can be slow — and the composite the rule would otherwise advise is
+// nonsense, because the scope column is already unique.
+func TestLintIsQuietOnATableKeyedByItsOwnScope(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("orgs",
+		schema.UUIDv7("id").PrimaryKey().Scoped(),
+		schema.Varchar("name", 255).Filterable().Sortable(),
+	).
+		Expose(schema.REST{Path: "/org", Ops: schema.OpSingleton})
+
+	for _, d := range r.Lint() {
+		if d.Rule == "unindexed-filter" || d.Rule == "unindexed-sort" {
+			t.Errorf("the scope predicate already selects one row: %s", d)
+		}
+	}
+}
+
+// The obligation is what makes this inferable, and it applies at the mount. An
+// internal table's Scoped column states the same intent and is checked by
+// nothing, so the unqualified wording stays.
+func TestLintOnlyLeansOnTheScopeOfAnExposedTable(t *testing.T) {
+	r := schema.NewRegistry()
+	orgs := r.Table("orgs", schema.UUIDv7("id").PrimaryKey())
+	r.Table("posts",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Ref("org", orgs).Filterable().ReadOnly().Scoped(),
+		schema.Varchar("subject", 40).Filterable(),
+	).
+		Index("org_id") // declared, never exposed
+
+	for _, d := range r.Lint() {
+		if d.Rule == "unindexed-filter" && d.Column == "subject" {
+			if !strings.Contains(d.Message, "scans the table") {
+				t.Errorf("an unexposed table has no mount to refuse, so the guarantee does not "+
+					"hold and the wording should not claim it: %q", d.Message)
+			}
+			return
+		}
+	}
+	t.Fatalf("no unindexed-filter diagnostic:\n%s", r.Lint())
+}
