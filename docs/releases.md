@@ -14,6 +14,56 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.17.0
+
+2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.17.0)
+
+One change, and it is to what the linter *says* rather than to what it catches.
+No API change, and nothing to regenerate.
+
+**`unindexed-filter` and `unindexed-sort` read the table's scope before they
+speak** ([#296](https://github.com/jryannel/sqlb/issues/296), found reviewing a
+real multi-tenant port on v0.16.0). On a table whose reads are confined, both
+halves of the diagnostic were wrong, and the fix was the worse half:
+
+```
+[warn] unindexed-filter: tutor_sessions.subject: column is filterable but is not the
+       leading column of any index, so filtering on it scans the table
+    fix: add .Index("subject") to the table, or drop .Filterable() from the column
+```
+
+The predicate is never that column alone. Every read of a scoped table carries
+`family_id = $1`, and that column is indexed — so the scan is one tenant's rows,
+not the table, and the index that serves the query is `(family_id, subject)`. A
+reader who followed the advice literally built a single-column index Postgres
+will mostly decline to use, and concluded the linter was not worth following.
+That is the expensive outcome, and it is the one #267 already recorded the shape
+of: three warnings judged not worth acting on is three warnings that teach a
+reader to skip the block they are printed in.
+
+Lint does not read a registry's hooks to know this, which was the obvious
+objection. `Scoped` is an obligation rather than a note: `rest.Resource` refuses
+to mount a resource whose exposed operations have no hook behind them
+([ADR-0030](architecture.md#declared-scope-is-required)), so an exposed table
+with a `Scoped` column either carries that predicate on every generated read or
+the server does not start. The declaration is sufficient.
+
+Three conditions bound it, and each is a case that would otherwise produce
+nonsense. The scope column must itself be indexed — an unindexed one means the
+scope predicate *is* the scan, and the diagnostic naming that column is the one
+to read first. The table must be exposed, because that is where the obligation
+bites; a `Scoped` column on an internal table states the same intent and is
+checked by nothing. And a scope column that is also the primary key or unique
+selects at most one row, so neither rule fires: the composite would be
+`(id, subject)`, which adds nothing to a unique column.
+
+The diagnostics are *not* suppressed on scoped tables. An unindexed filter
+inside a large tenant is still a sequential scan of that tenant's rows, and a
+schema with one big customer has a real problem the linter should still name.
+What was wrong is the arithmetic and the suggested index, not that the rule
+fires. `search-without-trigram` is unchanged for a related reason: a trigram GIN
+index does not compose with a scope column the way a btree does.
+
 ## v0.16.0
 
 2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.16.0)
