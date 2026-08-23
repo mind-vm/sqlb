@@ -12,6 +12,7 @@ import (
 	"github.com/jryannel/sqlb/migrate"
 	"github.com/jryannel/sqlb/schema"
 	"github.com/jryannel/sqlb/shadow"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
 // The drift gate, against a database with corners the DSL cannot describe.
@@ -257,20 +258,8 @@ func TestDriftGateAgreesAboutDefaultsAndIndexNames(t *testing.T) {
 // The command, not the loop: `sqlb check -database` is the gate the issue asked
 // for, so that every consumer does not reimplement the hundred lines above.
 func TestCheckDatabaseCommandReportsDrift(t *testing.T) {
-	name := databaseName(t)
-	mustExec(t, admin, `DROP DATABASE IF EXISTS `+quoteIdent(name))
-	mustExec(t, admin, `CREATE DATABASE `+quoteIdent(name))
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(),
-			`DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-
-	pool, err := pgxpool.New(context.Background(), dsn(name))
-	if err != nil {
-		t.Fatalf("opening %s: %v", name, err)
-	}
-	defer pool.Close()
-	mustExec(t, pool, driftSchema)
+	pool := sqlbtest.Fresh(t, serverDSN(t), sqlbtest.SQL(driftSchema))
+	target := pool.Config().ConnString()
 
 	// A Project's paths resolve against the module root, so the generated
 	// files go into a temporary working directory rather than an absolute one.
@@ -283,7 +272,7 @@ func TestCheckDatabaseCommandReportsDrift(t *testing.T) {
 
 	run := func() (int, string) {
 		var stdout, stderr strings.Builder
-		code := codegen.Run(project, []string{"check", "-database", dsn(name)}, &stdout, &stderr)
+		code := codegen.Run(project, []string{"check", "-database", target}, &stdout, &stderr)
 		return code, stdout.String() + stderr.String()
 	}
 

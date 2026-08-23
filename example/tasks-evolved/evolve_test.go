@@ -53,14 +53,8 @@ func mustDiff(t *testing.T, current, target *schema.Registry) []migrate.Change {
 }
 
 func TestTasksEvolved(t *testing.T) {
-	dsn := freshDatabase(t)
+	pool := freshDatabase(t)
 	ctx := context.Background()
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("opening pool: %v", err)
-	}
-	defer pool.Close()
 
 	// --- Step 0: baseline -----------------------------------------------
 	//

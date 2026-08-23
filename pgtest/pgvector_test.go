@@ -3,10 +3,8 @@ package pgtest
 import (
 	"context"
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -14,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jryannel/sqlb"
 	"github.com/jryannel/sqlb/schema"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
 // The three physical claims ADR-0026 rests on, asked of pgvector rather than of
@@ -63,89 +62,41 @@ import (
 // because that is now where the server is started.
 const vectorEnv = "SQLB_TEST_PGVECTOR"
 
-var (
-	vectorOnce sync.Once
-	vectorDSN  func(database string) string
-	vectorErr  error
-	vectorPool *pgxpool.Pool
-)
-
-// vectorDB brings up one pgvector container for the whole run, lazily, and
-// returns a pool onto a database of its own with the extension installed.
+// vectorDB returns a pool onto a database of its own on the pgvector server,
+// with the extension installed.
 //
-// Lazily and separately, rather than making it the suite's only Postgres: the
-// rest of these tests assert that sqlb's DDL applies to Postgres *as it ships*,
-// and freshStockDB means that literally. Running them against an image carrying
-// an extension would weaken a claim that is currently exact.
+// Separate from the suite's own Postgres rather than shared: the rest of these
+// tests assert that sqlb's DDL applies to Postgres *as it ships*, and
+// freshStockDB means that literally. Running them against an image carrying an
+// extension would weaken a claim that is currently exact.
 func vectorDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	vectorOnce.Do(startVectorPostgres)
-	if vectorErr != nil {
-		t.Fatalf("pgtest: %v", vectorErr)
-	}
-
-	name := databaseName(t)
-	ctx := context.Background()
-	if _, err := vectorPool.Exec(ctx, `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`); err != nil {
-		t.Fatalf("dropping %s: %v", name, err)
-	}
-	if _, err := vectorPool.Exec(ctx, `CREATE DATABASE `+quoteIdent(name)); err != nil {
-		t.Fatalf("creating %s: %v", name, err)
-	}
-	// Statement caching off, which is not a detail. Every measurement below is
-	// the same SQL under different session settings, and pgx's default mode
-	// prepares and caches a plan per connection keyed on the text alone. The
-	// first version of this file measured an exact search, cached its plan, and
-	// then got that plan back for the "indexed" query — reporting a perfect
-	// result for the query the file exists to show failing.
-	//
-	// Worth carrying into ADR-0026 rather than leaving here: a search operation
-	// that sets hnsw.* per statement has this problem too. The GUC changes and
-	// the cached plan does not.
-	cfg, err := pgxpool.ParseConfig(vectorDSN(name))
-	if err != nil {
-		t.Fatalf("parsing the connection string: %v", err)
-	}
-	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-	cfg.MaxConns = poolSize
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		t.Fatalf("opening %s: %v", name, err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-		_, _ = vectorPool.Exec(context.Background(),
-			`DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-
-	// The extension ADR-0026 orders ahead of every table. Here it doubles as the
-	// assertion that the image is the one this file thinks it is. The tests
-	// that exercise sqlb's own DDL drop it again first, so that what runs is
-	// what a project's first migration would run.
-	if _, err := pool.Exec(ctx, `CREATE EXTENSION IF NOT EXISTS vector`); err != nil {
-		t.Fatalf("creating the vector extension: %v", err)
-	}
-	// The same uuid_generate_v7 shim freshDB installs, and for the same reason
-	// — see bootstrap.
-	bootstrap(t, pool)
-	return pool
-}
-
-func startVectorPostgres() {
-	ctx := context.Background()
-
-	if vectorDSN, vectorErr = dsnRenderer(vectorEnv); vectorErr != nil {
-		return
-	}
-	if vectorPool, vectorErr = pgxpool.New(ctx, vectorDSN("postgres")); vectorErr != nil {
-		vectorErr = fmt.Errorf("opening the pgvector admin connection: %w", vectorErr)
-		return
-	}
-	if err := vectorPool.Ping(ctx); err != nil {
-		vectorErr = fmt.Errorf("%s is set but nothing answered: %w", vectorEnv, err)
-		return
-	}
-	log.Printf("pgtest: pgvector is up")
+	return sqlbtest.Fresh(t,
+		sqlbtest.DSN(t, vectorEnv, "run `mise run pg-up` first"),
+		sqlbtest.MaxConns(poolSize),
+		// Statement caching off, which is not a detail. Every measurement below
+		// is the same SQL under different session settings, and pgx's default
+		// mode prepares and caches a plan per connection keyed on the text
+		// alone. The first version of this file measured an exact search,
+		// cached its plan, and then got that plan back for the "indexed" query
+		// — reporting a perfect result for the query the file exists to show
+		// failing.
+		//
+		// Worth carrying into ADR-0026 rather than leaving here: a search
+		// operation that sets hnsw.* per statement has this problem too. The
+		// GUC changes and the cached plan does not.
+		sqlbtest.Configure(func(cfg *pgxpool.Config) {
+			cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+		}),
+		// The extension ADR-0026 orders ahead of every table. Here it doubles
+		// as the assertion that the image is the one this file thinks it is.
+		// The tests that exercise sqlb's own DDL drop it again first, so that
+		// what runs is what a project's first migration would run.
+		sqlbtest.Extensions("vector"),
+		// The same uuid_generate_v7 shim freshDB installs, and for the same
+		// reason — see main_test.go's shim.
+		sqlbtest.SQL(shim),
+	)
 }
 
 // vectorDim is small because nothing here depends on the width. A real embedding

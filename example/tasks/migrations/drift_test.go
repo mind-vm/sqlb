@@ -55,6 +55,8 @@ const pgEnv = "SQLB_TEST_POSTGRES"
 
 var dsn string
 
+func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
+
 func TestMain(m *testing.M) {
 	code, err := run(m)
 	if err != nil {

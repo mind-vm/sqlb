@@ -26,7 +26,6 @@ package migrations_test
 
 import (
 	"context"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"github.com/jryannel/sqlb/migrate"
 	"github.com/jryannel/sqlb/schema"
 	"github.com/jryannel/sqlb/shadow"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
 // triggers are the ones the history installs and the DSL cannot describe.
@@ -54,7 +54,7 @@ func TestATriggerIsInvisibleToTheDiff(t *testing.T) {
 	ctx := context.Background()
 	// A database of this test's own: shadow.Build refuses one that already has
 	// tables in it, and drift_test.go has already replayed into the shared one.
-	db := freshDatabase(t, "trigger_check")
+	db := freshDatabase(t)
 
 	current, report, res, err := shadow.Build(ctx, db, shadow.Options{Dir: "."})
 	if err != nil {
@@ -147,7 +147,7 @@ func TestATriggerIsInvisibleToTheDiff(t *testing.T) {
 // documented way to refresh rather than a convenience.
 func TestTheDatabaseOverrulesAValueGoWrote(t *testing.T) {
 	ctx := context.Background()
-	db := freshDatabase(t, "managed_column_check")
+	db := freshDatabase(t)
 
 	if _, _, _, err := shadow.Build(ctx, db, shadow.Options{Dir: "."}); err != nil {
 		t.Fatalf("replaying the migration history: %v", err)
@@ -214,48 +214,12 @@ func assertNoTriggerStatements(t *testing.T, what string, changes []migrate.Chan
 // drift_test.go opens the container's own database and replays into it once.
 // Every test here needs an empty one of its own, because a replay is only
 // meaningful against a database with nothing in it.
-func freshDatabase(t *testing.T, name string) *pgxpool.Pool {
+// freshDatabase returns a pool for a database of its own.
+//
+// The name parameter is gone with the eighty lines that needed it: sqlbtest
+// derives one from the test, which is what kept these two tests from ever
+// running in parallel with each other in the first place.
+func freshDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	ctx := context.Background()
-
-	admin, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("opening the admin database: %v", err)
-	}
-	defer admin.Close()
-
-	// Dropped first so a crashed run leaves nothing that makes the next one
-	// fail with "already exists" instead of with its real problem.
-	if _, err := admin.Exec(ctx, `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`); err != nil {
-		t.Fatalf("dropping %s: %v", name, err)
-	}
-	if _, err := admin.Exec(ctx, `CREATE DATABASE `+quoteIdent(name)); err != nil {
-		t.Fatalf("creating %s: %v", name, err)
-	}
-
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatalf("parsing the connection string: %v", err)
-	}
-	u.Path = "/" + name
-
-	pool, err := pgxpool.New(ctx, u.String())
-	if err != nil {
-		t.Fatalf("opening %s: %v", name, err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-		cleanup, err := pgxpool.New(context.Background(), dsn)
-		if err != nil {
-			return
-		}
-		defer cleanup.Close()
-		_, _ = cleanup.Exec(context.Background(),
-			`DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-	return pool
-}
-
-func quoteIdent(s string) string {
-	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	return sqlbtest.Fresh(t, sqlbtest.DSN(t, pgEnv, "run `mise run pg-up` first"))
 }

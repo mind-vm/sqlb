@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jryannel/sqlb/codegen"
 	"github.com/jryannel/sqlb/schema"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
 // `sqlb migrate`, end to end.
@@ -30,24 +31,12 @@ import (
 // real project is called more than once per session.
 func shadowDSN(t *testing.T) string {
 	t.Helper()
-	name := databaseName(t) + "_shadow"
-	mustExec(t, admin, `DROP DATABASE IF EXISTS `+quoteIdent(name))
-	mustExec(t, admin, `CREATE DATABASE `+quoteIdent(name))
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(),
-			`DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-
-	// The shim the generated DDL for a UUIDv7 primary key needs, installed the
-	// same way freshDB does it and for the same reason — see bootstrap.
-	pool, err := pgxpool.New(context.Background(), dsn(name))
-	if err != nil {
-		t.Fatalf("opening the shadow database: %v", err)
-	}
-	defer pool.Close()
-	bootstrap(t, pool)
-
-	return dsn(name)
+	return sqlbtest.FreshDSN(t, serverDSN(t),
+		// The shim the generated DDL for a UUIDv7 primary key needs, installed
+		// the same way freshDB does it and for the same reason — see
+		// main_test.go's shim.
+		sqlbtest.SQL(shim),
+	)
 }
 
 // shadowFunc is the pattern codegen.Project documents, written out: open a

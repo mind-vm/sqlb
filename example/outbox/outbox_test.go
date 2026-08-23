@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jryannel/sqlb"
 	"github.com/jryannel/sqlb/example/outbox"
 	"github.com/jryannel/sqlb/migrate"
 	"github.com/jryannel/sqlb/schema"
+	"github.com/jryannel/sqlb/sqlbtest"
 
 	// Imported for its side effect: declaring Event registers it in
 	// schema.DefaultRegistry(), which outboxDB below diffs against an empty
@@ -33,26 +33,22 @@ import (
 
 // outboxDB migrates a fresh database from the declared schema and returns a
 // *sqlb.DB over it.
+//
+// The main_test.go that used to sit beside this file carried the bootstrap by
+// hand, and said why: "every one of these lean examples is a standalone module
+// by design, so the alternative is a module whose only purpose is a helper the
+// others would import — more machinery than it would save". The helper turned
+// out not to need a module of its own; it is in sqlb, beside the scripted
+// Executor, so the file is gone.
 func outboxDB(t *testing.T) *sqlb.DB {
 	t.Helper()
-	ctx := context.Background()
-
-	dsn := freshDatabase(t)
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Fatalf("connecting: %v", err)
-	}
-	t.Cleanup(pool.Close)
-
-	changes, err := migrate.Diff(nil, schema.DefaultRegistry(), migrate.MinPostgres(18))
-	if err != nil {
-		t.Fatalf("diff: %v", err)
-	}
-	for _, c := range changes {
-		if _, err := pool.Exec(ctx, c.Up); err != nil {
-			t.Fatalf("applying change %q: %v\n%s", c.Comment, err, c.Up)
-		}
-	}
+	pool := sqlbtest.Fresh(t,
+		sqlbtest.DSN(t, "SQLB_TEST_POSTGRES", "run `mise run pg-up` first"),
+		// Eight, because the competing-consumers test races workers through
+		// this pool.
+		sqlbtest.MaxConns(8),
+		sqlbtest.Declared(schema.DefaultRegistry(), migrate.MinPostgres(18)),
+	)
 	return sqlb.New(pool)
 }
 

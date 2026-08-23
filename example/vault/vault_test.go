@@ -2,12 +2,7 @@ package vault_test
 
 import (
 	"context"
-	"fmt"
-	"net/url"
-	"os"
 	"reflect"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,108 +11,22 @@ import (
 	_ "github.com/jryannel/sqlb/example/vault/vaultschema"
 	"github.com/jryannel/sqlb/migrate"
 	"github.com/jryannel/sqlb/schema"
+	"github.com/jryannel/sqlb/sqlbtest"
 )
 
-// The bootstrap below is example/fxapp/main_test.go's freshDatabase, copied
-// rather than imported: fxapp is a separate module and this one is too, so
-// there is nothing to import it from.
-
-const pgEnv = "SQLB_TEST_POSTGRES"
-
-var (
-	once     sync.Once
-	admin    *pgxpool.Pool
-	dsnFor   func(database string) string
-	startErr error
-)
-
-func startPostgres() {
-	ctx := context.Background()
-	base := os.Getenv(pgEnv)
-	if base == "" {
-		startErr = fmt.Errorf("%s is not set; run `mise run pg-up` first", pgEnv)
-		return
-	}
-	u, err := url.Parse(base)
-	if err != nil {
-		startErr = fmt.Errorf("%s is not a valid URL: %w", pgEnv, err)
-		return
-	}
-	dsnFor = func(database string) string {
-		v := *u
-		v.Path = "/" + database
-		return v.String()
-	}
-	if admin, err = pgxpool.New(ctx, dsnFor("postgres")); err != nil {
-		startErr = fmt.Errorf("opening the admin connection: %w", err)
-		return
-	}
-	if err := admin.Ping(ctx); err != nil {
-		startErr = fmt.Errorf("%s is set but nothing answered: %w", pgEnv, err)
-	}
-}
-
-func databaseName(t *testing.T) string {
-	name := strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_':
-			return r
-		case r >= 'A' && r <= 'Z':
-			return r + ('a' - 'A')
-		default:
-			return '_'
-		}
-	}, t.Name())
-	return "vault_" + name
-}
-
-func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
-
-func mustExec(t *testing.T, query string) {
-	t.Helper()
-	if _, err := admin.Exec(context.Background(), query); err != nil {
-		t.Fatalf("exec failed: %v\n%s", err, strings.TrimSpace(query))
-	}
-}
-
-// freshDatabase returns a pool connected to a fresh, migrated database:
-// migrate.Diff between nothing and the declared registry, applied statement
-// by statement. No goose file, because nothing here needs a second run to
-// replay against — this is the baseline every migration example builds on.
+// A database of its own per test, from sqlbtest: a DSN in, nothing started.
+// This block used to be eighty hand-copied lines, and the comment above it said
+// so — "copied rather than imported: fxapp is a separate module and this one is
+// too, so there is nothing to import it from". There is now.
 func freshDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	once.Do(startPostgres)
-	if startErr != nil {
-		t.Fatalf("vault: %v", startErr)
-	}
-
-	name := databaseName(t)
-	mustExec(t, `DROP DATABASE IF EXISTS `+quoteIdent(name))
-	mustExec(t, `CREATE DATABASE `+quoteIdent(name))
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(), `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
-	})
-
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsnFor(name))
-	if err != nil {
-		t.Fatalf("connecting to %s: %v", name, err)
-	}
-	t.Cleanup(pool.Close)
-
-	changes, err := migrate.Diff(nil, schema.DefaultRegistry(), migrate.MinPostgres(18))
-	if err != nil {
-		t.Fatalf("diff: %v", err)
-	}
-	for _, c := range changes {
-		if c.Up == "" {
-			continue
-		}
-		if _, err := pool.Exec(ctx, c.Up); err != nil {
-			t.Fatalf("applying change %q: %v\n%s", c.Comment, err, c.Up)
-		}
-	}
-	return pool
+	return sqlbtest.Fresh(t,
+		sqlbtest.DSN(t, "SQLB_TEST_POSTGRES", "run `mise run pg-up` first"),
+		// The baseline this example builds on: what the registry declares,
+		// rendered by migrate.Diff and applied. No goose file, because nothing
+		// here replays a history.
+		sqlbtest.Declared(schema.DefaultRegistry(), migrate.MinPostgres(18)),
+	)
 }
 
 // TestEncryptRoundTrips proves the write path: Encrypt bypasses the
