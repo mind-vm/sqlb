@@ -1,5 +1,12 @@
-// Package sqlbtest is a database-free Executor for testing an application built
-// on sqlb.
+// Package sqlbtest is the two doubles an application testing on sqlb needs: a
+// scripted Executor that needs no database, and a scratch database that needs
+// no container.
+//
+// [DB] is the first. [Fresh] is the second, and the split between them is the
+// split every suite ends up making anyway — most tests against the double,
+// where they are fast and answer "which statement did this issue", and a
+// smaller number against Postgres, which is the only thing that can say whether
+// the SQL is valid.
 //
 // The engine's own suite runs without Docker — `mise run test` compiles and runs
 // in seconds against an in-memory pgx double — and until now consumers got none
@@ -49,4 +56,19 @@
 //
 // A [DB] is safe for concurrent use, because the code under test may not be
 // sequential.
+//
+// # And when the double is not enough
+//
+// [Fresh] creates a database of its own per test on a server the caller names,
+// applies what the test needs, and drops it afterwards:
+//
+//	db := sqlbtest.Fresh(t,
+//	    sqlbtest.DSN(t, "SQLB_TEST_POSTGRES", "run `docker compose up -d` first"),
+//	    sqlbtest.Declared(schema.DefaultRegistry()),
+//	)
+//	handle := sqlb.New(db).WithHooks(hooks)
+//
+// It starts nothing. fresh.go says why at length; the short version is that
+// this repository ran the other experiment — a container per package, through
+// testcontainers — and reversed it.
 package sqlbtest

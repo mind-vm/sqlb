@@ -117,10 +117,51 @@ got := strings.Join(db.Statements(), " | ")
 Give the insert an `Err` and the same assertion reads `… | ROLLBACK`, which is
 how you pin that a failing unit of work leaves nothing behind.
 
-## The other half
+## The other half: a database, and still no container
 
-What this cannot answer is whether the SQL is *valid* — whether the column
-exists, whether the cast is legal, whether the index is used. For that, see
+What the double cannot answer is whether the SQL is *valid* — whether the column
+exists, whether the cast is legal, whether the constraint fires. That needs
+Postgres, and `sqlbtest.Fresh` is the rest of the harness:
+
+```go
+db := sqlbtest.Fresh(t,
+    sqlbtest.DSN(t, "SQLB_TEST_POSTGRES", "run `docker compose up -d` first"),
+    sqlbtest.Declared(schema.DefaultRegistry()),
+)
+handle := sqlb.New(db).WithHooks(hooks)
+```
+
+A database of its own per test, created on the server the DSN names and dropped
+when the test ends — so tests are independent without truncating anything, and
+they may run in parallel. `CREATE DATABASE` is milliseconds; a server per test is
+seconds, and a shared one costs the isolation.
+
+| Option | What it does |
+|---|---|
+| `Declared(reg, opts…)` | applies `migrate.Diff(nil, reg)` — the DDL the schema renders now |
+| `SQL(statements…)` | runs DDL the suite writes by hand |
+| `Extensions(names…)` | `CREATE EXTENSION IF NOT EXISTS`, with an error that says a test cannot install one |
+| `Do(fn)` | seeding, a fixture, a package's own bootstrap |
+| `MaxConns(n)` | the pool ceiling — it multiplies by the tests running in parallel |
+| `Configure(fn)` | anything else about the pool, such as pgx's query mode |
+
+`FreshDSN` is the same thing for a caller that opens its own connection: an
+application booting from a URL, a second route to the same database.
+
+**It takes a DSN and starts nothing.** Deliberately: sqlb's own suites used to
+start a container each through testcontainers, which cost a full CI run six
+servers, put `docker/docker` and forty modules in a `go.mod`, and shipped a
+reaper that reaps by label — and therefore removed long-lived containers
+belonging to unrelated work on the same machine. Every way of *providing* a
+database already exists: a compose file, a CI service container, one somebody
+left running, or testcontainers in your own module if that is what you want.
+What this will not do is choose for you.
+
+There is also no skip-when-absent path. `DSN` fails the test naming the variable
+that was unset, because a suite that passes quietly when it cannot reach a
+database reports coverage it does not have.
+
+For the cheapest check of all — does this query even plan? — see
 [Inspecting and tracing](inspecting.md): `Explain` runs against a real database
-and fails when the query does not plan, which is the cheapest test that catches a
-statement Postgres would refuse.
+and fails when the query does not, which catches a statement Postgres would
+refuse without writing a test for the behaviour behind it.
