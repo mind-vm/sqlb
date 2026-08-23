@@ -43,7 +43,7 @@ the API reference is the Go doc comments.
 
 ## Layout
 
-Five Go modules. `go test ./...` at the root covers **only the first**:
+Six Go modules. `go test ./...` at the root covers **only the first**:
 
 | | |
 |---|---|
@@ -51,6 +51,7 @@ Five Go modules. `go test ./...` at the root covers **only the first**:
 | `pgtest/` | round-trip tests against real Postgres in containers. Its own module so the engine's suite stays database-free |
 | `example/tasks/`, `example/fxapp/` | worked applications, each with its own gate |
 | `example/auth-workos/` | a `sqlb.Verifier[T]` adapter for WorkOS AuthKit — its own module so the WorkOS SDK and JWT/JWKS dependencies never reach sqlb core's `go.mod` |
+| `example/attachments/` | presigned direct-to-S3 uploads: the row-before-bytes ordering, and a stdlib SigV4 presigner cross-checked against `aws-sdk-go-v2`. Its own module for the same reason, though it ended up needing no dependency at all |
 
 Packages: `schema` (the DSL), `codegen` (emitters), `rest` (Huma mount),
 `filter` (URL → predicate), `migrate` (diff → DDL), `introspect` (database →

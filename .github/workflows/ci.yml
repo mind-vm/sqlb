@@ -76,6 +76,7 @@ jobs:
       - run: mise run adr-check
       - run: mise run test-race
       - run: mise run test-auth-workos
+      - run: mise run test-attachments
       # Node comes from mise.toml, like Go and golangci-lint. This is the gate
       # docs/architecture.md's "Typescript client" decision promised the
       # TypeScript client would need: the emitted client's guarantees are

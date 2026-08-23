@@ -331,8 +331,19 @@ That is loud rather than silent, which is the point — but it means the option 
 a decision about the resource's hooks, not only about its latency.
 
 This is in-process and at-most-once. A callback that never ran because the
-process died leaves no trace — that is what a transactional outbox is for, and
-it is not built ([ADR-0012](../architecture.md#change-feed-outbox)).
+process died leaves no trace. For the change feed that is what the transactional
+outbox is for — the event is written by the same transaction as the row, so a
+process that dies between the commit and the fan-out has already recorded it
+([`outbox`](../rest/events.md#the-outbox),
+[ADR-0012](../architecture.md#change-feed-outbox)). For anything else the same
+shape is yours to build: record the intent as a row in the writing transaction,
+and dispatch it from a worker that tails the table.
+
+Deleting a file when its row goes is this seam's other common use, and the
+ordering it forces is worth reading before writing one:
+[`example/attachments`](../../example/attachments) removes the object *after*
+the commit, because object storage is not in the transaction and a roll-back
+would otherwise leave a row pointing at bytes that are gone.
 
 ## Reading your own writes
 

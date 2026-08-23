@@ -1,0 +1,257 @@
+{
+  "version": "1",
+  "tables": [
+    {
+      "name": "attachments",
+      "comment": "A file in object storage, and the row that says it is there.",
+      "primaryKey": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "goType": "string",
+          "hasDefault": true,
+          "readOnly": true,
+          "capabilities": [
+            "filter"
+          ]
+        },
+        {
+          "name": "key",
+          "type": "text",
+          "goType": "string",
+          "readOnly": true,
+          "capabilities": [
+            "filter"
+          ]
+        },
+        {
+          "name": "filename",
+          "type": "text",
+          "goType": "string"
+        },
+        {
+          "name": "content_type",
+          "type": "text",
+          "goType": "string",
+          "readOnly": true,
+          "capabilities": [
+            "filter"
+          ]
+        },
+        {
+          "name": "size",
+          "type": "bigint",
+          "goType": "int64",
+          "readOnly": true,
+          "capabilities": [
+            "filter",
+            "sort"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "goType": "string",
+          "enum": [
+            "pending",
+            "ready"
+          ],
+          "hasDefault": true,
+          "readOnly": true,
+          "capabilities": [
+            "filter"
+          ]
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "goType": "time.Time",
+          "hasDefault": true,
+          "readOnly": true,
+          "capabilities": [
+            "sort"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "goType": "time.Time",
+          "hasDefault": true,
+          "readOnly": true,
+          "capabilities": [
+            "sort"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "name": "attachments_status_created_at_idx",
+          "columns": [
+            "status",
+            "created_at"
+          ]
+        },
+        {
+          "name": "attachments_key_uniq",
+          "columns": [
+            "key"
+          ],
+          "unique": true
+        }
+      ],
+      "rest": {
+        "path": "/attachments",
+        "operations": [
+          "read",
+          "delete",
+          "list"
+        ],
+        "defaultPageSize": 0,
+        "maxPageSize": 0,
+        "filterable": [
+          "id",
+          "key",
+          "content_type",
+          "size",
+          "status"
+        ],
+        "sortable": [
+          "size",
+          "created_at",
+          "updated_at"
+        ],
+        "searchable": [],
+        "examples": [
+          "GET /attachments?id=eq.VALUE",
+          "GET /attachments?sort=-size\u0026page=2\u0026per_page=20",
+          "GET /attachments?or=(id.eq.A,key.eq.B)"
+        ]
+      }
+    }
+  ],
+  "filterOperators": [
+    {
+      "name": "eq",
+      "form": "col=eq.VALUE (or col=VALUE)",
+      "applies": "any filterable column"
+    },
+    {
+      "name": "ne",
+      "form": "col=ne.VALUE",
+      "applies": "any filterable column"
+    },
+    {
+      "name": "gt",
+      "form": "col=gt.VALUE",
+      "applies": "ordered columns"
+    },
+    {
+      "name": "gte",
+      "form": "col=gte.VALUE",
+      "applies": "ordered columns"
+    },
+    {
+      "name": "lt",
+      "form": "col=lt.VALUE",
+      "applies": "ordered columns"
+    },
+    {
+      "name": "lte",
+      "form": "col=lte.VALUE",
+      "applies": "ordered columns"
+    },
+    {
+      "name": "in",
+      "form": "col=in.A,B,C",
+      "applies": "any filterable column"
+    },
+    {
+      "name": "nin",
+      "form": "col=nin.A,B",
+      "applies": "any filterable column"
+    },
+    {
+      "name": "between",
+      "form": "col=between.LO,HI",
+      "applies": "ordered columns"
+    },
+    {
+      "name": "isnull",
+      "form": "col=isnull",
+      "applies": "nullable columns"
+    },
+    {
+      "name": "notnull",
+      "form": "col=notnull",
+      "applies": "nullable columns"
+    },
+    {
+      "name": "contains",
+      "form": "col=contains.TEXT",
+      "applies": "text columns; wildcards escaped"
+    },
+    {
+      "name": "startswith",
+      "form": "col=startswith.TEXT",
+      "applies": "text columns; wildcards escaped"
+    },
+    {
+      "name": "endswith",
+      "form": "col=endswith.TEXT",
+      "applies": "text columns; wildcards escaped"
+    },
+    {
+      "name": "like",
+      "form": "col=like.PATTERN",
+      "applies": "text columns; wildcards NOT escaped"
+    },
+    {
+      "name": "ilike",
+      "form": "col=ilike.PATTERN",
+      "applies": "text columns; wildcards NOT escaped"
+    }
+  ],
+  "reservedParams": [
+    {
+      "name": "select",
+      "form": "select=id,name — projection; the primary key is always included"
+    },
+    {
+      "name": "sort",
+      "form": "sort=-created_at,name — leading '-' is descending"
+    },
+    {
+      "name": "search",
+      "form": "search=TERM — fans out over searchable columns"
+    },
+    {
+      "name": "page",
+      "form": "page=2 — 1-based"
+    },
+    {
+      "name": "per_page",
+      "form": "per_page=50 — capped by maxPageSize"
+    },
+    {
+      "name": "limit",
+      "form": "limit=50 — alternative to per_page"
+    },
+    {
+      "name": "offset",
+      "form": "offset=100 — alternative to page"
+    },
+    {
+      "name": "or",
+      "form": "or=(a.eq.1,b.gt.2) — explicit disjunction, nestable"
+    },
+    {
+      "name": "and",
+      "form": "and=(a.eq.1,b.gt.2) — explicit conjunction"
+    },
+    {
+      "name": "not",
+      "form": "not=(a.eq.1,b.gt.2) — negation; several conditions are NOT (a AND b)"
+    }
+  ]
+}
