@@ -553,16 +553,26 @@ Stream<SseFrame> sseFrames(Stream<String> chunks) async* {
 class ChangeFeed {
   /// Starts a feed, resuming from [lastEventId] when a previous connection
   /// reached one.
-  ChangeFeed({String? lastEventId}) : _lastEventId = lastEventId;
+  ChangeFeed({String? lastEventId}) : _position = lastEventId;
 
-  String? _lastEventId;
+  // _position rather than _lastEventId, which is what the getter below is
+  // called. A field whose name matches the constructor parameter is what
+  // prefer_initializing_formals fires on, and from Dart 3.12 a private field
+  // matches a public parameter name too, because private-named-parameters
+  // makes this._lastEventId spell a parameter called lastEventId. That fix is
+  // 3.12 and later, so taking it would put an SDK floor on every project that
+  // generates this file; an ignore fails the other way, on unnecessary_ignore
+  // below 3.12 where the rule cannot fire at all. Naming the field for what it
+  // holds is the one spelling that analyses clean on every SDK, and it leaves
+  // the public API exactly as it was.
+  String? _position;
 
   /// The position of the last frame read, or null before the first one.
   ///
   /// It is recorded before the frame is decoded, so a frame that cannot be
   /// decoded is one a reconnection resumes past rather than one it retries
   /// forever.
-  String? get lastEventId => _lastEventId;
+  String? get lastEventId => _position;
 
   /// Decodes [chunks] into events, remembering the position as it goes.
   ///
@@ -580,7 +590,7 @@ class ChangeFeed {
     required Object? Function(String) parseJson,
   }) async* {
     await for (final frame in sseFrames(chunks)) {
-      if (frame.id != null) _lastEventId = frame.id;
+      if (frame.id != null) _position = frame.id;
       switch (frame.event) {
         case 'change':
           final json = _payload(frame, parseJson(frame.data));
