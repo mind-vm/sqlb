@@ -585,6 +585,58 @@ Reach for the second registry when there is no principal at all — sign-in, a
 migration, a test fixture. Reach for a named scope when there *is* one and a
 single rule cannot answer for it.
 
+### The create side is not releasable, and what to write instead
+
+`Scope` covers `BeforeQuery`, `BeforeUpdate` and `BeforeDelete` — the three that
+narrow which rows a statement addresses. `BeforeCreate` is deliberately absent:
+it stamps a row on the way in rather than confining a set, so a create that
+skipped it would write a row with *no* tenant rather than see more of them. A
+released read fails visibly; a released stamp fails silently, and the row is
+still there tomorrow.
+
+The consequence is that every create goes through a hook that wants the
+request's claims — including the creates that have no request. A fixture, a
+seed, an import, a job that materialises a row
+([#289](https://github.com/jryannel/sqlb/issues/289)) all arrive at the same
+place:
+
+```
+tenant_test.go:114: seeding a child: auth: no family in context
+```
+
+The pattern that works is a fallback in the hook itself, and the important half
+is that it fails closed:
+
+```go
+sqlb.On[Child](reg).BeforeCreate(func(ctx context.Context, row *Child) error {
+    familyID, err := auth.FamilyID(ctx)
+    if err != nil {
+        // No claims: a fixture, a seed, an import, a job. Trust the row only
+        // if it named a tenant itself.
+        if row.FamilyID != "" {
+            return nil
+        }
+        return err   // no claims and no tenant is still refused
+    }
+    if !isParent(ctx) {
+        return errParentOnly
+    }
+    row.FamilyID = familyID   // stamp; never trust the body when there is a caller
+    return nil
+})
+```
+
+Read the two branches as one rule: *the tenant comes from the claims when there
+are claims, and from the row only when there are none, and never from nowhere.*
+Returning `nil` unconditionally in the no-claims branch is the mistake this
+shape exists to avoid — it writes rows with no tenant, which is precisely what
+keeping `BeforeCreate` out of `Scope` is protecting.
+
+A trusted caller then needs no special handle at all: it supplies the tenant on
+the row, and the same registry serves it. That is a smaller escalation than a
+second handle, because the thing being trusted is one field of one row rather
+than every rule at once.
+
 ## Next
 
 - [Inspecting and tracing](inspecting.md) — seeing what a hook did
