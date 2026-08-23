@@ -77,6 +77,17 @@ compiler, one bind-parameter discipline, one set of hooks — two producers.
   a resource accepts without a request — which is the form the guarantee has to
   take for a caller with no compile step, such as an agent
   ([guide](https://jryannel.github.io/sqlb/cli/)).
+- **A live view is a subscription, not a poll.** `rest.Events` mounts a
+  Server-Sent Events stream that carries the *address* of a change —
+  `{table, key, op}` — and never the row, so the refetch goes through the
+  ordinary read path and every rule that path enforces still holds. Two sources
+  behind one endpoint and one wire format: `rest.Broker` is in-memory and
+  single-replica, `outbox.Dispatcher` writes the event in the transaction that
+  made the change and is at-least-once across any number of replicas, and
+  swapping them is a constructor call. The subscriber is generated too, in
+  TypeScript and in Dart, so what an application writes is which cache to
+  invalidate rather than which keys to invalidate in it
+  ([guide](https://jryannel.github.io/sqlb/rest/events/)).
 - **One dependency, and it is the one you already have.** The engine is written
   on [pgx](https://github.com/jackc/pgx) and takes nothing else; a CI gate fails
   on anything that is not pgx or something pgx itself pulls in. That is a
@@ -153,8 +164,7 @@ a test of the generator's output.
 Postgres only. `LISTEN/NOTIFY`, jsonb aggregation and `RETURNING` are all
 load-bearing; multi-dialect support would cost the best features.
 
-Not built yet, in the order they matter: a durable change feed, and an MCP
-server over the manifest.
+Not built yet, in the order they matter: an MCP server over the manifest.
 [Vision](https://jryannel.github.io/sqlb/project/vision/) has the detail.
 
 ## Documentation

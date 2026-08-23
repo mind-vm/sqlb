@@ -31,8 +31,8 @@ equivalent of TanStack Query to bind to.
 
 | | |
 |---|---|
-| `runtime.gen.dart` | `Page`, `Collection`, `Problem`, `Transport`, `CursorPager` — the vocabulary an application names, and no schema-specific code. |
-| `client.gen.dart` | Row views, request bodies, the typed filter vocabulary, one function per exposed operation — plus a second row view per table that has a `Needs` column, for what `create`/`update` return, since a write cannot answer with the same shape a read can. Imports the runtime, and exports it. |
+| `runtime.gen.dart` | `Page`, `Collection`, `Problem`, `Transport`, `CursorPager`, `ChangeFeed` — the vocabulary an application names, and no schema-specific code. |
+| `client.gen.dart` | Row views, request bodies, the typed filter vocabulary, one function per exposed operation, `TableName` and `TableChange` — plus a second row view per table that has a `Needs` column, for what `create`/`update` return, since a write cannot answer with the same shape a read can. Imports the runtime, and exports it. |
 
 The split is what Dart's nominal typing forces
 ([#110](https://github.com/jryannel/sqlb/issues/110)). Two clients each
@@ -270,6 +270,50 @@ of the tables — the generated names follow. Before this check the generator
 reported success and the analyser reported a duplicate top-level declaration,
 naming neither table.
 
+## The change feed
+
+[`rest.Events`](../rest/events.md) sends the *address* of a change — a table, a
+row key, an operation — and never the row. `ChangeFeed` reads that stream:
+
+```dart
+final feed = ChangeFeed();
+await for (final event in feed.read(body, parseJson: jsonDecode)) {
+  switch (event) {
+    case ChangeEvent():
+      final change = TableChange.from(event);
+      if (change != null) refetch(change.table, change.key);
+    case ResetEvent():
+      refetchEverything();
+  }
+}
+```
+
+`FeedEvent` is sealed, so that `switch` is exhaustive: a subscriber that
+handles a change and forgets a reset does not compile, and the reset is the
+case that matters — it means the stream could not be resumed, so nothing on
+display can be trusted. `TableChange.from` narrows the event's table to a
+`TableName` member, and answers null for a table this client does not serve,
+which is what a module of a larger schema receives.
+
+Three things are deliberately the application's:
+
+- **The connection.** Dart has no `EventSource`, and this library imports
+  nothing, so `read` takes the response body as text and the app opens the
+  request. That turns out to be the easier half — a `Last-Event-ID` header is
+  just a header here, where a browser subscriber needs a polyfill to send one.
+  `example/tasks/mobile/lib/http.dart` has the `dart:io` version.
+- **The JSON decoder.** `parseJson: jsonDecode` — passed rather than imported,
+  for the reason `Transport` is passed rather than built.
+- **Reconnecting.** When the stream ends, open it again with the same
+  `ChangeFeed`: its `lastEventId` is the position to send, and the server
+  replays from there or answers with a `ResetEvent` when it cannot reach back
+  that far.
+
+A frame that cannot be decoded ends the stream rather than being skipped. That
+is the rule the whole feed is built on — a dropped connection reconnects and
+converges, a dropped event leaves a client wrong forever — and `lastEventId`
+has already moved past the frame, so the reconnection does not meet it again.
+
 ## What is not generated
 
 Riverpod providers, BLoCs, widgets, a client object, a pub package. A generated
@@ -279,9 +323,9 @@ generate React hooks.
 
 There is also no cache-key factory, which the TypeScript client does emit. That
 one exists because TanStack Query has a keyed cache to invalidate; Dart's state
-managers have no such registry, so keys would be vocabulary with no consumer.
-What is emitted instead is `TableName`, so a change-feed event's table can be
-switched on exhaustively.
+managers have no such registry, so keys would be vocabulary with no consumer —
+which is why a subscriber here gets a narrowed `TableChange` and decides what
+to refetch, where the TypeScript one is handed the keys.
 
 `example/tasks/mobile` is a worked one, including
 [the refusals](../../example/tasks/mobile/lib/refusals.dart) — sixteen requests

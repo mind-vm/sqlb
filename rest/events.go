@@ -38,10 +38,13 @@ const (
 // another. Sending the address of the change instead keeps the read path the
 // only thing that ever reads, so every rule the read path enforces still holds.
 //
-// The generated TypeScript client emits a `keysByTable` map, which is the other
-// half of this: a client receiving `{table: "posts", key: "42"}` looks up which
-// of its cached queries to invalidate and refetches them through the ordinary
-// GET endpoints.
+// The generated clients emit the other half of this. A TypeScript client
+// receiving `{table: "posts", key: "42"}` resolves it through `keysByTable`
+// into the cached queries that read it and refetches them through the ordinary
+// GET endpoints — `subscribeChanges` does the whole of that — and a Dart one
+// narrows the table to a `TableName` member with `TableChange.from`. Neither is
+// required: the wire is three fields, and a hand-written subscriber against
+// `EventSource` is a dozen lines.
 //
 // [ADR-0012]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#change-feed-outbox
 type Event struct {

@@ -213,12 +213,15 @@ the reason is now specific rather than general: the ordering guarantee is bought
 with an advisory lock that serialises writes to published models, and nobody has
 measured what that ceiling is under load.
 
-It is also worth less on its own than the ordering suggests. A feed delivers
-table plus row key and expects the client to refetch, which is only mechanical if
-something derives the cache key from that pair — otherwise every consumer
-hand-writes an invalidation list that drifts from the one its own mutations use.
-That derivation is item 1's key factory, so the two are worth building in that
-order and are worth more together than apart.
+It used to be worth less on its own than the ordering suggests, and that is now
+closed. A feed delivers table plus row key and expects the client to refetch,
+which is only mechanical if something derives the cache key from that pair —
+otherwise every consumer hand-writes an invalidation list that drifts from the
+one its own mutations use. Both clients now emit that derivation and the
+subscriber around it
+([The subscriber is generated, the policy is not](architecture.md#the-subscriber-is-generated-the-policy-is-not)),
+so what a consumer writes is which cache to invalidate rather than what to
+invalidate in it.
 
 **5. Introspection for agents.** A `sqlb.json` manifest and a generated
 `AGENTS.md` describing the schema and its capabilities, plus `sqlb explain` to
