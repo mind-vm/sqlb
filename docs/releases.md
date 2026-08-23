@@ -14,6 +14,59 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.17.1
+
+2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.17.1)
+
+One fix to the generated Dart client, and the gate that should have caught it.
+Regenerate to pick it up; no API change and nothing else moves.
+
+**`ChangeFeed`'s private field is named for what it holds**
+([#299](https://github.com/jryannel/sqlb/pull/299), reported by a consumer).
+v0.16.0's change-feed subscriber emitted a constructor that Dart 3.12 reports
+and 3.11 does not:
+
+```dart
+ChangeFeed({String? lastEventId}) : _lastEventId = lastEventId;
+// info • Use an initializing formal to assign a parameter to a field
+//        • prefer_initializing_formals
+```
+
+From Dart 3.12 a *private* field counts as the same name as a *public*
+parameter, because `private-named-parameters` makes `this._lastEventId` spell a
+parameter called `lastEventId`. Below 3.12 that does not parse, so the rule
+cannot fire — which is why this reached a consumer rather than the emitter's own
+suite, and why it landed on generated code, the one file a project cannot fix
+for itself.
+
+Neither obvious fix works, and they fail in opposite directions. `this._position`
+— the rule's own advice — is a hard error below 3.12, so taking it would put an
+SDK floor of 3.12 on every project that generates this file. An
+`// ignore: prefer_initializing_formals` fails the other way, on
+`unnecessary_ignore` below 3.12 where the rule cannot fire at all. Renaming the
+field is the one spelling that analyses clean on every SDK: the rule compares
+the parameter's name to the field's, and `_position` is not `lastEventId` on any
+version. The public API is untouched — `ChangeFeed(lastEventId: …)` still
+constructs it and `.lastEventId` still reads it.
+
+**`dart-sdk-check` is the mechanism.** `test-dart` analyses
+`example/tasks/mobile`, whose pubspec says `sdk: ^3.9.0` — and a pubspec
+constraint fixes the *language version*, so that gate cannot see a diagnostic
+introduced after 3.9 no matter which SDK runs it. It was green through the
+entire window in which this shipped. The new task copies the package, rewrites
+the constraint to the version the pinned SDK actually offers, and runs the same
+analyzer again.
+
+The floor is derived from `dart --version` rather than written as a literal,
+because a literal is exactly what went stale here: the example's `^3.9.0` was
+current when it was written and silently stopped covering anything after it.
+Bumping `dart` in `[tools]` now widens the check on the same commit.
+
+Proven the way this repository asks a guard to be proven: with v0.17.0's
+`ChangeFeed` restored, `dart-sdk-check` fails naming the rule and the line while
+`test-dart`, against the same file with the same analyzer, still reports "No
+issues found".
+
 ## v0.17.0
 
 2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.17.0)
