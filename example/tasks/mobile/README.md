@@ -26,10 +26,12 @@ same seam over `dart:io` so it can be checked with the Dart SDK alone.
 
 | | |
 |---|---|
-| [`lib/api/client.gen.dart`](lib/api/client.gen.dart) | **Generated.** Row views, request bodies, the typed `where`/`sort`/`select`/`expand` vocabulary, the URL encoder, one function per exposed operation, and a cursor pager per list. Imports nothing. |
-| [`lib/http.dart`](lib/http.dart) | **Hand-written, and meant to be.** The base URL, the bearer token, what a 401 does, how an error body reaches the UI, and `POST /auth/login` — which is not a table and never will be. |
+| [`lib/api/runtime.gen.dart`](lib/api/runtime.gen.dart) | **Generated.** The half that depends on no schema: `Page`, `Problem`, `Transport`, `CursorPager` and `ChangeFeed`. Imports nothing. |
+| [`lib/api/client.gen.dart`](lib/api/client.gen.dart) | **Generated.** Row views, request bodies, the typed `where`/`sort`/`select`/`expand` vocabulary, the URL encoder, one function per exposed operation, a cursor pager per list, and `TableName`/`TableChange` for the change feed. Imports the runtime and exports it. |
+| [`lib/http.dart`](lib/http.dart) | **Hand-written, and meant to be.** The base URL, the bearer token, what a 401 does, how an error body reaches the UI, `POST /auth/login` — which is not a table and never will be — and the `GET /events` connection the change feed reads, since Dart has no `EventSource` to own it. |
 | [`lib/board.dart`](lib/board.dart) | What it looks like in use. |
 | [`lib/refusals.dart`](lib/refusals.dart) | What does *not* compile, asserted. |
+| [`test/`](test/) | The three things the analyser cannot check: the strings that go on the wire, the row view's lazy decoding, and what the change feed makes of the frames that come back. |
 
 Regenerate with `go generate ./...` from `example/tasks`, or
 `sqlb generate ./taskschema`. `mise run generate-check` fails if the committed

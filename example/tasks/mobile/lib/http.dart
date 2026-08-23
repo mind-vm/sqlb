@@ -110,6 +110,45 @@ class TasksClient {
     token = (body! as Map<String, dynamic>)['access_token'] as String?;
   }
 
+  /// `GET /events`, the change feed.
+  ///
+  /// The connection is here rather than in the generated client for the reason
+  /// [transport] is: the base URL, the token and the retry policy are the
+  /// application's. What the generated half brings is everything after the
+  /// bytes — the frame parsing, the two event types, and the position to
+  /// resume from.
+  ///
+  /// Reconnecting is the caller's too. When this stream ends, open it again
+  /// with the same [ChangeFeed]: its [ChangeFeed.lastEventId] goes out as the
+  /// header the server replays from, so a brief disconnection costs nothing
+  /// and a long one answers with a [ResetEvent] instead of silence.
+  ///
+  /// Dart has no EventSource, which turns out to be the easier half: a header
+  /// is just a header here, where a browser subscriber has to reach for a
+  /// polyfill to send one.
+  Stream<FeedEvent> changes(ChangeFeed feed) async* {
+    final http = await _http.openUrl('GET', Uri.parse('$baseUrl/events'));
+    http.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    if (token != null) {
+      http.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+    }
+    final resume = feed.lastEventId;
+    if (resume != null) http.headers.set('Last-Event-ID', resume);
+
+    final response = await http.close();
+    if (response.statusCode >= 400) {
+      final text = await response.transform(utf8.decoder).join();
+      final decoded = text.isEmpty ? null : jsonDecode(text);
+      throw ApiException(
+        response.statusCode,
+        Problem.tryParse(decoded),
+        decoded,
+      );
+    }
+
+    yield* feed.read(response.transform(utf8.decoder), parseJson: jsonDecode);
+  }
+
   /// Releases the underlying connections.
   void close() => _http.close();
 }

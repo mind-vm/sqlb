@@ -188,6 +188,15 @@ var dartSharedNames = map[string]bool{
 	"ApiRequest": true, "Transport": true,
 	"CursorPager": true, "SortTerm": true, "WireValue": true,
 	"MissingColumn": true, "UnknownEnumValue": true,
+
+	// The change feed, which is here for a reason the others are not: FeedEvent
+	// is sealed, and a sealed hierarchy has to be one library. Splitting
+	// ChangeEvent from FeedEvent would not merely duplicate a class, it would
+	// not compile. Everything on this path is schema-independent anyway — an
+	// event names its table as a string, and narrowing that string to a table
+	// the client serves is the client's half.
+	"ChangeOp": true, "FeedEvent": true, "ChangeEvent": true,
+	"ResetEvent": true, "SseFrame": true, "sseFrames": true, "ChangeFeed": true,
 }
 
 // splitDartRuntime partitions the Dart runtime into the shared library and the

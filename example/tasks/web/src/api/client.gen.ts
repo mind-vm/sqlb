@@ -14,8 +14,8 @@
 // the response and the caller.
 //
 // ADR-0028, ADR-0036.
-import type { ArrayCond, Collection, Cond, DayMatch, NullCheck, Page, TextMatch, Transport } from './runtime.gen.ts';
-import { encodeItemQuery, encodeListQuery, itemPath } from './runtime.gen.ts';
+import type { ArrayCond, ChangeEvent, ChangeOp, ChangeStreamOptions, Collection, Cond, DayMatch, NullCheck, Page, TextMatch, Transport } from './runtime.gen.ts';
+import { encodeItemQuery, encodeListQuery, itemPath, subscribeEvents } from './runtime.gen.ts';
 export * from './runtime.gen.ts';
 
 // --------------------------------------------------------------- comments
@@ -343,6 +343,7 @@ export const commentKeys = {
   all: () => ['comments'] as const,
   lists: () => ['comments', 'list'] as const,
   list: (params: unknown = {}) => ['comments', 'list', params] as const,
+  infinites: () => ['comments', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['comments', 'infinite', params] as const,
   details: () => ['comments', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['comments', 'detail', String(id), params] as const,
@@ -475,6 +476,7 @@ export const listKeys = {
   all: () => ['lists'] as const,
   lists: () => ['lists', 'list'] as const,
   list: (params: unknown = {}) => ['lists', 'list', params] as const,
+  infinites: () => ['lists', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['lists', 'infinite', params] as const,
   details: () => ['lists', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['lists', 'detail', String(id), params] as const,
@@ -588,6 +590,7 @@ export const membershipKeys = {
   all: () => ['memberships'] as const,
   lists: () => ['memberships', 'list'] as const,
   list: (params: unknown = {}) => ['memberships', 'list', params] as const,
+  infinites: () => ['memberships', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['memberships', 'infinite', params] as const,
   details: () => ['memberships', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['memberships', 'detail', String(id), params] as const,
@@ -659,6 +662,7 @@ export const profileKeys = {
   all: () => ['profiles'] as const,
   lists: () => ['profiles', 'list'] as const,
   list: (params: unknown = {}) => ['profiles', 'list', params] as const,
+  infinites: () => ['profiles', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['profiles', 'infinite', params] as const,
   details: () => ['profiles', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['profiles', 'detail', String(id), params] as const,
@@ -817,6 +821,7 @@ export const taskKeys = {
   all: () => ['tasks'] as const,
   lists: () => ['tasks', 'list'] as const,
   list: (params: unknown = {}) => ['tasks', 'list', params] as const,
+  infinites: () => ['tasks', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['tasks', 'infinite', params] as const,
   details: () => ['tasks', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['tasks', 'detail', String(id), params] as const,
@@ -927,6 +932,7 @@ export const userKeys = {
   all: () => ['users'] as const,
   lists: () => ['users', 'list'] as const,
   list: (params: unknown = {}) => ['users', 'list', params] as const,
+  infinites: () => ['users', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['users', 'infinite', params] as const,
   details: () => ['users', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['users', 'detail', String(id), params] as const,
@@ -1030,6 +1036,7 @@ export const workspaceKeys = {
   all: () => ['workspaces'] as const,
   lists: () => ['workspaces', 'list'] as const,
   list: (params: unknown = {}) => ['workspaces', 'list', params] as const,
+  infinites: () => ['workspaces', 'infinite'] as const,
   infinite: (params: unknown = {}) => ['workspaces', 'infinite', params] as const,
   details: () => ['workspaces', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['workspaces', 'detail', String(id), params] as const,
@@ -1051,4 +1058,103 @@ export const keysByTable = {
   workspaces: workspaceKeys,
 } as const;
 
+/** A table this client serves. */
 export type TableName = keyof typeof keysByTable;
+
+/**
+ * The keys one change invalidates, per table.
+ *
+ * A keyed event names one row, so it invalidates that row's detail queries
+ * plus the lists and infinite walks it may have moved in or out of — not
+ * every other row's detail. A keyless one invalidates the table, which is
+ * what an event nobody could attribute to a single row asks for.
+ */
+const changeKeysByTable: Record<TableName, (key: string) => readonly (readonly unknown[])[]> = {
+  comments: (key) =>
+    key === ''
+      ? [commentKeys.all()]
+      : [commentKeys.lists(), commentKeys.infinites(), commentKeys.detail(key)],
+  lists: (key) =>
+    key === ''
+      ? [listKeys.all()]
+      : [listKeys.lists(), listKeys.infinites(), listKeys.detail(key)],
+  memberships: (key) =>
+    key === ''
+      ? [membershipKeys.all()]
+      : [membershipKeys.lists(), membershipKeys.infinites(), membershipKeys.detail(key)],
+  profiles: (key) =>
+    key === ''
+      ? [profileKeys.all()]
+      : [profileKeys.lists(), profileKeys.infinites(), profileKeys.detail(key)],
+  tasks: (key) =>
+    key === ''
+      ? [taskKeys.all()]
+      : [taskKeys.lists(), taskKeys.infinites(), taskKeys.detail(key)],
+  users: (key) =>
+    key === ''
+      ? [userKeys.all()]
+      : [userKeys.lists(), userKeys.infinites(), userKeys.detail(key)],
+  workspaces: (key) =>
+    key === ''
+      ? [workspaceKeys.all()]
+      : [workspaceKeys.lists(), workspaceKeys.infinites(), workspaceKeys.detail(key)],
+};
+
+/** One change to a table this client serves. */
+export interface TableChange {
+  /** The table that changed, narrowed to the ones this client serves. */
+  table: TableName;
+  /** The row's primary key, or empty when the whole table is invalidated. */
+  key: string;
+  op: ChangeOp;
+  /** The cache keys that read what changed. Hand each to invalidateQueries. */
+  keys: readonly (readonly unknown[])[];
+}
+
+/** Whether a table name off the wire is one this client serves. */
+export function isTableName(table: string): table is TableName {
+  return Object.hasOwn(changeKeysByTable, table);
+}
+
+/**
+ * The cache keys one change invalidates — empty for a table this client does
+ * not serve.
+ *
+ * Exported for a subscriber whose events arrive by some other route than the
+ * endpoint: a socket a gateway relays, a service worker, a test.
+ */
+export function changeKeys(event: ChangeEvent): readonly (readonly unknown[])[] {
+  return isTableName(event.table) ? changeKeysByTable[event.table](event.key) : [];
+}
+
+/**
+ * Subscribes to the change feed, resolving each event to the keys it
+ * invalidates. Returns the function that closes the stream.
+ *
+ *     const stop = subscribeChanges('/events', {
+ *       onChange: ({ keys }) => keys.forEach((queryKey) => qc.invalidateQueries({ queryKey })),
+ *       onReset: () => qc.invalidateQueries(),
+ *     });
+ *
+ * An event naming a table this client does not serve is dropped: a client
+ * generated from one module of a schema receives the other modules' events
+ * too, and nothing here displays them. A reset is not dropped — it means the
+ * stream could not be resumed, so what is on display is stale whatever it is
+ * showing.
+ */
+export function subscribeChanges(
+  url: string,
+  options: ChangeStreamOptions<TableChange> = {},
+): () => void {
+  const onChange = options.onChange;
+  return subscribeEvents(url, {
+    ...options,
+    onChange:
+      onChange === undefined
+        ? undefined
+        : (event) => {
+            if (!isTableName(event.table)) return;
+            onChange({ ...event, table: event.table, keys: changeKeys(event) });
+          },
+  });
+}

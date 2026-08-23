@@ -9,8 +9,8 @@ import {
   createTask,
   getList,
   getTask,
-  keysByTable,
   listTasks,
+  subscribeChanges,
   taskKeys,
   updateTask,
   type Page,
@@ -23,7 +23,7 @@ import { taskMutations, taskQueries } from './api/queries.gen';
 // This file is typechecked, never run — which is what lets it call hooks
 // outside a component to show that the generated options are what the hooks
 // already take.
-import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 
 /**
  * The board's main query: open, urgent-ish work in one list, newest first.
@@ -197,19 +197,44 @@ export async function addTask(request: Transport, listId: string, title: string)
 }
 
 /**
- * A change-feed event carries a table and a row key. Mapping it onto cache keys
- * is a lookup rather than a second hand-maintained list, which is the failure
- * ADR-0028 was written from: two invalidation lists that had drifted by one
- * character.
+ * The change feed, wired to a cache.
+ *
+ * `subscribeChanges` is generated: it opens the stream, narrows the event's
+ * table to one this client serves, and resolves `{table, key}` into the keys
+ * that read it. What is left here is the one thing a schema cannot say — which
+ * cache to invalidate, and what a reset means for what is on screen.
+ *
+ * This used to be a hand-written listener with a `keysByTable[...]` lookup, a
+ * cast to make the index compile, and no answer for a keyless event. That is
+ * the drift ADR-0028 was written from, one layer up: an invalidation list that
+ * disagrees with the one the mutations next door use.
  */
-export function onChange(
-  event: { table: string; id: string },
-  invalidate: (key: readonly unknown[]) => void,
-) {
-  const keys = keysByTable[event.table as keyof typeof keysByTable];
-  if (keys === undefined) return; // a table this client does not read
-  invalidate(keys.lists());
-  invalidate(keys.detail(event.id));
+export function liveUpdates(queryClient: QueryClient, baseUrl: string) {
+  return subscribeChanges(`${baseUrl}/events`, {
+    onChange: ({ keys }) => {
+      for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey });
+    },
+    // The stream could not be resumed, so nothing on display can be trusted.
+    onReset: () => void queryClient.invalidateQueries(),
+  });
+}
+
+/**
+ * The same subscription, authenticated.
+ *
+ * `EventSource` cannot carry an Authorization header — the API has no place to
+ * put one — so a deployment that authenticates with a bearer token passes a
+ * polyfill that can, and one that authenticates with a cookie passes the
+ * platform's own with credentials switched on. That is the `open` seam, and it
+ * is the same argument the `Transport` seam makes for every other request.
+ */
+export function liveUpdatesWithSession(queryClient: QueryClient, baseUrl: string) {
+  return subscribeChanges(`${baseUrl}/events`, {
+    open: (url) => new EventSource(url, { withCredentials: true }),
+    onChange: ({ keys }) => {
+      for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey });
+    },
+  });
 }
 
 /**

@@ -49,6 +49,12 @@ var dartCoreNames = map[string]bool{
 	"Page":             true, "Problem": true, "ProblemDetail": true, "Row": true,
 	"SortTerm": true, "TableName": true, "TextCond": true, "Transport": true,
 	"UnknownEnumValue": true, "WireValue": true,
+
+	// The change feed, including the two names the client itself declares:
+	// TableName, above, and TableChange.
+	"ChangeEvent": true, "ChangeFeed": true, "ChangeOp": true,
+	"FeedEvent": true, "ResetEvent": true, "SseFrame": true,
+	"TableChange": true,
 }
 
 // dartReservedMembers are the names already spoken for on a generated row,
@@ -113,7 +119,7 @@ func renderDartClient(opts Options) ([]byte, error) {
 		}
 	}
 
-	dartTableEnum(&body, opts.Registry)
+	dartChangeFeed(&body, opts.Registry)
 
 	// The per-client half of the runtime, then the schema's own types. The
 	// import is decided against both, because the private half references the
@@ -1341,14 +1347,19 @@ func dartPager(b *bytes.Buffer, r dartResource) {
 	fmt.Fprintln(b, "}")
 }
 
-// dartTableEnum names the tables, so that a change-feed subscriber receiving a
-// table and a row key (ADR-0012) can switch on something the compiler checks
-// rather than on a string literal.
+// dartChangeFeed emits the subscriber's half of the change feed: the tables
+// this client serves, and the narrowing from an event that names one as a
+// string to one the compiler checks.
+//
+// The stream itself is in the shared runtime, because none of it depends on a
+// schema. What is here is what does: a feed carries a table name and a row key
+// (ADR-0012), and which table names are this client's is the one thing the
+// runtime cannot know.
 //
 // It is deliberately not a cache-key factory. The TypeScript client emits one
 // because TanStack Query has a keyed cache to invalidate; Riverpod, BLoC and
 // the rest have no such registry, so keys would be vocabulary with no consumer.
-func dartTableEnum(b *bytes.Buffer, reg *schema.Registry) {
+func dartChangeFeed(b *bytes.Buffer, reg *schema.Registry) {
 	var exposed []*schema.TableDef
 	for _, t := range reg.Tables() {
 		if t.Rest() != nil {
@@ -1378,6 +1389,31 @@ func dartTableEnum(b *bytes.Buffer, reg *schema.Registry) {
 	fmt.Fprintln(b, "      if (value.wire == wire) return value;")
 	fmt.Fprintln(b, "    }")
 	fmt.Fprintln(b, "    return null;")
+	fmt.Fprintln(b, "  }")
+	fmt.Fprintln(b, "}")
+
+	fmt.Fprintln(b)
+	dartDoc(b, "", "One change to a table this client serves.\n\n[ChangeFeed] yields events whose table is a string, because the runtime is\nshared by every generated client and knows no tables. This is the narrowing\nthat turns one into a value a switch can be exhaustive over.")
+	fmt.Fprintln(b, "class TableChange {")
+	dartDoc(b, "  ", "Wraps a change to [table]. [TableChange.from] is what reads one off the\nfeed.")
+	fmt.Fprintln(b, "  const TableChange(this.table, this.key, this.op);")
+	fmt.Fprintln(b)
+	dartDoc(b, "  ", "The table that changed.")
+	fmt.Fprintln(b, "  final TableName table;")
+	fmt.Fprintln(b)
+	dartDoc(b, "  ", "The row's primary key, or empty when the whole table is invalidated.")
+	fmt.Fprintln(b, "  final String key;")
+	fmt.Fprintln(b)
+	dartDoc(b, "  ", "What happened, or null for an operation this client has no member for.")
+	fmt.Fprintln(b, "  final ChangeOp? op;")
+	fmt.Fprintln(b)
+	dartDoc(b, "  ", "Whether the change addresses the collection rather than one row, which is\nwhat an empty [key] means.")
+	fmt.Fprintln(b, "  bool get isCollection => key.isEmpty;")
+	fmt.Fprintln(b)
+	dartDoc(b, "  ", "Narrows [event] to the tables this client serves, or null for one it does\nnot.\n\nA client generated from one module of a schema receives the other modules'\nevents too, and nothing in it displays them.")
+	fmt.Fprintln(b, "  static TableChange? from(ChangeEvent event) {")
+	fmt.Fprintln(b, "    final table = TableName.byWire(event.table);")
+	fmt.Fprintln(b, "    return table == null ? null : TableChange(table, event.key, event.op);")
 	fmt.Fprintln(b, "  }")
 	fmt.Fprintln(b, "}")
 }
@@ -2515,6 +2551,256 @@ class CursorPager<T> {
     _exhausted = false;
     _total = null;
   }
+}
+
+// ---------------------------------------------------------------- change feed
+
+/// What happened to one row.
+enum ChangeOp implements WireValue {
+  /// The row was inserted.
+  create('create'),
+
+  /// The row was updated.
+  update('update'),
+
+  /// The row was removed.
+  delete('delete');
+
+  const ChangeOp(this.wire);
+
+  @override
+  final String wire;
+
+  /// The member [wire] names, or null for one this client has no member for —
+  /// which means the server is newer than the client rather than that
+  /// something is wrong.
+  static ChangeOp? byWire(String wire) {
+    for (final value in values) {
+      if (value.wire == wire) return value;
+    }
+    return null;
+  }
+}
+
+/// One event of a change feed.
+///
+/// Sealed, so a switch over it is exhaustive: a subscriber that handles a
+/// change and forgets a reset does not compile, and a reset is the case that
+/// matters — it is the one that says what is on screen cannot be trusted.
+sealed class FeedEvent {
+  const FeedEvent({this.id});
+
+  /// The stream position this event arrived at, or null for a frame the server
+  /// sent without one.
+  ///
+  /// [ChangeFeed.lastEventId] is the one to keep: send it as the Last-Event-ID
+  /// header when reconnecting and the server replays from there.
+  final String? id;
+}
+
+/// One invalidation: the address of a change, never the row.
+///
+/// The feed carries no row data on purpose. A payload would have to be built
+/// per subscriber under that subscriber's own scope, or the query hook that
+/// confines every other read of the table would not run on it — so what
+/// arrives is where to look, and the refetch is an ordinary GET.
+final class ChangeEvent extends FeedEvent {
+  /// Builds an event. Read one off a stream with [ChangeFeed.read] rather than
+  /// constructing it, except in a test.
+  const ChangeEvent({
+    required this.table,
+    required this.key,
+    required this.op,
+    super.id,
+  });
+
+  /// The SQL table the change happened in. A generated client narrows it to
+  /// the tables it serves.
+  final String table;
+
+  /// The row's primary key, spelled the way the URL spells it — or empty,
+  /// which means the whole table is invalidated rather than one row.
+  final String key;
+
+  /// What happened, or null for an operation this client has no member for.
+  ///
+  /// A subscriber that refetches needs [table] and [key] and not this, which
+  /// is why an unrecognised operation is a null rather than a thrown
+  /// [UnknownEnumValue]: it would cost the invalidation to report it.
+  final ChangeOp? op;
+}
+
+/// The stream could not be resumed, so nothing on display can be trusted:
+/// refetch everything.
+///
+/// It arrives when a reconnection's position predates the retained history,
+/// when that position cannot be read, and when it is ahead of the stream —
+/// which is what a client from before a server restart looks like.
+final class ResetEvent extends FeedEvent {
+  /// Builds a reset. Read one off a stream with [ChangeFeed.read] rather than
+  /// constructing it, except in a test.
+  const ResetEvent({required this.reason, super.id});
+
+  /// Why the stream could not be resumed, for a log rather than for a user.
+  final String reason;
+}
+
+/// One frame of a Server-Sent Events stream.
+class SseFrame {
+  /// Builds a frame. [sseFrames] produces these; nothing else needs to.
+  const SseFrame({required this.event, required this.data, this.id});
+
+  /// The event name. A frame that carried none reports it as message, which is
+  /// what the format calls the default.
+  final String event;
+
+  /// The data lines, joined with newlines the way the format defines.
+  final String data;
+
+  /// The position, when the frame carried one or an earlier frame set it.
+  final String? id;
+}
+
+/// Cuts a Server-Sent Events stream into frames.
+///
+/// [chunks] is the response body decoded as text, in whatever pieces it
+/// arrives in: the boundaries are the network's and mean nothing, which is why
+/// this buffers across them. What it does with each field follows the format —
+/// a comment line is dropped, which is what a heartbeat is; data lines
+/// accumulate; and an id persists until a later frame replaces it, so a
+/// frame that carries none still reports the position the stream is at.
+///
+/// The retry field is ignored. It is the server's suggested delay before a
+/// reconnect, and reconnecting is the application's: this library opens no
+/// connections.
+///
+/// A line ends at a newline, with a carriage return before it stripped. A bare
+/// carriage return is a legal terminator that nothing in this stack emits.
+Stream<SseFrame> sseFrames(Stream<String> chunks) async* {
+  var buffer = '';
+  var event = '';
+  final data = <String>[];
+  String? id;
+
+  await for (final chunk in chunks) {
+    buffer += chunk;
+    while (true) {
+      final end = buffer.indexOf('\n');
+      if (end < 0) break;
+      var line = buffer.substring(0, end);
+      buffer = buffer.substring(end + 1);
+      if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+
+      if (line.isEmpty) {
+        if (data.isNotEmpty || event.isNotEmpty) {
+          yield SseFrame(
+            event: event.isEmpty ? 'message' : event,
+            data: data.join('\n'),
+            id: id,
+          );
+        }
+        event = '';
+        data.clear();
+        continue;
+      }
+      if (line.startsWith(':')) continue;
+
+      final colon = line.indexOf(':');
+      final field = colon < 0 ? line : line.substring(0, colon);
+      var value = colon < 0 ? '' : line.substring(colon + 1);
+      if (value.startsWith(' ')) value = value.substring(1);
+      switch (field) {
+        case 'event':
+          event = value;
+        case 'data':
+          data.add(value);
+        case 'id':
+          id = value;
+      }
+    }
+  }
+}
+
+/// Reads a sqlb change feed off a Server-Sent Events stream.
+///
+/// It holds the stream position and nothing else, which is what a reconnection
+/// needs: pass [lastEventId] back as the Last-Event-ID header and the server
+/// replays what was missed, or sends a [ResetEvent] when it cannot reach back
+/// that far.
+///
+/// Opening the connection is the application's, the same way every other
+/// request is: this library imports nothing, so it has no HTTP client and no
+/// JSON decoder of its own. [read] takes the body as text and the decoder as
+/// an argument — jsonDecode from dart:convert is the one to pass.
+///
+///     final feed = ChangeFeed();
+///     await for (final event in feed.read(body, parseJson: jsonDecode)) {
+///       switch (event) {
+///         case ChangeEvent(:final table, :final key):
+///           final name = TableName.byWire(table);
+///           if (name != null) refetch(name, key);
+///         case ResetEvent():
+///           refetchEverything();
+///       }
+///     }
+class ChangeFeed {
+  /// Starts a feed, resuming from [lastEventId] when a previous connection
+  /// reached one.
+  ChangeFeed({String? lastEventId}) : _lastEventId = lastEventId;
+
+  String? _lastEventId;
+
+  /// The position of the last frame read, or null before the first one.
+  ///
+  /// It is recorded before the frame is decoded, so a frame that cannot be
+  /// decoded is one a reconnection resumes past rather than one it retries
+  /// forever.
+  String? get lastEventId => _lastEventId;
+
+  /// Decodes [chunks] into events, remembering the position as it goes.
+  ///
+  /// A frame that is neither a change nor a reset is skipped: a heartbeat is
+  /// what keeps the connection open through an intermediary, and an event type
+  /// this client has no case for is a newer server rather than a failure.
+  ///
+  /// A frame whose payload is not a JSON object throws, which ends the stream
+  /// and leaves the caller to reconnect. That is the rule the whole feed is
+  /// built on — a dropped connection reconnects and converges, a dropped event
+  /// leaves a client wrong forever — and [lastEventId] has already moved past
+  /// the frame, so the reconnection does not meet it again.
+  Stream<FeedEvent> read(
+    Stream<String> chunks, {
+    required Object? Function(String) parseJson,
+  }) async* {
+    await for (final frame in sseFrames(chunks)) {
+      if (frame.id != null) _lastEventId = frame.id;
+      switch (frame.event) {
+        case 'change':
+          final json = _payload(frame, parseJson(frame.data));
+          yield ChangeEvent(
+            table: json['table'] as String? ?? '',
+            key: json['key'] as String? ?? '',
+            op: ChangeOp.byWire(json['op'] as String? ?? ''),
+            id: frame.id,
+          );
+        case 'reset':
+          final json = _payload(frame, parseJson(frame.data));
+          yield ResetEvent(
+            reason: json['reason'] as String? ?? '',
+            id: frame.id,
+          );
+      }
+    }
+  }
+}
+
+/// Reads a frame's payload as the object every event on this feed carries.
+Map<String, dynamic> _payload(SseFrame frame, Object? decoded) {
+  if (decoded is Map<String, dynamic>) return decoded;
+  throw FormatException(
+    'sqlb: a ${frame.event} frame did not carry a JSON object',
+    frame.data,
+  );
 }
 
 // --------------------------------------------------------------------- decoding

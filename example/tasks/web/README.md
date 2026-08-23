@@ -14,11 +14,13 @@ npm test            # the encoder, against the grammar the server parses
 
 | | |
 |---|---|
-| [`src/api/client.gen.ts`](src/api/client.gen.ts) | **Generated.** Row types, request bodies, the typed `where`/`sort`/`select`/`expand` vocabulary, the URL encoder, one function per exposed operation, and the cache keys. Imports nothing. |
+| [`src/api/runtime.gen.ts`](src/api/runtime.gen.ts) | **Generated.** The half that depends on no schema: `Page`, `Problem`, `Transport`, the filter encoder and the change-feed stream. Imports nothing, not even the DOM lib. |
+| [`src/api/client.gen.ts`](src/api/client.gen.ts) | **Generated.** Row types, request bodies, the typed `where`/`sort`/`select`/`expand` vocabulary, the URL encoder, one function per exposed operation, the cache keys, and `subscribeChanges` — the change-feed subscriber, which resolves an event into the keys that read it. Imports the runtime and re-exports it. |
 | [`src/api/queries.gen.ts`](src/api/queries.gen.ts) | **Generated.** TanStack Query `queryOptions` and `infiniteQueryOptions`. The only file that needs `@tanstack/react-query`. |
 | [`src/api/http.ts`](src/api/http.ts) | **Hand-written, and meant to be.** The base URL, the bearer token, what a 401 does, and how an error body reaches the UI. None of it is derivable from a schema, so the generated functions take a request function instead of building one. |
 | [`src/board.ts`](src/board.ts) | What it looks like in use. |
 | [`src/refusals.ts`](src/refusals.ts) | What does *not* compile, asserted. |
+| [`src/api/encode.test.ts`](src/api/encode.test.ts) · [`src/api/events.test.ts`](src/api/events.test.ts) | The two things tsc cannot check: the strings that go on the wire, and what a subscriber does with the frames that come back. |
 
 Regenerate with `go generate ./...` from `example/tasks`, or
 `sqlb generate ./taskschema`. `mise run generate-check` fails if the committed
