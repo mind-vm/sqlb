@@ -28,8 +28,8 @@ Three files, because the layers are usable separately:
 
 | | |
 |---|---|
-| `runtime.gen.ts` | `Page`, `Collection`, `Problem`, `Transport` and the filter encoder — the part that depends on no schema. **Imports nothing.** |
-| `client.gen.ts` | Row types, request bodies, the typed parameter vocabulary, one function per exposed operation, and the cache keys — plus a write-result type per table that has a `Needs` column, since a create or update cannot answer with the same shape a read can. Imports the runtime, and re-exports it. |
+| `runtime.gen.ts` | `Page`, `Collection`, `Problem`, `Transport`, the filter encoder and the change-feed stream — the part that depends on no schema. **Imports nothing**, not even the DOM lib. |
+| `client.gen.ts` | Row types, request bodies, the typed parameter vocabulary, one function per exposed operation, the cache keys and the change-feed subscriber — plus a write-result type per table that has a `Needs` column, since a create or update cannot answer with the same shape a read can. Imports the runtime, and re-exports it. |
 | `queries.gen.ts` | TanStack Query `queryOptions`, `infiniteQueryOptions` and `mutationOptions`. Takes `@tanstack/react-query` as a peer dependency. Set `TSQueriesFile: "-"` to skip it. |
 
 The runtime is a file of its own so that an application with more than one
@@ -206,6 +206,48 @@ cache keys mechanically. Two hand-maintained invalidation lists drift; the bug
 that motivated this was `['draft', id]` against `['drafts', id]` in a client
 where mutations and an event stream each kept their own list.
 
+## The change feed
+
+[`rest.Events`](../rest/events.md) sends the *address* of a change — a table, a
+row key, an operation — and never the row. Turning that into a refetch is the
+one part of a subscriber that is derivable from the schema, so it is generated:
+
+```ts
+const stop = subscribeChanges(`${baseUrl}/events`, {
+  onChange: ({ keys }) => {
+    for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey });
+  },
+  onReset: () => void queryClient.invalidateQueries(),
+});
+```
+
+`keys` is already resolved through the index above: a keyed event names the
+row's own detail queries plus the lists and infinite walks it may have moved in
+or out of — not every other row's detail — and a keyless one names the table.
+`table` is narrowed to a `TableName`, so a `switch` over it is checked; an
+event for a table this client does not serve is dropped, which is what a
+module of a larger schema receives.
+
+`onReset` is not optional in spirit. A reset means the stream could not be
+resumed, so nothing on display can be trusted whatever it is showing.
+
+Three escape hatches, in order of how far down you have to go:
+
+- **`changeKeys(event)`** — the derivation without the stream, for events that
+  arrive by some other route: a socket a gateway relays, a service worker, a
+  test.
+- **`open`** — the connection. `EventSource` cannot carry an `Authorization`
+  header, so a deployment that authenticates with a bearer token passes a
+  polyfill that can, and one that authenticates with a cookie passes
+  `(url) => new EventSource(url, { withCredentials: true })`. It is the same
+  seam `Transport` is, for the same reason.
+- **`subscribeEvents`** — the stream with no narrowing and no keys, in
+  `runtime.gen.ts`, for a subscriber that wants the frames as they came.
+
+Reconnection is `EventSource`'s: it resends the last id it saw as
+`Last-Event-ID`, so a brief disconnection is replayed rather than lost. Nothing
+in the client has to remember the position.
+
 ## Names come from table names
 
 A table's types are its own singularised name — `posts` → `Post` — and that
@@ -223,9 +265,12 @@ neither table.
 
 ## What is not generated
 
-Hooks, write policy, optimistic updates, a client object, an npm package. Hooks
-bake in a framework and get copied out and edited; an options object is spread
-and overridden instead:
+Hooks, write policy, optimistic updates, a client object, an npm package — and,
+on the feed above, which cache to invalidate and what a lost connection should
+show. What a *write* invalidates is a policy decision; what a *change event*
+invalidates is a lookup, which is why one of the two is generated and the other
+is a callback. Hooks bake in a framework and get copied out and edited; an
+options object is spread and overridden instead:
 
 ```ts
 { ...postQueries(request).list({ sort: 'title' }), staleTime: 30_000 }

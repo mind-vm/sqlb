@@ -10,8 +10,10 @@ id: 41
 data: {"table":"posts","key":"p1","op":"update"}
 ```
 
-The client refetches through the ordinary `GET` endpoints. That is the whole
-protocol, and the reason for it is in
+The client refetches through the ordinary `GET` endpoints — with a generated
+subscriber that resolves the address into what to refetch, in
+[TypeScript and Dart alike](#subscribing). That is the whole protocol, and the
+reason for it is in
 [ADR-0045](../architecture.md#the-stream-is-a-seam): a payload would have to be built
 per subscriber under that subscriber's context, or the `BeforeQuery` hook that
 scopes every other read of that table would not run on it — and a change feed
@@ -76,9 +78,18 @@ under autocommit the statement is already durable when the hook runs.
 
 The one exception is a publisher that can do better, which is the next section.
 
-The stream is in the OpenAPI document like every other operation, with a schema
-per event type, because it registers through huma rather than as a hand-rolled
-handler on the mux.
+The stream is in the OpenAPI document like every other operation, with a
+`text/event-stream` response and a schema per event type, because it registers
+through huma's `sse` package rather than as a hand-rolled handler on the mux.
+
+What the document cannot say is which *event names* carry which schema, or that
+a subscriber has to handle both — OpenAPI has no vocabulary for it, so a
+generic generator reads the operation as a streaming response of an anonymous
+union and emits nothing useful. That is not what limits sqlb's clients: they
+are generated from the schema rather than from the document, the same as every
+other operation ([ADR-0028](../architecture.md#typescript-client)), so the
+subscriber below is typed on both ends. See
+[Subscribing](#subscribing).
 
 ## The outbox
 
@@ -187,22 +198,65 @@ is older than the retained history, when that header cannot be read, or when it
 is *ahead* of the stream, which is what a client from before a restart looks
 like.
 
-The generated TypeScript client's `keysByTable` map is the other half of this: it
-maps a table name to the query keys that read it, which is what turns
-`{table: "posts", key: "p1"}` into the set of cached queries to invalidate.
+## Subscribing
+
+The subscriber is generated, in both clients. What a change event invalidates is
+a lookup from the schema — which is exactly what a hand-written listener gets
+subtly wrong, and what the [TypeScript](../typescript/README.md) and
+[Dart](../dart/README.md) clients each emit half of.
+
+**TypeScript.** `subscribeChanges` owns the `EventSource`, narrows the table to
+one this client serves, and resolves the event into the cache keys that read it:
 
 ```ts
-const events = new EventSource("/events");
-events.addEventListener("change", (e) => {
-  const { table, key } = JSON.parse(e.data);
-  invalidate(keysByTable[table], key);       // your cache, your call
+const stop = subscribeChanges(`${baseUrl}/events`, {
+  onChange: ({ keys }) => {
+    for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey });
+  },
+  onReset: () => void queryClient.invalidateQueries(),
 });
-events.addEventListener("reset", () => invalidateEverything());
 ```
 
-`EventSource` reconnects on its own and resends `Last-Event-ID`, so a brief
-disconnection replays rather than losing events. Nothing client-side has to
-remember to send it.
+A keyed event resolves to that row's detail queries plus the lists and infinite
+walks it may have moved in or out of; a keyless one resolves to the table. What
+is left to the caller is the one thing a schema cannot say: which cache, and
+what a reset should show while it refills.
+
+`EventSource` cannot carry an `Authorization` header, so a bearer-token
+deployment passes its own opener — `{ open: (url) => new Polyfill(url) }` — the
+same seam `Transport` is. `changeKeys(event)` is the derivation without the
+stream, and `subscribeEvents` is the stream without the narrowing.
+
+**Dart.** There is no `EventSource` to own, so the application opens the
+request and `ChangeFeed` reads the body:
+
+```dart
+final feed = ChangeFeed();
+await for (final event in feed.read(body, parseJson: jsonDecode)) {
+  switch (event) {
+    case ChangeEvent():
+      final change = TableChange.from(event);
+      if (change != null) refetch(change.table, change.key);
+    case ResetEvent():
+      refetchEverything();
+  }
+}
+```
+
+`FeedEvent` is sealed, so that `switch` is exhaustive — forgetting the reset
+case does not compile. `TableChange.from` is the narrowing, and answers null for
+a table this client does not serve. There are no cache keys, because Dart's
+state managers have no keyed cache to hand them to.
+
+Reconnecting differs by language and that is the whole of the difference.
+`EventSource` does it on its own, resending `Last-Event-ID`, so nothing in the
+TypeScript client has to remember the position; in Dart, `feed.lastEventId` is
+that position and the caller sends it on the next request.
+
+Neither client is required. The wire is three fields and two event types, and a
+hand-written subscriber against `EventSource` and `JSON.parse` is a dozen lines
+— which is what the generated one replaces, along with the `keysByTable[table]`
+lookup that has to be spelled right every time.
 
 ## Failure is a reconnection, on purpose
 

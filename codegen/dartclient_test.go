@@ -461,3 +461,58 @@ func TestDartNonUniqueInverseStillUsesCollectionGetter(t *testing.T) {
 		t.Errorf("non-unique inverse should still use _many(...), got:\n%s", src)
 	}
 }
+
+// The client's half of the change feed: an event names its table as a string,
+// because the runtime beside it is shared by every client and knows no tables,
+// and this is the narrowing that turns one into a value the compiler checks.
+func TestDartChangeFeedNarrowsTheTableToAMember(t *testing.T) {
+	src := generateDart(t, tsFixture())
+
+	for _, want := range []string{
+		"class TableChange {",
+		"final TableName table;",
+		"final ChangeOp? op;",
+		"bool get isCollection => key.isEmpty;",
+		"static TableChange? from(ChangeEvent event) {",
+		"final table = TableName.byWire(event.table);",
+	} {
+		if !contains(src, want) {
+			t.Errorf("the subscriber is missing %q:\n%s", want, src)
+		}
+	}
+}
+
+// The stream itself is in the shared library, and for Dart that is not a
+// preference: FeedEvent is sealed, so a client declaring its own ChangeEvent
+// would not extend the runtime's FeedEvent at all. Two modules therefore agree
+// about what an event is, the way they already agree about Page.
+func TestDartStreamIsSharedRatherThanPerClient(t *testing.T) {
+	files := generateAll(t, tsFixture())
+	client, runtime := files["client.gen.dart"], files["runtime.gen.dart"]
+
+	for _, want := range []string{
+		"sealed class FeedEvent {",
+		"final class ChangeEvent extends FeedEvent {",
+		"final class ResetEvent extends FeedEvent {",
+		"enum ChangeOp implements WireValue {",
+		"Stream<SseFrame> sseFrames(Stream<String> chunks) async* {",
+		"class ChangeFeed {",
+	} {
+		if !contains(runtime, want) {
+			t.Errorf("the shared runtime is missing %q:\n%s", want, runtime)
+		}
+		if contains(client, want) {
+			t.Errorf("the client declares %q itself, so two modules would have two:\n%s", want, client)
+		}
+	}
+
+	// The stream is where a schema is easiest to leak into the shared half: an
+	// event names a table, and a table is what this file must not know about.
+	if contains(runtime, "posts") {
+		t.Errorf("the shared runtime names a table, so two schemas would not render the same bytes:\n%s", runtime)
+	}
+	// And the narrowing is the client's, for the same reason.
+	if contains(runtime, "TableChange") {
+		t.Errorf("the shared runtime declares the narrowing, which is per schema:\n%s", runtime)
+	}
+}

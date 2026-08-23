@@ -59,7 +59,7 @@ func renderTSClient(opts Options) ([]byte, error) {
 		tsResourceSection(&body, r)
 	}
 
-	tsKeyIndex(&body, resources)
+	tsChangeFeed(&body, resources)
 
 	if name := tsUnexportedUse(body.String()); name != "" {
 		return nil, fmt.Errorf(
@@ -794,17 +794,30 @@ func tsKeys(b *bytes.Buffer, r tsResource) {
 	}
 	fmt.Fprintf(b, "  lists: () => [%s, 'list'] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintf(b, "  list: (params: unknown = {}) => [%s, 'list', params] as const,\n", tsString(r.table.Name()))
+	// The prefix factories come in pairs — lists/list, details/detail — and
+	// `infinite` was the one that had no prefix sibling. The subscriber below
+	// needs it: invalidating a table's infinite walks without it means reaching
+	// for `all`, which also throws away every other row's detail query.
+	fmt.Fprintf(b, "  infinites: () => [%s, 'infinite'] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintf(b, "  infinite: (params: unknown = {}) => [%s, 'infinite', params] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintf(b, "  details: () => [%s, 'detail'] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintf(b, "  detail: (id: string | number, params: unknown = {}) => [%s, 'detail', String(id), params] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintln(b, "};")
 }
 
-// tsKeyIndex maps a table name onto its key factory, which is what makes a
-// change-feed event mechanical: the event carries a table and a row key
-// (ADR-0012), and this is the derivation that turns those into the keys to
-// invalidate.
-func tsKeyIndex(b *bytes.Buffer, resources []tsResource) {
+// tsChangeFeed emits the subscriber: the table index, the derivation from one
+// change to the keys it invalidates, and the EventSource wiring that turns the
+// two into a refetch.
+//
+// This is the half of the change feed that lives in the client. The feed sends
+// the address of a change and never the row ([ADR-0045]), so a subscriber's
+// whole job is to map {table, key} onto the cached queries that read it — and
+// that map is derivable from the schema, where the invalidation a *mutation*
+// performs is not. So this is generated and `onSuccess` is not, which is the
+// same line the queries file draws.
+//
+// [ADR-0045]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-stream-is-a-seam
+func tsChangeFeed(b *bytes.Buffer, resources []tsResource) {
 	if len(resources) == 0 {
 		return
 	}
@@ -816,7 +829,81 @@ func tsKeyIndex(b *bytes.Buffer, resources []tsResource) {
 		fmt.Fprintf(b, "  %s: %sKeys,\n", tsProp(r.table.Name()), r.ident)
 	}
 	fmt.Fprint(b, "} as const;\n")
-	fmt.Fprint(b, "\nexport type TableName = keyof typeof keysByTable;\n")
+	fmt.Fprint(b, "\n/** A table this client serves. */\n")
+	fmt.Fprint(b, "export type TableName = keyof typeof keysByTable;\n")
+
+	// One entry per table rather than one rule applied to all of them, because
+	// the rule is not the same for all of them: a singleton has no collection
+	// and no row to address, so the only key it has is its own.
+	fmt.Fprint(b, "\n/**\n * The keys one change invalidates, per table.\n *\n")
+	fmt.Fprint(b, " * A keyed event names one row, so it invalidates that row's detail queries\n")
+	fmt.Fprint(b, " * plus the lists and infinite walks it may have moved in or out of — not\n")
+	fmt.Fprint(b, " * every other row's detail. A keyless one invalidates the table, which is\n")
+	fmt.Fprint(b, " * what an event nobody could attribute to a single row asks for.\n */\n")
+	fmt.Fprint(b, "const changeKeysByTable: Record<TableName, (key: string) => readonly (readonly unknown[])[]> = {\n")
+	for _, r := range resources {
+		if r.singleton() {
+			fmt.Fprintf(b, "  %s: () => [%sKeys.all()],\n", tsProp(r.table.Name()), r.ident)
+			continue
+		}
+		fmt.Fprintf(b, "  %s: (key) =>\n", tsProp(r.table.Name()))
+		fmt.Fprintf(b, "    key === ''\n")
+		fmt.Fprintf(b, "      ? [%sKeys.all()]\n", r.ident)
+		fmt.Fprintf(b, "      : [%sKeys.lists(), %sKeys.infinites(), %sKeys.detail(key)],\n", r.ident, r.ident, r.ident)
+	}
+	fmt.Fprint(b, "};\n")
+
+	fmt.Fprint(b, "\n/** One change to a table this client serves. */\n")
+	fmt.Fprint(b, "export interface TableChange {\n")
+	fmt.Fprint(b, "  /** The table that changed, narrowed to the ones this client serves. */\n")
+	fmt.Fprint(b, "  table: TableName;\n")
+	fmt.Fprint(b, "  /** The row's primary key, or empty when the whole table is invalidated. */\n")
+	fmt.Fprint(b, "  key: string;\n")
+	fmt.Fprint(b, "  op: ChangeOp;\n")
+	fmt.Fprint(b, "  /** The cache keys that read what changed. Hand each to invalidateQueries. */\n")
+	fmt.Fprint(b, "  keys: readonly (readonly unknown[])[];\n")
+	fmt.Fprint(b, "}\n")
+
+	fmt.Fprint(b, "\n/** Whether a table name off the wire is one this client serves. */\n")
+	fmt.Fprint(b, "export function isTableName(table: string): table is TableName {\n")
+	fmt.Fprint(b, "  return Object.hasOwn(changeKeysByTable, table);\n")
+	fmt.Fprint(b, "}\n")
+
+	fmt.Fprint(b, "\n/**\n * The cache keys one change invalidates — empty for a table this client does\n")
+	fmt.Fprint(b, " * not serve.\n *\n")
+	fmt.Fprint(b, " * Exported for a subscriber whose events arrive by some other route than the\n")
+	fmt.Fprint(b, " * endpoint: a socket a gateway relays, a service worker, a test.\n */\n")
+	fmt.Fprint(b, "export function changeKeys(event: ChangeEvent): readonly (readonly unknown[])[] {\n")
+	fmt.Fprint(b, "  return isTableName(event.table) ? changeKeysByTable[event.table](event.key) : [];\n")
+	fmt.Fprint(b, "}\n")
+
+	fmt.Fprint(b, "\n/**\n * Subscribes to the change feed, resolving each event to the keys it\n")
+	fmt.Fprint(b, " * invalidates. Returns the function that closes the stream.\n *\n")
+	fmt.Fprint(b, " *     const stop = subscribeChanges('/events', {\n")
+	fmt.Fprint(b, " *       onChange: ({ keys }) => keys.forEach((queryKey) => qc.invalidateQueries({ queryKey })),\n")
+	fmt.Fprint(b, " *       onReset: () => qc.invalidateQueries(),\n")
+	fmt.Fprint(b, " *     });\n *\n")
+	fmt.Fprint(b, " * An event naming a table this client does not serve is dropped: a client\n")
+	fmt.Fprint(b, " * generated from one module of a schema receives the other modules' events\n")
+	fmt.Fprint(b, " * too, and nothing here displays them. A reset is not dropped — it means the\n")
+	fmt.Fprint(b, " * stream could not be resumed, so what is on display is stale whatever it is\n")
+	fmt.Fprint(b, " * showing.\n */\n")
+	fmt.Fprint(b, "export function subscribeChanges(\n")
+	fmt.Fprint(b, "  url: string,\n")
+	fmt.Fprint(b, "  options: ChangeStreamOptions<TableChange> = {},\n")
+	fmt.Fprint(b, "): () => void {\n")
+	fmt.Fprint(b, "  const onChange = options.onChange;\n")
+	fmt.Fprint(b, "  return subscribeEvents(url, {\n")
+	fmt.Fprint(b, "    ...options,\n")
+	fmt.Fprint(b, "    onChange:\n")
+	fmt.Fprint(b, "      onChange === undefined\n")
+	fmt.Fprint(b, "        ? undefined\n")
+	fmt.Fprint(b, "        : (event) => {\n")
+	fmt.Fprint(b, "            if (!isTableName(event.table)) return;\n")
+	fmt.Fprint(b, "            onChange({ ...event, table: event.table, keys: changeKeys(event) });\n")
+	fmt.Fprint(b, "          },\n")
+	fmt.Fprint(b, "  });\n")
+	fmt.Fprint(b, "}\n")
 }
 
 // tsQueriesSection emits the TanStack factories for one resource.
@@ -1506,6 +1593,129 @@ export function encodeItemQuery(query: { expand?: readonly string[] } = {}): str
  * the Go client exports as ItemPath. */
 export function itemPath(collection: string, id: string | number): string {
   return collection + '/' + encodeURIComponent(String(id));
+}
+
+// ---------------------------------------------------------- the change feed
+
+/** What happened to one row. */
+export type ChangeOp = 'create' | 'update' | 'delete';
+
+/** One invalidation: the address of a change, never the row.
+ *
+ * The feed carries no row data on purpose. A payload would have to be built
+ * per subscriber under that subscriber's own scope, or the query hook that
+ * confines every other read of the table would not run on it — so what arrives
+ * is where to look, and the refetch goes through the ordinary GET endpoints. */
+export interface ChangeEvent {
+  /** The SQL table the change happened in, which is what keysByTable is keyed
+   * by. */
+  table: string;
+  /** The row's primary key, spelled the way the URL spells it — or empty,
+   * which means the whole table is invalidated rather than one row. */
+  key: string;
+  op: ChangeOp;
+}
+
+/** The stream could not be resumed, so nothing on display can be trusted:
+ * refetch everything.
+ *
+ * It arrives when a reconnection's position predates the retained history,
+ * when that position cannot be read, and when it is ahead of the stream —
+ * which is what a client from before a server restart looks like. */
+export interface ResetEvent {
+  reason: string;
+}
+
+/** The part of EventSource this client uses.
+ *
+ * An interface rather than the DOM type, so the runtime still typechecks in a
+ * project without the DOM lib and a test or a polyfill can stand in for the
+ * real one. */
+export interface EventStream {
+  addEventListener(type: string, listener: (event: { data: string }) => void): void;
+  close(): void;
+}
+
+/** Opens the stream.
+ *
+ * Injected for the reason Transport is, and one more: EventSource cannot carry
+ * an Authorization header, so a deployment that authenticates with a bearer
+ * token needs a polyfill that can, and this is where it goes. A cookie session
+ * needs a factory that sets withCredentials, which is the same one line. */
+export type OpenStream = (url: string) => EventStream;
+
+/** What a subscriber does with what arrives.
+ *
+ * Change is the event type the caller sees: the generated client narrows it to
+ * the tables that client serves, and subscribeEvents leaves it as it came off
+ * the wire. */
+export interface ChangeStreamOptions<Change = ChangeEvent> {
+  /** A row changed. Invalidate what displays it; the refetch is a GET. */
+  onChange?: (event: Change) => void;
+  /** The stream could not be resumed. Refetch everything on display. */
+  onReset?: (event: ResetEvent) => void;
+  /** A frame that did not parse, and whatever the stream itself reports.
+   *
+   * For EventSource the second kind includes an ordinary reconnection, which
+   * is not a failure: it fires an error on every disconnect and reconnects
+   * on its own. Treat it as "connection lost", not as "give up". */
+  onError?: (error: unknown) => void;
+  /** How to open the stream. Defaults to the platform's own EventSource. */
+  open?: OpenStream;
+}
+
+/**
+ * Subscribes to a sqlb change feed, and returns the function that closes it.
+ *
+ *     const stop = subscribeEvents('/events', {
+ *       onChange: (e) => console.log(e.table, e.key, e.op),
+ *       onReset: () => refetchEverything(),
+ *     });
+ *
+ * Reconnection is EventSource's, not this function's: it resends the last id
+ * it saw as Last-Event-ID, so a brief disconnection is replayed rather than
+ * lost, and a long one answers with a reset event. Nothing here has to
+ * remember the position.
+ */
+export function subscribeEvents(url: string, options: ChangeStreamOptions = {}): () => void {
+  const stream = (options.open ?? openEventSource)(url);
+
+  // One reader for both event types: the only difference is the shape the
+  // payload is read as, and a second copy of the try/catch is a second place
+  // for a parse failure to go unreported.
+  const read = <T>(handler: ((event: T) => void) | undefined) => (frame: { data: string }) => {
+    if (handler === undefined) return;
+    let event: T;
+    try {
+      event = JSON.parse(frame.data) as T;
+    } catch (error) {
+      options.onError?.(error);
+      return;
+    }
+    handler(event);
+  };
+
+  stream.addEventListener('change', read<ChangeEvent>(options.onChange));
+  stream.addEventListener('reset', read<ResetEvent>(options.onReset));
+  stream.addEventListener('error', (frame) => options.onError?.(frame));
+
+  return () => stream.close();
+}
+
+/** The default OpenStream: whatever EventSource the platform has.
+ *
+ * Reached through globalThis rather than named directly, because naming it
+ * would make the DOM lib a requirement of this file. A runtime that has none
+ * is told what to pass instead rather than failing as an undefined call. */
+function openEventSource(url: string): EventStream {
+  const ctor = (globalThis as { EventSource?: new (url: string) => EventStream }).EventSource;
+  if (ctor === undefined) {
+    throw new Error(
+      'sqlb: this runtime has no EventSource. Pass one in: ' +
+        'subscribeEvents(url, { open: (u) => new Polyfill(u), ... })',
+    );
+  }
+  return new ctor(url);
 }
 `
 

@@ -570,3 +570,84 @@ func TestTSCollectionDocCommentIsOneBlock(t *testing.T) {
 		t.Errorf("collection relation's doc comment should not split into two adjacent blocks:\n%s", client)
 	}
 }
+
+// The subscriber is the other half of the key factory: a change carries a
+// table and a row key ([ADR-0012]), and this is the code that turns that pair
+// into the queries to refetch rather than leaving every consumer to write the
+// mapping by hand.
+func TestTSSubscriberResolvesAChangeToItsKeys(t *testing.T) {
+	src := generateTS(t, tsFixture())["client.gen.ts"]
+
+	for _, want := range []string{
+		"export interface TableChange {",
+		"export function isTableName(table: string): table is TableName {",
+		"export function changeKeys(event: ChangeEvent): readonly (readonly unknown[])[] {",
+		"export function subscribeChanges(",
+		// The precision the derivation exists for: one row's detail, not the
+		// table's. Invalidating `all` would throw away every other row on the
+		// screen for a change to one of them.
+		"      : [postKeys.lists(), postKeys.infinites(), postKeys.detail(key)],",
+		// A keyless event is the shape a publisher that could not attribute a
+		// delete to one row produces, and it means "the table changed".
+		"      ? [postKeys.all()]",
+		// The prefix factory the derivation needs, which is also the sibling
+		// `infinite` had been missing.
+		"infinites: () => ['posts', 'infinite'] as const,",
+	} {
+		if !contains(src, want) {
+			t.Errorf("the subscriber is missing %q:\n%s", want, src)
+		}
+	}
+}
+
+// A singleton has no collection and no row to address, so the same derivation
+// would name three factories it does not have. It gets its own key instead —
+// the one thing it has.
+func TestTSSubscriberHasNoListKeysForASingleton(t *testing.T) {
+	src := generateTS(t, singletonFixture())["client.gen.ts"]
+
+	if want := "  billing_subscriptions: () => [billingSubscriptionKeys.all()],"; !contains(src, want) {
+		t.Errorf("the singleton's invalidation is missing %q:\n%s", want, src)
+	}
+	for _, forbidden := range []string{"billingSubscriptionKeys.lists()", "billingSubscriptionKeys.detail("} {
+		if contains(src, forbidden) {
+			t.Errorf("the singleton's invalidation names %q, which its key factory does not offer:\n%s", forbidden, src)
+		}
+	}
+}
+
+// The split the runtime file exists for, applied to the stream: the wire
+// format and the EventSource wiring depend on no schema, so two modules share
+// one copy and one ChangeEvent rather than each declaring its own.
+func TestTSStreamWiringIsInTheRuntime(t *testing.T) {
+	files := generateTS(t, tsFixture())
+	runtime, client := files["runtime.gen.ts"], files["client.gen.ts"]
+
+	for _, want := range []string{
+		"export interface ChangeEvent {",
+		"export interface ResetEvent {",
+		"export type ChangeOp = 'create' | 'update' | 'delete';",
+		"export function subscribeEvents(",
+		"export interface EventStream {",
+	} {
+		if !contains(runtime, want) {
+			t.Errorf("the runtime is missing %q:\n%s", want, runtime)
+		}
+	}
+
+	// The runtime is derived from nothing schema-specific, and the stream is
+	// where that is easiest to break: an event names a table, and a table is
+	// exactly what this file must not know about.
+	if contains(runtime, "posts") {
+		t.Errorf("the runtime names a table, so two schemas would not render the same bytes:\n%s", runtime)
+	}
+
+	// And the client reaches it by import rather than by declaring a second
+	// copy, which the import list computes from what the body actually uses.
+	if !contains(client, "subscribeEvents") {
+		t.Errorf("the client does not use the runtime's subscriber:\n%s", client)
+	}
+	if contains(client, "export function subscribeEvents(") {
+		t.Errorf("the client declares its own subscriber rather than importing one:\n%s", client)
+	}
+}

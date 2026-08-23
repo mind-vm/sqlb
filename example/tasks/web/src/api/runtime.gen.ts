@@ -298,3 +298,126 @@ export function encodeItemQuery(query: { expand?: readonly string[] } = {}): str
 export function itemPath(collection: string, id: string | number): string {
   return collection + '/' + encodeURIComponent(String(id));
 }
+
+// ---------------------------------------------------------- the change feed
+
+/** What happened to one row. */
+export type ChangeOp = 'create' | 'update' | 'delete';
+
+/** One invalidation: the address of a change, never the row.
+ *
+ * The feed carries no row data on purpose. A payload would have to be built
+ * per subscriber under that subscriber's own scope, or the query hook that
+ * confines every other read of the table would not run on it — so what arrives
+ * is where to look, and the refetch goes through the ordinary GET endpoints. */
+export interface ChangeEvent {
+  /** The SQL table the change happened in, which is what keysByTable is keyed
+   * by. */
+  table: string;
+  /** The row's primary key, spelled the way the URL spells it — or empty,
+   * which means the whole table is invalidated rather than one row. */
+  key: string;
+  op: ChangeOp;
+}
+
+/** The stream could not be resumed, so nothing on display can be trusted:
+ * refetch everything.
+ *
+ * It arrives when a reconnection's position predates the retained history,
+ * when that position cannot be read, and when it is ahead of the stream —
+ * which is what a client from before a server restart looks like. */
+export interface ResetEvent {
+  reason: string;
+}
+
+/** The part of EventSource this client uses.
+ *
+ * An interface rather than the DOM type, so the runtime still typechecks in a
+ * project without the DOM lib and a test or a polyfill can stand in for the
+ * real one. */
+export interface EventStream {
+  addEventListener(type: string, listener: (event: { data: string }) => void): void;
+  close(): void;
+}
+
+/** Opens the stream.
+ *
+ * Injected for the reason Transport is, and one more: EventSource cannot carry
+ * an Authorization header, so a deployment that authenticates with a bearer
+ * token needs a polyfill that can, and this is where it goes. A cookie session
+ * needs a factory that sets withCredentials, which is the same one line. */
+export type OpenStream = (url: string) => EventStream;
+
+/** What a subscriber does with what arrives.
+ *
+ * Change is the event type the caller sees: the generated client narrows it to
+ * the tables that client serves, and subscribeEvents leaves it as it came off
+ * the wire. */
+export interface ChangeStreamOptions<Change = ChangeEvent> {
+  /** A row changed. Invalidate what displays it; the refetch is a GET. */
+  onChange?: (event: Change) => void;
+  /** The stream could not be resumed. Refetch everything on display. */
+  onReset?: (event: ResetEvent) => void;
+  /** A frame that did not parse, and whatever the stream itself reports.
+   *
+   * For EventSource the second kind includes an ordinary reconnection, which
+   * is not a failure: it fires an error on every disconnect and reconnects
+   * on its own. Treat it as "connection lost", not as "give up". */
+  onError?: (error: unknown) => void;
+  /** How to open the stream. Defaults to the platform's own EventSource. */
+  open?: OpenStream;
+}
+
+/**
+ * Subscribes to a sqlb change feed, and returns the function that closes it.
+ *
+ *     const stop = subscribeEvents('/events', {
+ *       onChange: (e) => console.log(e.table, e.key, e.op),
+ *       onReset: () => refetchEverything(),
+ *     });
+ *
+ * Reconnection is EventSource's, not this function's: it resends the last id
+ * it saw as Last-Event-ID, so a brief disconnection is replayed rather than
+ * lost, and a long one answers with a reset event. Nothing here has to
+ * remember the position.
+ */
+export function subscribeEvents(url: string, options: ChangeStreamOptions = {}): () => void {
+  const stream = (options.open ?? openEventSource)(url);
+
+  // One reader for both event types: the only difference is the shape the
+  // payload is read as, and a second copy of the try/catch is a second place
+  // for a parse failure to go unreported.
+  const read = <T>(handler: ((event: T) => void) | undefined) => (frame: { data: string }) => {
+    if (handler === undefined) return;
+    let event: T;
+    try {
+      event = JSON.parse(frame.data) as T;
+    } catch (error) {
+      options.onError?.(error);
+      return;
+    }
+    handler(event);
+  };
+
+  stream.addEventListener('change', read<ChangeEvent>(options.onChange));
+  stream.addEventListener('reset', read<ResetEvent>(options.onReset));
+  stream.addEventListener('error', (frame) => options.onError?.(frame));
+
+  return () => stream.close();
+}
+
+/** The default OpenStream: whatever EventSource the platform has.
+ *
+ * Reached through globalThis rather than named directly, because naming it
+ * would make the DOM lib a requirement of this file. A runtime that has none
+ * is told what to pass instead rather than failing as an undefined call. */
+function openEventSource(url: string): EventStream {
+  const ctor = (globalThis as { EventSource?: new (url: string) => EventStream }).EventSource;
+  if (ctor === undefined) {
+    throw new Error(
+      'sqlb: this runtime has no EventSource. Pass one in: ' +
+        'subscribeEvents(url, { open: (u) => new Polyfill(u), ... })',
+    );
+  }
+  return new ctor(url);
+}

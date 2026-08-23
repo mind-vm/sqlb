@@ -2812,9 +2812,13 @@ all while running on the in-process broker. Cost of change is sharply
 split: swapping the source is one constructor call, cheap by construction
 and the entire point of the seam, while the wire is deliberately the
 smallest thing that works — three fields, two event types — because
-changing its shape means a new version of the endpoint, not an edit, and
-hand-written frontend code that no generator will ever update is written
-against it too. Revisit if a third source can't make its positions dense
+changing its shape means a new version of the endpoint, not an edit. That
+last argument rested partly on hand-written frontend code no generator
+would ever update; the clients now emit the subscriber
+([The subscriber is generated, the policy is not](#the-subscriber-is-generated-the-policy-is-not)),
+which moves who writes the decode without moving the conclusion — a client
+is emitted into the repository that consumes it, so a wire change reaches
+a deployed one only when somebody regenerates. Revisit if a third source can't make its positions dense
 — a per-partition Kafka offset or NATS sequence number would have to
 either fake a position or reset on every reconnect, which the outbox's
 own dense, commit-ordered ids sidestepped but a partitioned source can't;
@@ -3826,3 +3830,77 @@ recording that it is now load-bearing twice.
 Revisit if a consumer reports churn that survives this — the next suspect would
 be the TypeScript and Dart output, whose language servers were not measured
 here, and the answer would be the same treatment rather than a different one.
+
+### The subscriber is generated, the policy is not
+
+[The stream is a seam](#the-stream-is-a-seam) settled the endpoint, the wire
+format and the reconnection contract, and left the last mile to whoever
+consumed it: a client got `keysByTable` — a table name mapped onto the query
+keys that read it — and wrote the `EventSource` listener itself. The
+[vision](vision.md) recorded the consequence in advance and it was right: a
+feed that delivers a table and a row key is only mechanical if something
+derives the cache key from that pair, and otherwise every consumer hand-writes
+an invalidation list that drifts from the one its own mutations use.
+
+The example was the evidence. `example/tasks/web/src/board.ts` carried the
+listener this argument predicts — a `keysByTable[event.table as keyof typeof
+keysByTable]` lookup with a cast to make the index compile, an `undefined`
+check, `lists()` and `detail()` by hand, and no case at all for an event whose
+key is empty, which is what an unattributable delete looks like. It was written
+by the people who wrote the generator, in the repository that documents the
+rule, and it was still one of the two lists this design exists to collapse.
+
+So the decode is generated, in both clients, and the line it stops at is the
+one [the TypeScript client](#typescript-client) already draws for mutations. A
+`mutationFn` gets no `onSuccess`, because what a write invalidates is a policy
+question — whether a new row belongs in a list filtered the way this screen
+filters it is not answerable from a schema. A change event is not that: it is
+an *address*, and turning an address into the queries that read it is a lookup
+the schema fully determines. One file, two answers, one reason.
+
+What each client emits follows from what its ecosystem has. TypeScript gets
+`subscribeChanges`, which owns the stream, narrows `table` to a `TableName`,
+and hands the caller the keys — a keyed event resolving to that row's detail
+queries plus the lists and infinite walks it may have moved in or out of,
+rather than to the table, so a change to one row does not refetch every other
+row on screen. That precision needed one addition to the key factory, an
+`infinites()` prefix beside the `lists()` and `details()` that already existed;
+without it the only way to reach a table's infinite walks is `all()`, which
+takes every detail query with it. Dart gets `TableChange.from`, the same
+narrowing with no keys, because Riverpod and BLoC have no keyed cache to hand
+them to — the asymmetry [the Dart client](#dart-client) already records, applied
+to one more thing.
+
+Two mechanical consequences are worth recording because neither is obvious from
+the outside. Dart's `FeedEvent` is sealed so that a `switch` over it is
+exhaustive — a subscriber that handles a change and forgets a reset does not
+compile, and the reset is the case that matters — and a sealed hierarchy must
+be one library, so the whole stream had to go in the shared runtime rather than
+in each client. And the *connection* is generated in neither: `EventSource`
+cannot carry an `Authorization` header, so a bearer-token deployment passes its
+own opener, while Dart has no `EventSource` at all and the application opens the
+request and passes `jsonDecode` in. That is the `Transport` seam again, and
+keeping it is what lets both runtimes go on importing nothing.
+
+Three alternatives were rejected. **Generating the invalidation itself** — a
+subscriber wired straight into the cache — would put a write policy in the one
+place that has no way to ask about the screen. **Generating a subscriber for
+the Go CLI** was declined for the reason Dart gets no keys: a command has no
+cache and no view, and a `sqlb watch` command that prints events is a different
+feature with a different argument. **Emitting cache keys for Dart** stays
+rejected on the same ground it always was.
+
+The cost is that the wire format is now written down in four places — the
+publisher, the endpoint, and a decoder in each client — against a shape
+[ADR-0045](#the-stream-is-a-seam) deliberately froze. That is why the Go, the
+TypeScript and the Dart tests all assert the same frames: `rest/events_test.go`
+from the server end, `web/src/api/events.test.ts` and `mobile/test/events_test.dart`
+from the client end, so a drift in one of the four is a failure rather than a
+field nobody reads.
+
+Revisit if an application reports that the derived key set is wrong for its
+query layout, which would argue for making the derivation declarable per
+resource rather than fixed; or if the stream acquires an authorization
+obligation the way tenant scoping has one, since the opener seam is where a
+token would have to be threaded and it is currently a callback rather than
+something a mount can check.

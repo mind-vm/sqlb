@@ -3216,3 +3216,37 @@ enum TableName implements WireValue {
     return null;
   }
 }
+
+/// One change to a table this client serves.
+///
+/// [ChangeFeed] yields events whose table is a string, because the runtime is
+/// shared by every generated client and knows no tables. This is the narrowing
+/// that turns one into a value a switch can be exhaustive over.
+class TableChange {
+  /// Wraps a change to [table]. [TableChange.from] is what reads one off the
+  /// feed.
+  const TableChange(this.table, this.key, this.op);
+
+  /// The table that changed.
+  final TableName table;
+
+  /// The row's primary key, or empty when the whole table is invalidated.
+  final String key;
+
+  /// What happened, or null for an operation this client has no member for.
+  final ChangeOp? op;
+
+  /// Whether the change addresses the collection rather than one row, which is
+  /// what an empty [key] means.
+  bool get isCollection => key.isEmpty;
+
+  /// Narrows [event] to the tables this client serves, or null for one it does
+  /// not.
+  ///
+  /// A client generated from one module of a schema receives the other modules'
+  /// events too, and nothing in it displays them.
+  static TableChange? from(ChangeEvent event) {
+    final table = TableName.byWire(event.table);
+    return table == null ? null : TableChange(table, event.key, event.op);
+  }
+}
