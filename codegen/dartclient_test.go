@@ -261,6 +261,45 @@ func TestDartEmitsACursorPagerForEveryListableResource(t *testing.T) {
 	}
 }
 
+// #302: withCursor fused "=> TypeName(" onto the signature line
+// unconditionally, so a long enough table name pushed the line past dartWidth
+// and dart format rewrote it — breaking after "=>" instead, one indent level
+// deeper, the same way dartLine already handles every other member in this
+// file. withCursor now makes that same call.
+func TestDartWithCursorWrapsALongSignature(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("pairing_sessions",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Text("name").Sortable(),
+	).Expose(schema.REST{Ops: schema.OpList})
+
+	src := generateDart(t, r)
+	withCursor := section(t, src,
+		"PairingSessionListParams withCursor(String? cursor)", ");")
+
+	if !contains(withCursor, "PairingSessionListParams withCursor(String? cursor) =>\n") {
+		t.Errorf("signature should break after '=>' once it would exceed %d columns:\n%s", 80, withCursor)
+	}
+	if !contains(withCursor, "\n      PairingSessionListParams(\n") {
+		t.Errorf("the constructor call should start on its own line, indented one level deeper:\n%s", withCursor)
+	}
+	for line := range strings.SplitSeq(withCursor, "\n") {
+		if len(line) > 80 {
+			t.Errorf("line exceeds dart format's 80-column width, so dart format would rewrite it:\n%q", line)
+		}
+	}
+}
+
+// A short table name still fits the fused form on one line, which is what
+// dart format itself would keep — the split above is only for what would not
+// fit.
+func TestDartWithCursorKeepsAShortSignatureFused(t *testing.T) {
+	src := generateDart(t, tsFixture())
+	if !contains(src, "PostListParams withCursor(String? cursor) => PostListParams(\n") {
+		t.Errorf("a short signature should stay fused on one line:\n%s", src)
+	}
+}
+
 // A resource that exposes no list has nothing to walk, and a pager over it
 // would be vocabulary with no endpoint behind it.
 func TestDartEmitsNoPagerWithoutAList(t *testing.T) {

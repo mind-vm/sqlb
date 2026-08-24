@@ -1068,17 +1068,25 @@ func dartParams(b *bytes.Buffer, r dartResource) {
 		dartDoc(b, "  ", "The same parameters, resuming after [cursor].")
 		dartDoc(b, "  ", "")
 		dartDoc(b, "  ", "[page] is dropped: a page number and a cursor are two answers to where a\npage starts, and the server accepts only one of them.")
-		fmt.Fprintf(b, "  %sListParams withCursor(String? cursor) => %sListParams(\n", r.base, r.base)
+		sig := fmt.Sprintf("%sListParams withCursor(String? cursor) => %sListParams(", r.base, r.base)
+		paramIndent, closeIndent := "    ", "  "
+		if 2+len(sig) <= dartWidth {
+			fmt.Fprintf(b, "  %s\n", sig)
+		} else {
+			fmt.Fprintf(b, "  %sListParams withCursor(String? cursor) =>\n", r.base)
+			fmt.Fprintf(b, "      %sListParams(\n", r.base)
+			paramIndent, closeIndent = "        ", "      "
+		}
 		for _, f := range fields {
 			switch f.name {
 			case "cursor":
-				fmt.Fprintln(b, "    cursor: cursor,")
+				fmt.Fprintf(b, "%scursor: cursor,\n", paramIndent)
 			case "page":
 			default:
-				fmt.Fprintf(b, "    %s: %s,\n", f.name, f.name)
+				fmt.Fprintf(b, "%s%s: %s,\n", paramIndent, f.name, f.name)
 			}
 		}
-		fmt.Fprintln(b, "  );")
+		fmt.Fprintf(b, "%s);\n", closeIndent)
 
 		fmt.Fprintln(b)
 		dartDoc(b, "  ", "Encodes these parameters into the server's query grammar.")
