@@ -3468,9 +3468,17 @@ is deliberately a caller-supplied function rather than a migration runner
 `rest` owns — owning one (goose, atlas, anything) would be exactly the
 opinion that stays out of a published import, and a project that migrates
 as a separate deploy step passes `nil` and pays nothing for the feature.
-`mount` is the entire seam: which resources get registered, whether they
-need a `huma.Group`, what that group's middleware does is not inferable
-from a schema value alone, and `Serve` doesn't try to infer it.
+`mount` is the seam for which resources get registered and whether one
+needs a `huma.Group`, none of which is inferable from a schema value
+alone, and `Serve` doesn't try to infer it. Middleware for the whole
+server was not drawn as its own seam at first, which meant wrapping it
+meant assigning `srv.Handler` from inside `mount` and trusting that
+`Serve` read the field back afterward — correct, but load-bearing on an
+ordering nothing stated (issue #301). `ServeConfig.Middleware` closes that
+gap: `Serve` applies it to whatever `mount` left on `srv.Handler` once
+`mount` returns, so establishing a principal — upstream of every
+guarantee a `Scoped` hook's guard makes — has a supported place to run
+that does not depend on statement order.
 `sqlb init` applies the identical boundary to project scaffolding — it
 writes a working `go.mod`, schema, and `main.go` built on `rest.Serve`,
 but deliberately does not run `go mod tidy`, `go generate`, or

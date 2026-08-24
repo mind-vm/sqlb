@@ -113,10 +113,25 @@ err := rest.Serve(ctx, rest.ServeConfig{
 })
 ```
 
-`mount` — the function's last argument — is the whole seam: which resources,
-whether they need a `huma.Group`, what that group's middleware does. None of
-it is inferable from a schema value alone, and `Serve` does not try to guess
-it; everything before `mount` runs the same way in every application.
+`mount` — the function's last argument — is the seam for which resources
+mount, whether one needs a `huma.Group`, and what that group's middleware
+does. None of it is inferable from a schema value alone, and `Serve` does not
+try to guess it; everything before `mount` runs the same way in every
+application.
+
+Middleware for the whole server — establishing a principal, request logging,
+panic recovery — is `ServeConfig.Middleware`, applied once `mount` returns
+rather than by assigning `srv.Handler` from inside `mount` and relying on
+`Serve` reading it back afterward:
+
+```go
+err := rest.Serve(ctx, rest.ServeConfig{
+    DSN:        os.Getenv("DATABASE_URL"),
+    Middleware: authn.Middleware,
+}, func(srv *rest.Server, db *sqlb.DB) error {
+    return blog.Register(srv.API, db)
+})
+```
 
 `mount` receives a `*sqlb.DB`, not an `sqlb.Executor`. `Serve` opens the pool
 and wraps it a frame up, so it knows the concrete type — and the first thing a
@@ -140,6 +155,7 @@ an `Executor` is wanted.
 | `DSN` | — | required |
 | `Addr` | `:8080` | |
 | `Server` | zero `Config` | passed through to `NewServer` |
+| `Middleware` | `nil` | `func(http.Handler) http.Handler`, applied to the handler `mount` left once `mount` returns |
 | `Migrate` | `nil` | `func(ctx, *pgxpool.Pool) error`, runs before `mount`; nil means no migration step |
 | `ShutdownTimeout` | 5s | how long `Serve` waits for in-flight requests after `ctx` is cancelled |
 | `Log` | `slog.Default()` | receives startup and shutdown messages |

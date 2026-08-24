@@ -30,6 +30,23 @@ type ServeConfig struct {
 	// Server configures the huma.API [Serve] builds with [NewServer].
 	Server Config
 
+	// Middleware, if set, wraps the handler [Serve] listens on, applied once
+	// mount has returned. It is the supported place to establish a
+	// principal — authentication, request logging, panic recovery —
+	// upstream of every guarantee a [sqlb.Scoped] hook's guard makes, since
+	// a scoping hook constrains rows once a principal exists rather than
+	// establishing one. Without it, wrapping means assigning [Server.Handler]
+	// from inside mount and relying on Serve reading the field afterwards —
+	// correct, but load-bearing on an ordering nothing states
+	// ([#301](https://github.com/jryannel/sqlb/issues/301)).
+	//
+	// Compose more than one middleware with a single function:
+	//
+	//	Middleware: func(next http.Handler) http.Handler {
+	//	    return outer(inner(next))
+	//	},
+	Middleware func(http.Handler) http.Handler
+
 	// Migrate runs against the pool before Server is built and before mount
 	// is called, so a schema mount can rely on it having already run. Nil
 	// means no migration step.
@@ -120,7 +137,7 @@ func Serve(ctx context.Context, cfg ServeConfig, mount func(*Server, *sqlb.DB) e
 		return fmt.Errorf("rest: mounting resources: %w", err)
 	}
 
-	httpServer := &http.Server{Addr: addr, Handler: srv.Handler}
+	httpServer := &http.Server{Addr: addr, Handler: wrapHandler(srv, cfg)}
 
 	errs := make(chan error, 1)
 	go func() {
@@ -140,4 +157,15 @@ func Serve(ctx context.Context, cfg ServeConfig, mount func(*Server, *sqlb.DB) e
 		defer cancel()
 		return httpServer.Shutdown(shutdownCtx)
 	}
+}
+
+// wrapHandler applies cfg.Middleware, if set, to whatever mount left on
+// srv.Handler. Its own function so that ordering — outside everything mount
+// did, rather than a value read before mount ran — is testable without the
+// live database the rest of Serve needs.
+func wrapHandler(srv *Server, cfg ServeConfig) http.Handler {
+	if cfg.Middleware == nil {
+		return srv.Handler
+	}
+	return cfg.Middleware(srv.Handler)
 }
