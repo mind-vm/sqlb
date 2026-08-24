@@ -291,6 +291,26 @@ func (s *ScopedHooks[T]) BeforeDelete(fn func(context.Context, *Delete[T]) error
 	return s
 }
 
+// BeforeCreate does not exist to be called. [ScopedHooks] deliberately has no
+// create hook — see the type's doc comment — but the absence of a method is
+// not a message: `.BeforeCreate(...)` is the obvious fourth call to write
+// beside [ScopedHooks.BeforeQuery]/[ScopedHooks.BeforeUpdate]/
+// [ScopedHooks.BeforeDelete], and reaching for it either compiles into this
+// panic or, on an older signature, fails with "has no field or method
+// BeforeCreate" — a message that says the method is missing and not that it
+// is missing on purpose ([#289]). This method exists only to carry that
+// reasoning to the one place a reader is actually looking: fails at
+// registration, which is startup, not at a request. See the "create side"
+// section of docs/queries/hooks.md for the fallback that satisfies a
+// trusted-path create instead.
+//
+// [#289]: https://github.com/jryannel/sqlb/issues/289
+func (s *ScopedHooks[T]) BeforeCreate(func(context.Context, *T) error) *ScopedHooks[T] {
+	panic("sqlb: BeforeCreate is not scopeable — a create with no request has no claims to " +
+		"release, so a fixture, seed, import or job satisfies the hook itself instead; see the " +
+		"\"create side\" section of docs/queries/hooks.md")
+}
+
 // register appends a BeforeQuery registration, named or not.
 func (h *Hooks[T]) register(s scopedFn[func(context.Context, *Builder[T]) error]) {
 	h.mu.Lock()

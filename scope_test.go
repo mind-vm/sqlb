@@ -215,6 +215,21 @@ func TestAnEmptyScopeNamePanics(t *testing.T) {
 	sqlb.On[User](sqlb.NewRegistry()).Scope("")
 }
 
+// ScopedHooks.BeforeCreate exists only to panic (#289's second report): the
+// absence of a method reads as a missing feature, not as the deliberate
+// refusal the doc comment on ScopedHooks explains, so a reader who writes the
+// obvious fourth call should hit the reasoning at the call site rather than
+// go looking for it in prose.
+func TestScopedBeforeCreatePanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("ScopedHooks.BeforeCreate did not panic")
+		}
+	}()
+	sqlb.On[User](sqlb.NewRegistry()).Scope("tenant").
+		BeforeCreate(func(context.Context, *User) error { return nil })
+}
+
 // The create side, which Scope deliberately does not cover, and the shape that
 // has to stand in for it (#289).
 //
