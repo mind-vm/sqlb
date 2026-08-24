@@ -273,3 +273,146 @@ func TestGenerateWarnsWhenAClientDirectoryHadToBeInvented(t *testing.T) {
 		t.Errorf("the warning repeated on a run that created nothing:\n%s", again)
 	}
 }
+
+// #290's second report: the arithmetic above was done correctly by a second
+// consumer and was still anxious — TSDir/DartDir resolving against Dir means
+// simulating filepath.Join to know a value is right before committing it. An
+// absolute path removes the arithmetic instead of warning about getting it
+// wrong: it is used verbatim, regardless of Dir.
+func TestClientDirAbsolutePathIsUsedVerbatim(t *testing.T) {
+	root := t.TempDir()
+	ts := filepath.Join(root, "web", "src", "api")
+	dart := filepath.Join(root, "mobile", "lib", "api")
+
+	_, err := codegen.Generate(codegen.Options{
+		Registry: fixture(), Dir: filepath.Join(root, "server", "sqlbdata"), Package: "gen",
+		TSDir: ts, DartDir: dart,
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		filepath.Join(ts, "client.gen.ts"),
+		filepath.Join(dart, "client.gen.dart"),
+	} {
+		if _, err := os.Stat(want); err != nil {
+			t.Errorf("an absolute client dir was not used verbatim: %v", err)
+		}
+	}
+}
+
+// Check reads the same files render does, through the same join logic
+// generate does — proving the escape both ways rather than assuming the two
+// paths through codegen.go agree with each other.
+func TestCheckSeesAClientReachedByAnAbsoluteDartDir(t *testing.T) {
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "server", "sqlbdata")
+	dart := filepath.Join(root, "mobile", "lib", "api")
+	opts := codegen.Options{Registry: fixture(), Dir: dataDir, Package: "gen", DartDir: dart}
+
+	if _, err := codegen.Generate(opts); err != nil {
+		t.Fatal(err)
+	}
+	if stale, err := codegen.Check(opts); err != nil || len(stale) > 0 {
+		t.Fatalf("freshly generated output should be current: %v %v", stale, err)
+	}
+
+	path := filepath.Join(dart, "client.gen.dart")
+	if err := os.WriteFile(path, []byte("// edited by hand\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stale, err := codegen.Check(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stale) != 1 || !strings.Contains(stale[0], "client.gen.dart") {
+		t.Errorf("an edited client behind an absolute DartDir should be reported stale, got %v", stale)
+	}
+}
+
+// The other escape: a "//" prefix resolves against the module root — the
+// directory holding the nearest go.mod — instead of against Dir, so a
+// repository laid out server/ + web/ + mobile/ states where its clients are
+// rather than counting "../" hops from a data directory buried in server/.
+func TestClientDirResolvesAgainstTheModuleRoot(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{"server/sqlbdata", "web/src", "mobile/lib"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"),
+		[]byte("module fake.example/app\n\ngo 1.25\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Join(root, "server"))
+
+	_, err := codegen.Generate(codegen.Options{
+		Registry: fixture(), Dir: "sqlbdata", Package: "gen",
+		TSDir: "//web/src/api", DartDir: "//mobile/lib/api",
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		filepath.Join(root, "web", "src", "api", "client.gen.ts"),
+		filepath.Join(root, "mobile", "lib", "api", "client.gen.dart"),
+	} {
+		if _, err := os.Stat(want); err != nil {
+			t.Errorf("%q should resolve against the module root, not Dir: %v", want, err)
+		}
+	}
+	// The default would have joined against Dir instead — server/sqlbdata/web/…
+	if _, err := os.Stat(filepath.Join(root, "server", "sqlbdata", "web")); err == nil {
+		t.Error("a \"//\"-prefixed TSDir still resolved against Options.Dir")
+	}
+}
+
+// The escape needs a module to be relative to. Refused rather than silently
+// falling back to Dir, which would reintroduce the exact arithmetic the escape
+// exists to remove.
+func TestClientDirModuleRootRelativeNeedsAGoMod(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	_, err := codegen.Generate(codegen.Options{
+		Registry: fixture(), Dir: "sqlbdata", Package: "gen",
+		TSDir: "//web/src/api",
+	})
+	if err == nil {
+		t.Fatal("a module-root-relative TSDir with no go.mod above the working directory was accepted")
+	}
+	if !strings.Contains(err.Error(), "TSDir") || !strings.Contains(err.Error(), "go.mod") {
+		t.Errorf("the error does not explain the missing go.mod: %v", err)
+	}
+}
+
+// The warning still fires for a brand-new tree reached through an escape —
+// the escape removes the arithmetic, not the possibility of a fresh directory
+// being the wrong one — but it must not blame Options.Dir for a resolution
+// that never consulted it.
+func TestModuleRootRelativeWarningDoesNotBlameDir(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "server", "sqlbdata"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"),
+		[]byte("module fake.example/app\n\ngo 1.25\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Join(root, "server"))
+
+	p := codegen.Project{Options: codegen.Options{
+		Registry: fixture(), Dir: "sqlbdata", Package: "gen",
+		TSDir: "//web/src/api", // web/ does not exist yet at all
+	}}
+	code, out := run(t, p, "generate")
+	if code != 0 {
+		t.Fatalf("generate: exit %d, output:\n%s", code, out)
+	}
+	if !strings.Contains(out, "TSDir") {
+		t.Errorf("a brand-new module-root-relative tree should still warn:\n%s", out)
+	}
+	if strings.Contains(out, "resolves against Options.Dir") {
+		t.Errorf("the module-root escape should not blame Options.Dir arithmetic it did not use:\n%s", out)
+	}
+}

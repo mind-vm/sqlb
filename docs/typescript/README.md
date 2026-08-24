@@ -24,6 +24,14 @@ codegen.Must(codegen.Generate(codegen.Options{
 }))
 ```
 
+`TSDir` is relative to `Dir`, not to the module root, so a frontend that lives
+*beside* the Go module rather than under it needs more `../` than it reads
+like — worth checking if `Dir` is itself nested. Two escapes remove the
+arithmetic instead: an absolute path is used verbatim, and a path prefixed
+`//` resolves against the module root (the directory holding the nearest
+`go.mod`) instead of `Dir` — `TSDir: "//web/src/api"` means that regardless of
+where `Dir` is.
+
 Three files, because the layers are usable separately:
 
 | | |

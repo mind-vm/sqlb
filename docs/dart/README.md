@@ -25,6 +25,13 @@ codegen.Must(codegen.Generate(codegen.Options{
 }))
 ```
 
+`DartDir` is relative to `Dir`, not to the module root, so a Flutter app that
+lives *beside* the Go module rather than under it needs more `../` than it
+reads like — the same arithmetic [the TypeScript client's `TSDir`
+takes](../typescript/README.md#turning-it-on), and the same two escapes: an
+absolute path is used verbatim, and a path prefixed `//` resolves against the
+module root instead of `Dir`.
+
 Two files, and neither **imports anything** — not `dart:io`, not a pub package,
 not Flutter. There is no framework layer to make optional, because Dart has no
 equivalent of TanStack Query to bind to.

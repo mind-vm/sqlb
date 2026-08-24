@@ -233,8 +233,11 @@ func Run(p Project, args []string, stdout, stderr io.Writer) int {
 		return runMigrate(p, opts.Registry, rest, stdout, stderr)
 
 	case "generate":
-		// Asked before generating, because generating is what creates them.
-		stranded := strandedClientDirs(opts)
+		// Asked before generating, because generating is what creates them. An
+		// error here (a "//"-relative TSDir/DartDir with no go.mod above the
+		// working directory) is the same one generate resolves the same way
+		// immediately below, so it is left to report there rather than twice.
+		stranded, _ := strandedClientDirs(opts)
 		written, rewrote, err := generate(opts)
 		if err != nil {
 			line(stderr, err)

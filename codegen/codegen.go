@@ -45,6 +45,13 @@ type Options struct {
 	// already had. generate warns when this directory and its parent both had
 	// to be created, which is what that mistake looks like from here (#290).
 	//
+	// Two escapes remove the arithmetic instead of warning about getting it
+	// wrong ([Options.resolveClientDir]): an absolute path is used verbatim,
+	// and a path prefixed "//" resolves against the module root — the
+	// directory holding the nearest go.mod — rather than against Dir. A
+	// repository laid out server/ + web/ + mobile/ writes "//web/src/api"
+	// and means exactly that, at any Dir depth.
+	//
 	// Three files land there. The runtime and the client are dependency-free;
 	// the queries file holds the queryOptions, infiniteQueryOptions and
 	// mutationOptions factories and takes @tanstack/react-query as a peer
@@ -356,21 +363,84 @@ func (o Options) clientImportPath() (string, error) {
 	return path.Join(mod, filepath.ToSlash(o.Dir), filepath.ToSlash(o.clientDir())), nil
 }
 
+// clientDirResolution names which rule resolved a TSDir/DartDir value, so a
+// warning about the result can explain the rule that actually applied instead
+// of always naming the default one.
+type clientDirResolution int
+
+const (
+	resolvedAgainstDir clientDirResolution = iota
+	resolvedAbsolute
+	resolvedAgainstModuleRoot
+)
+
+// resolveClientDir resolves a TSDir/DartDir value to what render puts in the
+// files map: dir itself, unresolved, for the default case that joins against
+// Dir the way every other emitter's output does — generate and Check do that
+// join once, later, for every file alike. The two escapes below need no later
+// join, so they resolve to an absolute path here and generate/Check pass an
+// absolute name through unchanged; see the filepath.IsAbs checks there.
+//
+// Two escapes exist because #290's second report found the default's
+// join-against-Dir arithmetic anxious even done correctly: a repository laid
+// out server/ + web/ + mobile/ has to simulate filepath.Join in its head to
+// know how many "../" reach a directory beside the Go module rather than
+// under it.
+//
+//   - An absolute path is used verbatim.
+//   - A path prefixed "//" resolves against the module root — the directory
+//     holding the nearest go.mod, walking up from the working directory —
+//     instead of against Dir. "//web/src/api" means that, regardless of what
+//     Dir is or how deep it is nested.
+//
+// Neither collides with an existing configuration: filepath.Join(Dir, dir)
+// already cleans a leading "/" out of dir, so nothing valid before today meant
+// something different starting now.
+func (o Options) resolveClientDir(field, dir string) (string, clientDirResolution, error) {
+	switch {
+	// Checked first: "//web/api" also satisfies filepath.IsAbs (it starts with
+	// "/"), and is the more specific of the two — filepath.Clean would collapse
+	// it to a single leading slash and silently treat it as the literal
+	// absolute path "/web/api" otherwise.
+	case strings.HasPrefix(dir, "//"):
+		root, err := moduleRootDir()
+		if err != nil {
+			return "", 0, fmt.Errorf(
+				"codegen: Options.%s %q is module-root-relative, which needs a go.mod above the "+
+					"working directory: %w", field, dir, err)
+		}
+		return filepath.Join(root, strings.TrimPrefix(dir, "//")), resolvedAgainstModuleRoot, nil
+	case filepath.IsAbs(dir):
+		return dir, resolvedAbsolute, nil
+	default:
+		return dir, resolvedAgainstDir, nil
+	}
+}
+
 // moduleFromGoMod reads the module path out of the nearest go.mod, walking up
+// from the working directory.
+func moduleFromGoMod() (string, error) {
+	dir, err := moduleRootDir()
+	if err != nil {
+		return "", err
+	}
+	return readModulePath(filepath.Join(dir, "go.mod"))
+}
+
+// moduleRootDir finds the directory holding the nearest go.mod, walking up
 // from the working directory.
 //
 // Walking rather than reading "./go.mod" because a caller writing its own
 // generator runs it from wherever it likes, and the module root is the one
 // place the answer is. No dependency on golang.org/x/mod for one line of it.
-func moduleFromGoMod() (string, error) {
+func moduleRootDir() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 	for {
-		name := filepath.Join(dir, "go.mod")
-		if _, err := os.Stat(name); err == nil {
-			return readModulePath(name)
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -553,7 +623,15 @@ func generate(opts Options) (written []string, rewrote int, err error) {
 		return nil, 0, err
 	}
 	for _, name := range sortedKeys(files) {
-		path := filepath.Join(opts.Dir, name)
+		// Every other name is relative to Dir and joined here. A TSDir/DartDir
+		// escaped to an absolute path or the module root (resolveClientDir) is
+		// already the real path — joining it against Dir a second time would
+		// mangle it, since filepath.Join does not treat a later absolute
+		// element specially.
+		path := name
+		if !filepath.IsAbs(name) {
+			path = filepath.Join(opts.Dir, name)
+		}
 		// A name may carry a subdirectory — the TypeScript client is emitted
 		// into one — so the parent is created per file rather than once above.
 		if dir := filepath.Dir(path); dir != opts.Dir {
@@ -578,15 +656,18 @@ func generate(opts Options) (written []string, rewrote int, err error) {
 // strandedClientDir is a TypeScript or Dart client directory that generate had
 // to create along with its parent.
 //
-// The mistake it exists for is one "../" too few (#290). TSDir and DartDir
-// resolve against Dir rather than against the module root, so a repository
-// whose frontend sits beside its Go module needs two levels to reach it, and
-// one level lands the client *inside* the module — where it is created, written
-// correctly and imported by nothing. Neither tsc nor the Flutter build has
-// anything to say about that: the real application goes on compiling against
-// the client it already had, both stay green, and the first symptom is someone
-// opening the generated client months later and finding it describes a schema
-// that has moved.
+// The mistake it exists for is one "../" too few (#290). Left at the default,
+// TSDir and DartDir resolve against Dir rather than against the module root,
+// so a repository whose frontend sits beside its Go module needs two levels
+// to reach it, and one level lands the client *inside* the module — where it
+// is created, written correctly and imported by nothing. Neither tsc nor the
+// Flutter build has anything to say about that: the real application goes on
+// compiling against the client it already had, both stay green, and the first
+// symptom is someone opening the generated client months later and finding it
+// describes a schema that has moved. [Options.resolveClientDir]'s absolute and
+// module-root escapes remove the arithmetic that causes this, but not the
+// possibility of a fresh directory being the wrong one, so this still checks
+// after either.
 //
 // The reported path did not help either, and could not: filepath.Join cleans
 // "sqlbdata/../web/src/api" down to "web/src/api", which is a correct
@@ -608,11 +689,12 @@ type strandedClientDir struct {
 	field      string // the Options field, so the message names what to edit
 	configured string // the value as the project wrote it
 	resolved   string // where it actually landed, absolute where that is knowable
+	via        clientDirResolution
 }
 
 // strandedClientDirs reports the client directories generate is about to create
 // from nothing. It has to be called before generate, which creates them.
-func strandedClientDirs(opts Options) []strandedClientDir {
+func strandedClientDirs(opts Options) ([]strandedClientDir, error) {
 	var out []strandedClientDir
 	for _, c := range []struct{ field, dir string }{
 		{"TSDir", opts.TSDir},
@@ -621,17 +703,23 @@ func strandedClientDirs(opts Options) []strandedClientDir {
 		if c.dir == "" {
 			continue
 		}
-		path := filepath.Join(opts.Dir, c.dir)
+		resolved, via, err := opts.resolveClientDir(c.field, c.dir)
+		if err != nil {
+			return nil, err
+		}
+		path := resolved
+		if via == resolvedAgainstDir {
+			path = filepath.Join(opts.Dir, resolved)
+		}
 		if isDir(path) || isDir(filepath.Dir(path)) {
 			continue
 		}
-		resolved := path
 		if abs, err := filepath.Abs(path); err == nil {
-			resolved = abs
+			path = abs
 		}
-		out = append(out, strandedClientDir{field: c.field, configured: c.dir, resolved: resolved})
+		out = append(out, strandedClientDir{field: c.field, configured: c.dir, resolved: path, via: via})
 	}
-	return out
+	return out, nil
 }
 
 func isDir(path string) bool {
@@ -641,15 +729,29 @@ func isDir(path string) bool {
 
 // warning is what the driver prints. It carries the absolute path because the
 // relative one is the half of this that already looked right.
+//
+// The explanation names whichever rule actually resolved the path: the
+// default's "../" arithmetic against Options.Dir for the ordinary case, or —
+// for a path that already opted into an absolute or module-root escape — that
+// the directory is simply new, since the escape means there was no arithmetic
+// to get wrong.
 func (s strandedClientDir) warning(dir string) string {
+	explanation := fmt.Sprintf(
+		"sqlb:   %s resolves against Options.Dir (%q), not against the module root, so a "+
+			"directory beside the Go module takes one \"../\" more than it reads like.\n",
+		s.field, dir)
+	if s.via != resolvedAgainstDir {
+		explanation = fmt.Sprintf(
+			"sqlb:   %s %q resolved to a directory that does not exist yet, which is ordinary "+
+				"for a client's first run and worth a second look otherwise.\n", s.field, s.configured)
+	}
 	return fmt.Sprintf(
 		"sqlb: %s %q named a directory that did not exist, nor did its parent — created %s\n"+
-			"sqlb:   %s resolves against Options.Dir (%q), not against the module root, so a "+
-			"directory beside the Go module takes one \"../\" more than it reads like.\n"+
+			"%s"+
 			"sqlb:   A client is emitted beside the code that imports it. If nothing there imports "+
 			"it, the application is still building against the client it already had, and will keep "+
 			"doing so without complaining.\n",
-		s.field, s.configured, s.resolved, s.field, dir)
+		s.field, s.configured, s.resolved, explanation)
 }
 
 // Check reports which generated files are missing or out of date, without
@@ -666,7 +768,10 @@ func Check(opts Options) ([]string, error) {
 	}
 	var stale []string
 	for _, name := range sortedKeys(files) {
-		path := filepath.Join(opts.Dir, name)
+		path := name
+		if !filepath.IsAbs(name) {
+			path = filepath.Join(opts.Dir, name)
+		}
 		existing, err := os.ReadFile(path)
 		switch {
 		case os.IsNotExist(err):
@@ -735,18 +840,22 @@ func render(opts Options) (map[string][]byte, error) {
 		files[name] = src
 	}
 	if opts.TSDir != "" {
+		tsDir, _, err := opts.resolveClientDir("TSDir", opts.TSDir)
+		if err != nil {
+			return nil, err
+		}
 		// The runtime first, for the reason the Go client is emitted before the
 		// CLI: a reader of the file list should meet the thing being imported
 		// before the thing importing it.
 		if name := opts.tsRuntimeFile(); name != "-" {
-			files[filepath.Join(opts.TSDir, name)] = renderTSRuntime()
+			files[filepath.Join(tsDir, name)] = renderTSRuntime()
 		}
 		if name := opts.tsClientFile(); name != "-" {
 			src, err := renderTSClient(opts)
 			if err != nil {
 				return nil, err
 			}
-			files[filepath.Join(opts.TSDir, name)] = src
+			files[filepath.Join(tsDir, name)] = src
 		}
 		if name := opts.tsQueriesFile(); name != "-" {
 			src, err := renderTSQueries(opts)
@@ -756,20 +865,24 @@ func render(opts Options) (map[string][]byte, error) {
 			// A schema that exposes nothing has no queries to emit, which is
 			// not an error and should not leave an empty file behind.
 			if src != nil {
-				files[filepath.Join(opts.TSDir, name)] = src
+				files[filepath.Join(tsDir, name)] = src
 			}
 		}
 	}
 	if opts.DartDir != "" {
+		dartDir, _, err := opts.resolveClientDir("DartDir", opts.DartDir)
+		if err != nil {
+			return nil, err
+		}
 		if name := opts.dartRuntimeFile(); name != "-" {
-			files[filepath.Join(opts.DartDir, name)] = renderDartRuntime()
+			files[filepath.Join(dartDir, name)] = renderDartRuntime()
 		}
 		if name := opts.dartFile(); name != "-" {
 			src, err := renderDartClient(opts)
 			if err != nil {
 				return nil, err
 			}
-			files[filepath.Join(opts.DartDir, name)] = src
+			files[filepath.Join(dartDir, name)] = src
 		}
 	}
 	// The client first, because the CLI imports it and a reader of the file
