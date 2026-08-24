@@ -88,7 +88,7 @@ var generatedSuffixes = map[string]string{
 func nameOrigins(reg *schema.Registry, name string) []string {
 	var out []string
 	for _, t := range reg.Tables() {
-		typeName := TypeName(t.LocalName())
+		typeName := TypeName(t)
 		if !strings.HasPrefix(name, typeName) {
 			continue
 		}
@@ -154,8 +154,10 @@ func collision(reg *schema.Registry, file, language, src string, dup func(string
 	}
 	return fmt.Errorf(
 		"codegen: %s declares %s twice%s. %s\n\t%s\n\t%s\n"+
-			"Rename one of the tables: a table's generated names are its own "+
-			"singularised name, and that name plus a suffix",
+			"A table's generated names are its own singularised name, and that name "+
+			"plus a suffix, unless TableDef.TypeName pins a different one: give the "+
+			"colliding table a TypeName override, or rename the table itself if the "+
+			"SQL name should change too",
 		file, name, where, language, first, second)
 }
 

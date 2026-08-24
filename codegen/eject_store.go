@@ -114,7 +114,7 @@ func ejectStore(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 // smallest amount of assembly a filterable list endpoint can be written with.`)
 
 	for _, t := range tables {
-		typeName := TypeName(t.LocalName())
+		typeName := TypeName(t)
 		lower := unexportedGoName(typeName)
 
 		fmt.Fprintf(b, "\n// %s is the table %s maps to.\n", lower+"Table", typeName)

@@ -46,7 +46,7 @@ func TestTSCollisionIsRefused(t *testing.T) {
 		"the row type of board_columns",
 		"the selectable-column type of boards",
 		"TS2300",
-		"Rename one of the tables",
+		"TableDef.TypeName pins a different one",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error does not say %q:\n%v", want, err)
@@ -70,7 +70,7 @@ func TestDartCollisionIsRefused(t *testing.T) {
 		"the row type of board_columns",
 		"the selectable-column type of boards",
 		"one top-level namespace",
-		"Rename one of the tables",
+		"TableDef.TypeName pins a different one",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the error does not say %q:\n%v", want, err)
@@ -103,5 +103,56 @@ func TestTSNamesThatDoNotCollideAreFine(t *testing.T) {
 		if !strings.Contains(client, want) {
 			t.Errorf("the client is missing %q", want)
 		}
+	}
+}
+
+// #262: the collision is real, but renaming board_columns to fix it is a
+// live-data migration for a naming problem that has nothing to do with the
+// data model. TypeName resolves the same collision by pinning the generated
+// name instead — the storage name, and every hand-written reference to it,
+// stays untouched.
+func kanbanFixtureWithTypeNameOverride() *schema.Registry {
+	r := schema.NewRegistry()
+	boards := r.Table("boards",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Text("name").Sortable(),
+	).Expose(schema.REST{Ops: schema.OpRead | schema.OpList})
+
+	r.Table("board_columns",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Ref("board", boards).Filterable(),
+		schema.Text("title"),
+	).Expose(schema.REST{Ops: schema.OpRead | schema.OpList}).
+		TypeName("KanbanColumn")
+	return r
+}
+
+func TestTypeNameOverrideResolvesTheCollisionInGo(t *testing.T) {
+	files := generate(t, kanbanFixtureWithTypeNameOverride())
+	models := files["models_gen.go"]
+	if !contains(models, "type KanbanColumn struct {") {
+		t.Errorf("the override did not rename the struct:\n%s", models)
+	}
+	if contains(models, "type BoardColumn struct {") {
+		t.Errorf("the derived name was emitted alongside the override:\n%s", models)
+	}
+	// The storage name is untouched — only the generated identifier moved.
+	if !contains(models, `func (KanbanColumn) TableName() string { return "board_columns" }`) {
+		t.Errorf("TypeName should not change the table's storage name:\n%s", models)
+	}
+}
+
+func TestTypeNameOverrideResolvesTheCollisionInTS(t *testing.T) {
+	files := generateTS(t, kanbanFixtureWithTypeNameOverride())
+	client := files["client.gen.ts"]
+	if !contains(client, "export interface KanbanColumn {") {
+		t.Errorf("the override did not rename the TS interface:\n%s", client)
+	}
+}
+
+func TestTypeNameOverrideResolvesTheCollisionInDart(t *testing.T) {
+	src := generateDart(t, kanbanFixtureWithTypeNameOverride())
+	if !contains(src, "class KanbanColumn extends Row {") {
+		t.Errorf("the override did not rename the Dart class:\n%s", src)
 	}
 }

@@ -51,7 +51,7 @@ current — and drop that gate on the day you stop.
 		b.WriteString("| Method | Path | Handler |\n|---|---|---|\n")
 		for _, t := range exposed {
 			r := t.Rest()
-			name := TypeName(t.LocalName())
+			name := TypeName(t)
 			if r.Ops.Has(schema.OpList) {
 				fmt.Fprintf(&b, "| GET | `%s` | `List%s` |\n", r.Path, name)
 			}

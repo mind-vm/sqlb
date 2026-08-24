@@ -21,7 +21,7 @@ import (
 // tasks gives completeTask, beside createTask and updateTask.
 func tsActionName(t *schema.TableDef, a schema.Action) string {
 	verb := GoName(strings.ReplaceAll(a.Name, "-", "_"))
-	return lowerFirstRune(verb + TypeName(t.LocalName()))
+	return lowerFirstRune(verb + TypeName(t))
 }
 
 // tsActionProp is the verb's spelling on the mutations object: "mark-done"
@@ -35,7 +35,7 @@ func tsActionProp(a schema.Action) string {
 // takes it.
 func tsActionInput(t *schema.TableDef, a schema.Action) string {
 	verb := GoName(strings.ReplaceAll(a.Name, "-", "_"))
-	return verb + TypeName(t.LocalName()) + "Input"
+	return verb + TypeName(t) + "Input"
 }
 
 func lowerFirstRune(s string) string {

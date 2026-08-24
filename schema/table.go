@@ -360,21 +360,22 @@ type Exclusion struct {
 // TableDef is a table declaration. Build one with Table, which also registers
 // it in the default registry.
 type TableDef struct {
-	name    string // storage name, including any module prefix
-	local   string // name as declared, without the prefix
-	module  string
-	comment string
-	pkName  string
-	oldName string // previous storage name, from RenamedFrom
-	fields  []*Field
-	indexes []Index
-	checks  []Check
-	uniques []Unique
-	excls   []Exclusion
-	pkCols  []string // a composite PRIMARY KEY, when the key is not one column
-	rest    *REST
-	actions []Action
-	queries []Query
+	name     string // storage name, including any module prefix
+	local    string // name as declared, without the prefix
+	module   string
+	comment  string
+	pkName   string
+	oldName  string // previous storage name, from RenamedFrom
+	fields   []*Field
+	indexes  []Index
+	checks   []Check
+	uniques  []Unique
+	excls    []Exclusion
+	pkCols   []string // a composite PRIMARY KEY, when the key is not one column
+	rest     *REST
+	actions  []Action
+	queries  []Query
+	typeName string // TypeName override; "" means derive it from local
 }
 
 // Table declares a table and registers it in the default registry. This is the
@@ -609,6 +610,26 @@ func (t *TableDef) PrimaryKeyName() string { return t.pkName }
 // existing database whose constraint is not called <table>_pkey.
 func (t *TableDef) PrimaryKeyNamed(name string) *TableDef {
 	t.pkName = name
+	return t
+}
+
+// TypeNameOverride returns the pinned generated type name, or "" when none was
+// set and codegen should derive one from the table's local name.
+func (t *TableDef) TypeNameOverride() string { return t.typeName }
+
+// TypeName pins the exported Go/TypeScript/Dart identifier codegen emits for
+// this table, independently of its SQL name.
+//
+// Without it, the generated name is derived by singularising the local name —
+// board_columns becomes BoardColumn — which can collide with a name a
+// different table's codegen already derives for something else, such as a
+// selectable-fields union codegen names after the table it belongs to. The
+// storage name usually should not change to fix that: it is a live-data
+// migration for a naming problem that has nothing to do with the data model.
+// TypeName only changes what codegen calls the table; [TableDef.RenamedFrom]
+// is for when the table itself was actually renamed.
+func (t *TableDef) TypeName(name string) *TableDef {
+	t.typeName = name
 	return t
 }
 

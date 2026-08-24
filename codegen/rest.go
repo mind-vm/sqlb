@@ -237,7 +237,7 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	if !ok {
 		return
 	}
-	typeName := TypeName(t.LocalName())
+	typeName := TypeName(t)
 	name := typeName + "Create"
 
 	fmt.Fprintf(b, "\n// %s is the request body for creating a %s.\n", name, typeName)
@@ -288,7 +288,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	if !ok {
 		return
 	}
-	typeName := TypeName(t.LocalName())
+	typeName := TypeName(t)
 	name := typeName + "Patch"
 
 	fmt.Fprintf(b, "\n// %s is the request body for patching a %s.\n", name, typeName)
@@ -389,7 +389,7 @@ func renderRegister(b *bytes.Buffer, reg *schema.Registry, exposed []*schema.Tab
 	}
 	fmt.Fprintln(b, sig+") error {")
 	for _, t := range exposed {
-		typeName := TypeName(t.LocalName())
+		typeName := TypeName(t)
 		r := t.Rest()
 		create, update := "rest.None["+typeName+"]", "rest.None["+typeName+"]"
 		if _, ok := createBody(t); ok {

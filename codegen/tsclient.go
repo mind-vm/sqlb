@@ -316,8 +316,8 @@ func tsResources(reg *schema.Registry) ([]tsResource, error) {
 		}
 		r := tsResource{
 			table:    t,
-			typeName: TypeName(t.LocalName()),
-			ident:    tsIdent(lowerFirst(TypeName(t.LocalName()))),
+			typeName: TypeName(t),
+			ident:    tsIdent(lowerFirst(TypeName(t))),
 			plural:   GoName(t.LocalName()),
 			path:     rest.Path,
 			ops:      rest.Ops,
@@ -369,7 +369,7 @@ func tsRelationOf(reg *schema.Registry, t *schema.TableDef, name string) (tsRela
 			}
 			return tsRelation{
 				name:     name,
-				target:   TypeName(d.Ref.Table.LocalName()),
+				target:   TypeName(d.Ref.Table),
 				forward:  true,
 				nullable: d.Nullable,
 			}, nil
@@ -379,7 +379,7 @@ func tsRelationOf(reg *schema.Registry, t *schema.TableDef, name string) (tsRela
 		if inv.Expandable && inv.Name == name {
 			return tsRelation{
 				name:     name,
-				target:   TypeName(inv.Table.LocalName()),
+				target:   TypeName(inv.Table),
 				oneToOne: inv.OneToOne,
 			}, nil
 		}
@@ -391,7 +391,7 @@ func tsRelationOf(reg *schema.Registry, t *schema.TableDef, name string) (tsRela
 // table.
 func tsRowTypes(b *bytes.Buffer, reg *schema.Registry, t *schema.TableDef) {
 	wire := reg.Wire()
-	typeName := TypeName(t.LocalName())
+	typeName := TypeName(t)
 	fmt.Fprintf(b, "\n// %s\n", tsRule(t.Name()))
 
 	for _, f := range t.Fields() {
@@ -444,14 +444,14 @@ func tsRowTypes(b *bytes.Buffer, reg *schema.Registry, t *schema.TableDef) {
 		}
 		if inv.OneToOne {
 			fmt.Fprintf(b, "  /** Filled in by `expand: ['%s']`, absent otherwise. */\n", inv.Name)
-			fmt.Fprintf(b, "  %s?: %s | null;\n", tsProp(inv.Name), TypeName(inv.Table.LocalName()))
+			fmt.Fprintf(b, "  %s?: %s | null;\n", tsProp(inv.Name), TypeName(inv.Table))
 			continue
 		}
 		// One block, not two adjacent ones: two adjacent `/** */` comments only
 		// let the last one attach in TS tooling, silently dropping "Filled in
 		// by `expand`" from hover docs for every ordinary collection relation.
 		fmt.Fprintf(b, "  /** Filled in by `expand: ['%s']`, absent otherwise. Capped at %d rows. */\n", inv.Name, inv.Cap())
-		fmt.Fprintf(b, "  %s?: Collection<%s>;\n", tsProp(inv.Name), TypeName(inv.Table.LocalName()))
+		fmt.Fprintf(b, "  %s?: Collection<%s>;\n", tsProp(inv.Name), TypeName(inv.Table))
 	}
 	fmt.Fprintln(b, "}")
 
@@ -470,7 +470,7 @@ func tsForwardRelations(t *schema.TableDef) map[string]tsRelation {
 		}
 		out[d.Name] = tsRelation{
 			name:     d.Ref.Name,
-			target:   TypeName(d.Ref.Table.LocalName()),
+			target:   TypeName(d.Ref.Table),
 			forward:  true,
 			nullable: d.Nullable,
 		}

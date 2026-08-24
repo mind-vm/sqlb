@@ -257,7 +257,7 @@ func ejectModels(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 // was one statement built by the engine, and the exit does not carry it.`)
 
 	for _, t := range tables {
-		typeName := TypeName(t.LocalName())
+		typeName := TypeName(t)
 		fmt.Fprintln(b)
 		if c := t.Comment(); c != "" {
 			fmt.Fprintf(b, "// %s %s\n", typeName, lowerFirst(c))

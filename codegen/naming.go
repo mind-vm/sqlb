@@ -3,6 +3,8 @@ package codegen
 import (
 	"strings"
 	"unicode"
+
+	"github.com/jryannel/sqlb/schema"
 )
 
 // initialisms are rendered upper-case in Go identifiers, following the
@@ -133,10 +135,14 @@ func Singular(s string) string {
 	return s
 }
 
-// TypeName is the Go type name for a table: the singular of its local name,
-// exported. A module prefix is deliberately not included — billing_invoices
-// yields Invoice, because the prefix is a storage concern and the package
-// already provides the namespace in Go.
-func TypeName(localName string) string {
-	return GoName(Singular(localName))
+// TypeName is the Go/TypeScript type name for a table: [TableDef.TypeNameOverride]
+// if the schema pinned one, otherwise the singular of its local name, exported.
+// A module prefix is deliberately not included — billing_invoices yields
+// Invoice, because the prefix is a storage concern and the package already
+// provides the namespace in Go.
+func TypeName(t *schema.TableDef) string {
+	if ov := t.TypeNameOverride(); ov != "" {
+		return ov
+	}
+	return GoName(Singular(t.LocalName()))
 }

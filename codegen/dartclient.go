@@ -1440,12 +1440,18 @@ func dartSelectable(t *schema.TableDef) []*schema.FieldDesc {
 
 // ------------------------------------------------------------------- naming
 
-// dartTypeBase is the name every generated type for a table is built from: the
+// dartTypeBase is the name every generated type for a table is built from:
+// [TableDef.TypeNameOverride] if the schema pinned one, otherwise the
 // singular of its local name in PascalCase.
 //
 // Unlike GoName it does not upper-case initialisms, because Dart's convention
 // is the opposite one — HttpRequest, not HTTPRequest — so org_id gives OrgId.
+// An override is emitted verbatim rather than re-cased, on the same reasoning
+// as [TypeName]: it names the deliberate choice, not a derivation.
 func dartTypeBase(t *schema.TableDef) string {
+	if ov := t.TypeNameOverride(); ov != "" {
+		return ov
+	}
 	return dartPascal(Singular(t.LocalName()))
 }
 

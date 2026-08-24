@@ -51,7 +51,7 @@ func actionsOf(exposed []*schema.TableDef) []actionDef {
 // what a Go identifier happens to look like.
 func (d actionDef) goName() string {
 	verb := GoName(strings.ReplaceAll(d.action.Name, "-", "_"))
-	return verb + TypeName(d.table.LocalName())
+	return verb + TypeName(d.table)
 }
 
 // inputName is the generated request body type. It is emitted even when the
@@ -185,7 +185,7 @@ func renderActions(b *bytes.Buffer, defs []actionDef) {
 			continue
 		}
 		fmt.Fprintf(b, "\t%s func(context.Context, *%s, %s) error\n",
-			d.goName(), TypeName(d.table.LocalName()), d.inputName())
+			d.goName(), TypeName(d.table), d.inputName())
 	}
 	fmt.Fprintln(b, "}")
 }
@@ -193,7 +193,7 @@ func renderActions(b *bytes.Buffer, defs []actionDef) {
 // renderActionCalls writes the registrations for one table's verbs.
 func renderActionCalls(b *bytes.Buffer, optsVar string, defs []actionDef) {
 	for _, d := range defs {
-		typeName := TypeName(d.table.LocalName())
+		typeName := TypeName(d.table)
 		if d.action.IsCollection() {
 			fmt.Fprintf(b, "\tif err := rest.CollectionAction[%s](api, db, %s, ", d.inputName(), optsVar)
 		} else {

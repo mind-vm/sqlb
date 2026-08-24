@@ -142,6 +142,17 @@ A hint whose old column no longer exists is ignored, so leaving one costs nothin
 mechanically — but it reads as a claim about the current schema that stopped
 being true, so delete it at your next edit to that table.
 
+**Not every naming problem is a rename.** `board_columns` singularising to
+`BoardColumn` can collide with a name a different table's codegen already
+derives — a `Board`'s selectable-column union, say. `RenamedFrom` fixes that by
+actually renaming the table, which moves data and needs the migration this
+section is about. `TableDef.TypeName("KanbanColumn")` fixes it without touching
+storage at all: it only pins the generated Go/TypeScript/Dart identifier, so the
+table stays `board_columns`, the migration this edit needs is none, and every
+hand-written reference to the old generated name is what actually needs
+updating — the same cost a rename would have had anyway, just without the data
+movement.
+
 ### The rename is where the two gates disagree
 
 This is the part worth the section. That migration is clean: one statement, no

@@ -1067,3 +1067,25 @@ func TestCompositePrimaryKey(t *testing.T) {
 		}
 	})
 }
+
+// #262: TypeName pins the generated identifier independently of the storage
+// name codegen would otherwise derive it from.
+func TestTypeNameOverride(t *testing.T) {
+	r := schema.NewRegistry()
+	table := r.Table("board_columns", schema.UUIDv7("id").PrimaryKey())
+
+	if got := table.TypeNameOverride(); got != "" {
+		t.Fatalf("TypeNameOverride() = %q before TypeName is ever called, want \"\"", got)
+	}
+
+	if got := table.TypeName("KanbanColumn"); got != table {
+		t.Fatal("TypeName should return the same *TableDef, for chaining")
+	}
+	if got := table.TypeNameOverride(); got != "KanbanColumn" {
+		t.Fatalf("TypeNameOverride() = %q, want %q", got, "KanbanColumn")
+	}
+	// The storage name is a separate concern and does not move.
+	if table.LocalName() != "board_columns" {
+		t.Fatalf("LocalName() = %q, TypeName should not touch it", table.LocalName())
+	}
+}

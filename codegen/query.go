@@ -41,7 +41,7 @@ func queriesOf(exposed []*schema.TableDef) []queryDef {
 // OverdueTasks, the same convention actionDef.goName uses.
 func (d queryDef) goName() string {
 	verb := GoName(strings.ReplaceAll(d.query.Name, "-", "_"))
-	return verb + TypeName(d.table.LocalName())
+	return verb + TypeName(d.table)
 }
 
 // paramsName is the generated request parameter type, emitted even when the
@@ -60,7 +60,7 @@ func (d queryDef) fullPath() string { return d.query.FullPath(d.table.Rest().Pat
 // actually has. A query wanting a different result — a different model, an
 // aggregate — is not generated; it stays hand-mounted, same as before this
 // file existed.
-func (d queryDef) resultType() string { return "[]" + TypeName(d.table.LocalName()) }
+func (d queryDef) resultType() string { return "[]" + TypeName(d.table) }
 
 // summary defaults to "Overdue tasks" — capitalised verb, then the table
 // name. A query has no collection/item distinction to pick an article by,

@@ -103,7 +103,7 @@ func renderModels(opts Options) ([]byte, error) {
 	emittedShared := map[string]bool{}
 
 	for _, t := range tables {
-		typeName := TypeName(t.LocalName())
+		typeName := TypeName(t)
 
 		// Enum types first, so the struct that uses them reads top-down.
 		for _, f := range t.Fields() {
@@ -294,7 +294,7 @@ func relationsOf(t *schema.TableDef) (map[string]relation, error) {
 
 		out[d.Name] = relation{
 			field:    name,
-			target:   TypeName(d.Ref.Table.LocalName()),
+			target:   TypeName(d.Ref.Table),
 			relation: d.Ref.Name,
 		}
 	}
@@ -356,7 +356,7 @@ func inversesOf(reg *schema.Registry, t *schema.TableDef) ([]inverse, error) {
 		}
 		out = append(out, inverse{
 			field:    name,
-			target:   TypeName(inv.Table.LocalName()),
+			target:   TypeName(inv.Table),
 			relation: inv.Name,
 			tag:      tag,
 			oneToOne: inv.OneToOne,
@@ -376,7 +376,7 @@ func relationsIn(t *schema.TableDef) []relation {
 		}
 		out = append(out, relation{
 			field:    GoName(d.Ref.Name),
-			target:   TypeName(d.Ref.Table.LocalName()),
+			target:   TypeName(d.Ref.Table),
 			relation: d.Ref.Name,
 		})
 	}

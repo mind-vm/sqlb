@@ -144,7 +144,7 @@ func ejectRegister(b *bytes.Buffer, exposed []*schema.TableDef) {
 // ejectResource emits one resource: its bodies, its obligation check and its
 // handlers.
 func ejectResource(b *bytes.Buffer, t *schema.TableDef) {
-	typeName := TypeName(t.LocalName())
+	typeName := TypeName(t)
 	name := resourceName(t)
 	lower := unexportedGoName(typeName)
 	rest := t.Rest()
@@ -335,10 +335,10 @@ func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bo
 	}
 
 	fmt.Fprintf(b, "\n// decode%s%s reads a %s body for %s: which columns it named, and\n",
-		TypeName(t.LocalName()), suffix, verb, t.Name())
+		TypeName(t), suffix, verb, t.Name())
 	fmt.Fprintln(b, "// what each one carried. An unknown property is refused with the list of the")
 	fmt.Fprintln(b, "// ones that would have worked.")
-	fmt.Fprintf(b, "func decode%s%s(data []byte) (map[string]any, error) {\n", TypeName(t.LocalName()), suffix)
+	fmt.Fprintf(b, "func decode%s%s(data []byte) (map[string]any, error) {\n", TypeName(t), suffix)
 	fmt.Fprintf(b, "\tallowed := []string{%s}\n", strings.Join(allowed, ", "))
 	fmt.Fprintln(b, "\tvar raw map[string]json.RawMessage")
 	fmt.Fprintln(b, "\tif err := json.Unmarshal(data, &raw); err != nil {")

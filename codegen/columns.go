@@ -63,7 +63,7 @@ func renderColumns(opts Options) ([]byte, error) {
 	b := header(opts.Package, sortedSet(imports))
 
 	for _, t := range tables {
-		typeName := TypeName(t.LocalName())
+		typeName := TypeName(t)
 		setName := unexportedGoName(typeName) + "Columns"
 
 		visible := facadeFields(t)
