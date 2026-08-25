@@ -7,6 +7,9 @@
 #
 # `npm run build` runs the link check, so a link that would 404 after deploy
 # fails here instead of shipping.
+#
+# NOTE: the deploy is gated and off by default — this repository is private and
+# Pages on a private repository needs a paid plan. See the deploy job.
 name: pages
 
 on:
@@ -60,6 +63,19 @@ jobs:
 
   deploy:
     needs: build
+    # Off unless the repository variable PAGES_ENABLED is set to "true".
+    #
+    # GitHub Pages on a private repository requires a paid plan, and this
+    # repository is private — so this job fails on every push to main with
+    # "Failed to create deployment (status: 404) ... Ensure GitHub Pages has
+    # been enabled". A workflow that is permanently red says nothing about
+    # whether anything is wrong, which is worse than one that is off.
+    #
+    # The build job above still runs unconditionally, and that is where the
+    # value is: `npm run build` runs the link check, so a link that would 404
+    # after deploy fails there rather than shipping. Turn publishing back on
+    # with `gh variable set PAGES_ENABLED --body true` once Pages is available.
+    if: vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
