@@ -2293,6 +2293,22 @@ are ever found to have drifted on a shared kind of change, which would
 mean their shared core should be one function both call rather than two
 that happen to agree.
 
+The walk enumerated above is per resource and per column, and it has since
+had to grow a third kind of entry: a *declared route*. A verb declared with
+`AddAction` and a read declared with `AddQuery` are URLs a generated client
+has a named method for, and neither is a column, an operation of the fixed
+CRUD set, or anything a per-column walk visits — so each arrived invisible
+to this check and had to be added as its own facet, actions first and
+queries afterward. The gap the second one left is the instructive half,
+because it is the failure mode this decision already names: between the
+release that added `AddQuery` and the one that captured it, adding,
+removing or repathing a declared read was a contract change `-error` could
+not see, while the report it printed looked complete. That is "fires
+sometimes" arriving by omission rather than by misclassification, and the
+lesson is that the facet list is not closed — a new *kind* of generated
+route is a new facet, and shipping one without it makes the check quieter
+rather than wrong, which is the harder failure to notice.
+
 ### The driver is a dependency
 
 The engine depended on the standard library alone, unwritten and
@@ -2664,8 +2680,11 @@ for it: whether `Out` needs a declaration in the field vocabulary the way
 a body does, or stays outside the schema's reach at the cost of the
 TypeScript client typing it `unknown`; whether `Writes` still persists
 from the mutated `*T` when `do` also returns a separate `Out`, or the two
-become one value; and whether a widened action is still one surface next
-to CRUD or the first crack in that boundary.
+become one value; whether the widening reaches `sqlb.json`,
+`restcompat` and the TypeScript, Dart and CLI emitters the way a
+declared body and write set already do, or ships Go-only first as
+`Query`'s own `Out` still does; and whether a widened action is still
+one surface next to CRUD or the first crack in that boundary.
 [#218](https://github.com/jryannel/sqlb/issues/218) tracks the
 implementation.
 

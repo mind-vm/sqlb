@@ -90,6 +90,21 @@ const SOURCES = [
     label: (slug) => (slug === "index" ? "By task" : null),
   },
   {
+    // One page, like the three client sections below: the whole surface
+    // compressed into a lookup table, for a reader who knows what they are
+    // building and needs the spelling. It sits after the concepts and before
+    // the sections it indexes, because it is the fastest route into any of
+    // them and the slowest route into understanding why they are shaped that
+    // way.
+    dir: "docs/cheatsheet",
+    route: "cheatsheet",
+    sequence: ["index"],
+    order(slug) {
+      return this.sequence.indexOf(slug);
+    },
+    label: (slug) => (slug === "index" ? "Overview" : null),
+  },
+  {
     dir: "docs/schema",
     route: "schema",
     sequence: ["index", "capabilities", "references", "libraries"],
