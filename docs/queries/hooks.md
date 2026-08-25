@@ -411,7 +411,7 @@ lets every row through until the first row that carries one — so the write pat
 is green in tests, green in staging, and fails on a Tuesday against production
 data. Two consumers have now written that sentence down in a comment beside a
 helper they had to invent
-([#275](https://github.com/jryannel/sqlb/issues/275)).
+([#275](https://github.com/mind-vm/sqlb/issues/275)).
 
 Nothing states the requirement at the call site, the registration site, or at
 compile time — a hook is free to need something the handle does not provide,
@@ -540,7 +540,7 @@ rule, and the bypass drops *all* the rules — a tenant-scoped read now issued
 with nothing confining it. One consumer arrived at four structs each carrying a
 `{Sys, Hooks}` pair, where which handle a call site holds is convention,
 invisible to the type system and to review
-([#276](https://github.com/jryannel/sqlb/issues/276)).
+([#276](https://github.com/mind-vm/sqlb/issues/276)).
 
 **Name the rule at registration instead, and release that one at the handle.**
 A scope name is why `Scope` exists:
@@ -597,7 +597,7 @@ still there tomorrow.
 The consequence is that every create goes through a hook that wants the
 request's claims — including the creates that have no request. A fixture, a
 seed, an import, a job that materialises a row
-([#289](https://github.com/jryannel/sqlb/issues/289)) all arrive at the same
+([#289](https://github.com/mind-vm/sqlb/issues/289)) all arrive at the same
 place:
 
 ```

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // scratchDirs lists the driver directories left in a module.

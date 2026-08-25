@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // adopted is a registry shaped like one introspect would return: real column
@@ -58,7 +58,7 @@ func TestRenderedSchemaIsValidGo(t *testing.T) {
 
 	for _, want := range []string{
 		"package adopted",
-		`import "github.com/jryannel/sqlb/schema"`,
+		`import "github.com/mind-vm/sqlb/schema"`,
 		`var Orgs = schema.Table("orgs",`,
 		`var Posts = schema.Table("posts",`,
 	} {

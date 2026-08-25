@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // provenanceProject is migrateProject without the ShadowDB requirement:

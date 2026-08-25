@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // TestCreateInputRoundTrip covers the seam's contract, which is the

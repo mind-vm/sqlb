@@ -206,7 +206,7 @@ sorting, projection, paging and `?expand` all work on it unchanged, and it is th
 same request a capped `?expand` tells a caller to follow for the rest of the
 children. The one real cost is that a parent which does not exist yields an empty
 page rather than a 404
-([ADR-0038](https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#collections-are-flat)).
+([ADR-0038](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#collections-are-flat)).
 
 ### A table with one row per caller
 
@@ -252,7 +252,7 @@ page or `?select`, since there is one row and the caller does not choose it.
 A singleton needs no primary key at all, which is what lets a table keyed only by
 its tenant column be a resource.
 
-[#166]: https://github.com/jryannel/sqlb/issues/166
+[#166]: https://github.com/mind-vm/sqlb/issues/166
 
 ### Documenting the auth scheme
 

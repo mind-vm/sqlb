@@ -16,10 +16,10 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 
-	tschema "github.com/jryannel/sqlb/example/tasks-evolved/schema"
+	tschema "github.com/mind-vm/sqlb/example/tasks-evolved/schema"
 )
 
 // apply executes every non-empty Change.Up in order against pool. It is used

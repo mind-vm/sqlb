@@ -10,10 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/introspect"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/shadow"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/introspect"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/shadow"
 )
 
 // introspect is the one verb that needs no schema package, and therefore no

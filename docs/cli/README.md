@@ -56,7 +56,7 @@ raw, err := c.Do(ctx, client.Request{Method: http.MethodGet, Path: "/tasks"})
 ```
 
 The two were one package until
-[#97](https://github.com/jryannel/sqlb/issues/97), which meant a program that
+[#97](https://github.com/mind-vm/sqlb/issues/97), which meant a program that
 wanted to make one typed HTTP request took a command-line framework to do it.
 This is the split the TypeScript emitter already makes between `client.gen.ts`
 and `queries.gen.ts`, for the same reason: a consumer that does not want the
@@ -241,7 +241,7 @@ A header the schema has no way to name — tenant selection, an idempotency key,
 a trace id — is a field on `Request` rather than a reason to replace
 `Transport`: `Request.Header` reaches the wire after `Accept`, `Content-Type`
 and the derived `Authorization`, so it replaces any of them rather than sitting
-beside them ([#254](https://github.com/jryannel/sqlb/issues/254)). Nothing
+beside them ([#254](https://github.com/mind-vm/sqlb/issues/254)). Nothing
 generates it; a hand-written command built on `Client.Run` sets it directly:
 
 ```go

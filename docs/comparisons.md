@@ -301,6 +301,6 @@ Stated plainly, because a comparison page that cannot answer this is marketing:
 *Claims about other projects were checked against their documentation, their
 repositories and pkg.go.dev in August 2026, and carry links. They will go stale;
 if you find one that has, please open an issue — an out-of-date comparison is
-worse than none. [Issue #79](https://github.com/jryannel/sqlb/issues/79) is what
+worse than none. [Issue #79](https://github.com/mind-vm/sqlb/issues/79) is what
 that looks like working, and four of the six things it corrected made sqlb's
 case weaker rather than stronger.*

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // A date column across an expansion, against a real Postgres.

@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
-	"github.com/jryannel/sqlb/example/blog/ejected"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
+	"github.com/mind-vm/sqlb/example/blog/ejected"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // The exit, tested against the thing it replaces.

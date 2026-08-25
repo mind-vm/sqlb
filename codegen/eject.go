@@ -39,7 +39,7 @@ package codegen
 // naming the column that asked. The seam is a plain function field: the exit
 // keeps the property, and drops the machinery.
 //
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 
 import (
 	"bytes"
@@ -53,8 +53,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // EjectOptions configures an eject run.

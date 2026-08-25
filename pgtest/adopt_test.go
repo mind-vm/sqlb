@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // TestAdoptionIsAClosedLoop is the end-to-end claim ADR-0014 makes about
@@ -81,9 +81,9 @@ func ddlFromCompiledSource(t *testing.T, src []byte) string {
 
 go 1.25.7
 
-require github.com/jryannel/sqlb v0.0.0
+require github.com/mind-vm/sqlb v0.0.0
 
-replace github.com/jryannel/sqlb => `+root+`
+replace github.com/mind-vm/sqlb => `+root+`
 `)
 
 	// The rendered file, in a package of its own exactly as a project would
@@ -105,8 +105,8 @@ import (
 
 	_ "adopttest/adopted"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 func main() {

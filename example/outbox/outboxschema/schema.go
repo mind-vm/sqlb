@@ -10,7 +10,7 @@
 // tested against.
 package outboxschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Event is one outbox row: a unit of work a worker claims, processes, and
 // either completes or fails. Topic and Payload are the caller's contract —

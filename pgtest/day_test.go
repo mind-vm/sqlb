@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // A day is a question about a calendar, and a calendar belongs to a time zone.

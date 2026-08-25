@@ -32,7 +32,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/migrate"
+	"github.com/mind-vm/sqlb/migrate"
 )
 
 // disallowedMigrationDDL is DDL sqlb's own emitters never write. Keeping the

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // DefaultTable is where events are recorded when [Options.Table] is empty.
@@ -287,7 +287,7 @@ func prune(ctx context.Context, exec sqlb.Executor, table string, retention time
 // notify passes every test and lags in production, because the fallback poll
 // covers for it.
 //
-// [ADR-0012]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#change-feed-outbox
+// [ADR-0012]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#change-feed-outbox
 func DDL(opts Options) (string, error) {
 	if err := opts.applyDefaults(); err != nil {
 		return "", err

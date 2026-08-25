@@ -41,7 +41,7 @@ const initPredicateTest = `package {{.Pkg}}
 
 // Two tests that need no database.
 //
-// github.com/jryannel/sqlb/sqlbtest is a scripted Executor: it answers whatever
+// github.com/mind-vm/sqlb/sqlbtest is a scripted Executor: it answers whatever
 // it is told to, parses no SQL and evaluates no predicate. Its value is in what
 // it records — the statements your code produced and the values it bound.
 //
@@ -60,8 +60,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // callerKey is how these tests hand the hook an identity. A real application's

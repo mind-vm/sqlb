@@ -31,10 +31,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/shadow"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/shadow"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // triggers are the ones the history installs and the DSL cannot describe.

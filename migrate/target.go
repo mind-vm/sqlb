@@ -13,7 +13,7 @@ package migrate
 // by then the SQL is a string and the choice has already been made. So this is
 // an option on Diff, which is what turns two registries into statements.
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Option configures Diff.
 type Option func(*diffOptions)

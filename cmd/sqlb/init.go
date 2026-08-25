@@ -155,7 +155,7 @@ Next:
     go generate ./...
     # if that printed "run go mod tidy again", do — a schema feature can pull
     # in a dependency go generate only now writes an import for
-    go run github.com/jryannel/sqlb/cmd/sqlb migrate -name initial_schema ./%s
+    go run github.com/mind-vm/sqlb/cmd/sqlb migrate -name initial_schema ./%s
     export %s_DATABASE_URL='postgres://user:pass@localhost:5432/%s?sslmode=disable'
     go run ./cmd/server
 `, dir, data.SchemaPkg, data.SchemaPkg, dir, data.SchemaPkg, data.EnvPrefix, data.Pkg)
@@ -219,10 +219,10 @@ const initSchemaGo = `// Package {{.SchemaPkg}} is {{.Pkg}}'s schema — the sin
 //
 // Add tables, columns and capabilities as the project needs them. Task below
 // is not special beyond being what a first run needs something to serve —
-// see [github.com/jryannel/sqlb/schema]'s doc comment for the vocabulary.
+// see [github.com/mind-vm/sqlb/schema]'s doc comment for the vocabulary.
 package {{.SchemaPkg}}
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Task is a unit of work.
 var Task = schema.Table("tasks",
@@ -253,14 +253,14 @@ var Task = schema.Table("tasks",
 // actually lands in a new project's sqlb.go, where it must work as a real
 // directive — byte-identical to before.
 const initSqlbGo = "package {{.SchemaPkg}}\n\n" +
-	"//" + "go:generate go run github.com/jryannel/sqlb/cmd/sqlb generate .\n\n" +
+	"//" + "go:generate go run github.com/mind-vm/sqlb/cmd/sqlb generate .\n\n" +
 	`import (
 	"context"
 	"fmt"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // shadowDSNEnv names the scratch database ` + "`sqlb migrate`" + ` replays the migration
@@ -317,8 +317,8 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 
 	"{{.Module}}"
 )
@@ -359,7 +359,7 @@ func mount(srv *rest.Server, db *sqlb.DB) error {
 // disk rather than embedding it — the simplest thing that works for
 // ` + "`go run ./cmd/server`" + ` from the module root, and enough until this ships as a
 // binary that runs somewhere the source tree will not be. See
-// github.com/jryannel/sqlb's example/tasks2/migrations for the embedded form.
+// github.com/mind-vm/sqlb's example/tasks2/migrations for the embedded form.
 func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	db := stdlib.OpenDBFromPool(pool)
 	defer func() { _ = db.Close() }()
@@ -388,7 +388,7 @@ What ` + "`sqlb init`" + ` scaffolded, and how to keep working in it.
     go generate ./...
     # if that printed "run go mod tidy again", do — a schema feature can pull
     # in a dependency go generate only now writes an import for
-    go run github.com/jryannel/sqlb/cmd/sqlb migrate -name initial_schema ./{{.SchemaPkg}}
+    go run github.com/mind-vm/sqlb/cmd/sqlb migrate -name initial_schema ./{{.SchemaPkg}}
     export {{.EnvPrefix}}_DATABASE_URL='postgres://user:pass@localhost:5432/{{.Pkg}}?sslmode=disable'
     go run ./cmd/server
 
@@ -425,7 +425,7 @@ except for the first migration, which diffs against nothing.
 Two kinds, and the split is worth keeping.
 
 **Predicates, with no database.** ` + "`predicate_test.go`" + ` is scaffolded and passing.
-` + "`github.com/jryannel/sqlb/sqlbtest`" + ` is a scripted Executor: it parses no SQL and
+` + "`github.com/mind-vm/sqlb/sqlbtest`" + ` is a scripted Executor: it parses no SQL and
 evaluates no predicate, and its value is in what it records — the statements
 your code produced and the values it bound. That answers the questions a round
 trip cannot answer at all:
@@ -486,7 +486,7 @@ If you work on this project with a coding agent, sqlb ships skills for it.
 The static ones cover the DSL vocabulary, where the builder ends and
 hand-written SQL begins, and whether a codebase should adopt sqlb at all:
 
-    npx skills add jryannel/sqlb
+    npx skills add mind-vm/sqlb
 
 That is your invocation, not part of the build; nothing in sqlb depends on Node,
 and a skill is a directory with a ` + "`SKILL.md`" + ` in it, so a checkout and
@@ -511,7 +511,7 @@ one thing it exists to know.
 
 A column has no behavior beyond storage until a capability turns it on —
 nothing is filterable, sortable or searchable by default
-(github.com/jryannel/sqlb/schema's doc comment is the full reference; this is
+(github.com/mind-vm/sqlb/schema's doc comment is the full reference; this is
 the at-a-glance version):
 
     .Filterable()    reachable by ` + "`?column=op.value`" + ` on the list endpoint

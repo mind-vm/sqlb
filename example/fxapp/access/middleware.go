@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
 )
 
 // public paths answer without a key: the liveness probe and the API document.

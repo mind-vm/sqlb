@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 func TestSchemaIsValid(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/example/fxapp/config"
+	"github.com/mind-vm/sqlb/example/fxapp/config"
 )
 
 // Config is the set of spaces this installation serves and the key each one

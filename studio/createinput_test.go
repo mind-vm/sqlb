@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // createInputManifest is issue #309's case as a manifest: a resource whose

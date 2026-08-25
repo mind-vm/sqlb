@@ -6,13 +6,13 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	"github.com/mind-vm/sqlb/filter"
 
 	// Imported for its side effects: declaring a table registers it, and this
 	// is the declaration everything below reads from.
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
 )
 
 // ListPostsStage3 is stage 2's job again, with the model's capabilities coming

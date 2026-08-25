@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // AddField returns the field it added, so a caller has a handle back to a

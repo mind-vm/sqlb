@@ -11,8 +11,8 @@ CLI to install.
 package main
 
 import (
-    "github.com/jryannel/sqlb/codegen"
-    "github.com/jryannel/sqlb/schema"
+    "github.com/mind-vm/sqlb/codegen"
+    "github.com/mind-vm/sqlb/schema"
 
     _ "yourmodule/blogschema"
 )
@@ -79,7 +79,7 @@ one column is an error rather than last-one-wins.
 ### What an override reaches, and what it does not
 
 This is the part worth reading before using it
-([ADR-0035](https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#type-overrides)).
+([ADR-0035](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#type-overrides)).
 
 | | An override… |
 |---|---|

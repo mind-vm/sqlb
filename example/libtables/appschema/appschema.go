@@ -13,8 +13,8 @@
 package appschema
 
 import (
-	"github.com/jryannel/sqlb/example/libtables/sessionkit"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/example/libtables/sessionkit"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Registry is the application's one registry. Everything that ends up in this

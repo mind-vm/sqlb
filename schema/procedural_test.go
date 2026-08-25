@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // withAudit applies a reusable base column set — the procedural equivalent

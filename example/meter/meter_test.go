@@ -29,11 +29,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	_ "github.com/jryannel/sqlb/example/meter/meterschema"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	_ "github.com/mind-vm/sqlb/example/meter/meterschema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // freshDatabase returns a handle to a database of its own, built from what the

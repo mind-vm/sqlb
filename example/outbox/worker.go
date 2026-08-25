@@ -10,7 +10,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // maxBackoff caps Fail's exponential retry delay. Without a cap, 2^attempts

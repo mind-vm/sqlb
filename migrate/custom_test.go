@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/migrate"
+	"github.com/mind-vm/sqlb/migrate"
 )
 
 // dbmateFormat is a format sqlb does not ship, written here to check the claim

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/computed"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/migrate"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/computed"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/migrate"
 )
 
 // The declared form produces the same statement the hand-written one does. That

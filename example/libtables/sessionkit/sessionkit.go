@@ -45,8 +45,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // TablePrefix namespaces every table this library declares. Fixed, so that

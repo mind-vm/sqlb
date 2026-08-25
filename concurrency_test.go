@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // sqlb sits between an HTTP handler and the database, so everything it holds

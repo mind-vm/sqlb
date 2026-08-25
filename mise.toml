@@ -437,14 +437,14 @@ run = '''
 # the four event types to a leaf package and this entry comes back out — which
 # is a real possibility and the reason this paragraph exists rather than a name
 # quietly added to the list above.
-huma_ok='github.com/jryannel/sqlb/rest github.com/jryannel/sqlb/outbox github.com/jryannel/sqlb/example/blog github.com/jryannel/sqlb/example/withsqlc github.com/jryannel/sqlb/example/evolve'
+huma_ok='github.com/mind-vm/sqlb/rest github.com/mind-vm/sqlb/outbox github.com/mind-vm/sqlb/example/blog github.com/mind-vm/sqlb/example/withsqlc github.com/mind-vm/sqlb/example/evolve'
 
 # third_party lists the non-stdlib, non-sqlb packages one package imports,
 # transitively. A stdlib path has no dot in its first element, which is what
 # distinguishes it from a module path — and is why an earlier version that
 # grepped for "golang.org/x" matched the standard library's own vendored copies.
 third_party() {
-  go list -deps "$1" | grep -E '^[^/]+\.[^/]+/' | grep -v '^github.com/jryannel/sqlb' | sort -u
+  go list -deps "$1" | grep -E '^[^/]+\.[^/]+/' | grep -v '^github.com/mind-vm/sqlb' | sort -u
 }
 
 # The dependencies pgx brings with it, computed rather than listed. They are
@@ -508,11 +508,11 @@ fi
 
 # The positive controls. Each proves the check can still see a dependency at
 # all; without them a silent pass means nothing.
-if ! third_party github.com/jryannel/sqlb | grep -q '^github.com/jackc/pgx/v5'; then
+if ! third_party github.com/mind-vm/sqlb | grep -q '^github.com/jackc/pgx/v5'; then
   echo "deps-check: the check cannot see a dependency it should — the engine imports pgx but none was found"
   exit 1
 fi
-if ! third_party github.com/jryannel/sqlb/rest | grep -q '^github.com/danielgtaylor/huma'; then
+if ! third_party github.com/mind-vm/sqlb/rest | grep -q '^github.com/danielgtaylor/huma'; then
   echo "deps-check: the check cannot see a dependency it should — rest imports huma but none was found"
   exit 1
 fi
@@ -521,7 +521,7 @@ fi
 # alone by now, so asking it about rest's dependencies here must report huma. If
 # this stops firing, `unexpected` has stopped excluding anything and every pass
 # above was vacuous.
-if ! third_party github.com/jryannel/sqlb/rest | unexpected | grep -q '^github.com/danielgtaylor/huma'; then
+if ! third_party github.com/mind-vm/sqlb/rest | unexpected | grep -q '^github.com/danielgtaylor/huma'; then
   echo "deps-check: the filter accepted huma outside the two packages allowed it, so it is not filtering"
   exit 1
 fi
@@ -607,11 +607,11 @@ go run ./example/withsqlc/gen -check
 # root module's package list and needs a line here. Forgetting it would leave
 # the larger example's committed output free to drift, which is the exact
 # failure this gate exists to catch.
-cd "$MISE_PROJECT_ROOT/example/tasks" && go run github.com/jryannel/sqlb/cmd/sqlb check ./taskschema
+cd "$MISE_PROJECT_ROOT/example/tasks" && go run github.com/mind-vm/sqlb/cmd/sqlb check ./taskschema
 # example/fxapp, likewise its own module. Its generated package also holds one
 # hand-written file (store/module.go), which the check ignores: it compares the
 # artefacts the emitters own and says nothing about their neighbours.
-cd "$MISE_PROJECT_ROOT/example/fxapp" && go run github.com/jryannel/sqlb/cmd/sqlb check ./noteschema
+cd "$MISE_PROJECT_ROOT/example/fxapp" && go run github.com/mind-vm/sqlb/cmd/sqlb check ./noteschema
 '''
 
 [tasks.impact-check]
@@ -627,13 +627,13 @@ go run ./cmd/sqlb impact -error ./example/blog/blogschema
 go run ./cmd/sqlb impact -error ./example/evolve/evolveschema
 # example/tasks is its own module, so like generate-check it needs a line of its
 # own; the root module's package list cannot reach its schema.
-cd "$MISE_PROJECT_ROOT/example/tasks" && go run github.com/jryannel/sqlb/cmd/sqlb impact -error ./taskschema
-cd "$MISE_PROJECT_ROOT/example/fxapp" && go run github.com/jryannel/sqlb/cmd/sqlb impact -error ./noteschema
+cd "$MISE_PROJECT_ROOT/example/tasks" && go run github.com/mind-vm/sqlb/cmd/sqlb impact -error ./taskschema
+cd "$MISE_PROJECT_ROOT/example/fxapp" && go run github.com/mind-vm/sqlb/cmd/sqlb impact -error ./noteschema
 # example/tasks2 is the only schema in the repository that declares a query, so
 # it is the only place this gate covers that half of the contract at all. It had
 # no baseline until queries were captured, which is the shape of the gap: the
 # one example with the feature was the one example the gate did not run on.
-cd "$MISE_PROJECT_ROOT/example/tasks2" && go run github.com/jryannel/sqlb/cmd/sqlb impact -error ./tasks2schema
+cd "$MISE_PROJECT_ROOT/example/tasks2" && go run github.com/mind-vm/sqlb/cmd/sqlb impact -error ./tasks2schema
 '''
 
 [tasks.eject-check]
@@ -641,7 +641,7 @@ description = "Fail if the committed ejected package no longer matches what the 
 run = "go run ./cmd/sqlb eject -check ./example/blog/blogschema"
 
 [tasks.tagline-check]
-description = "Fail if the four hand-written copies of the project's one-line pitch have drifted apart. README.md, docs/start/README.md and the site's two `description` fields all state what sqlb is, none of them is generated from any other, and nothing links them — so an edit to the README leaves three copies saying something the project stopped claiming. This is the same class as the mirroring CLAUDE.md already warns about for the emitter docs, caught the same way generate-check catches code that has drifted from the schema: cheaply, and before a reader does. It checks the claim rather than the wording, because the four are written for different media — a markdown paragraph, a YAML folded block, a JS string in three pieces — and forcing them to be byte-identical would be a gate that fights the copy instead of protecting it."
+description = "Fail if the two hand-written copies of the project's one-line pitch have drifted apart. README.md and docs/start/README.md both state what sqlb is, neither is generated from the other, and nothing links them — so an edit to one leaves the other saying something the project stopped claiming. This is the same class as the mirroring CLAUDE.md already warns about for the emitter docs, caught the same way generate-check catches code that has drifted from the schema: cheaply, and before a reader does. It checks the claim rather than the wording, since the two are written for different contexts — a repo landing page and a documentation section opener. A third and fourth copy lived in the Astro site's frontmatter before it was removed as dead weight (the repo stays private, so nothing ever published it); this check shrank from four copies to two along with it."
 run = '''
 set -e
 
@@ -655,7 +655,7 @@ export LC_ALL
 # git tracks, not whatever is on disk. .claude/worktrees/ holds other checkouts
 # of this same repository, and an unscoped read would happily validate another
 # session's copy and report on that.
-files="README.md docs/start/README.md site/src/content/docs/index.mdx site/astro.config.mjs"
+files="README.md docs/start/README.md"
 
 # The claim every copy has to make: the lede, then the surfaces the one
 # declaration is the source for. Lowercased, because docs/start reaches the
@@ -766,7 +766,7 @@ run = '''
 set -e
 
 source=schema/field.go
-page=site/src/content/docs/reference/column-types.mdx
+page=docs/reference/column-types.md
 
 # docs/architecture.md's "Tooling scoped to tracked files" decision, and the
 # same reason tagline-check says so: .claude/worktrees/ holds other checkouts of
@@ -850,7 +850,7 @@ run = '''
 set -e
 
 source=schema/lint.go
-page=site/src/content/docs/reference/capabilities.mdx
+page=docs/reference/capabilities.md
 
 # docs/architecture.md's "Tooling scoped to tracked files" decision:
 # .claude/worktrees/ holds other checkouts of this repository, and an unscoped
@@ -1039,8 +1039,8 @@ for a in $(echo "$pairs" | awk '{print $2}' | sort | uniq -d); do
 done
 
 # Every cited anchor is a heading that exists — a decision renamed without its
-# citations following, which no link checker sees either, because docs/ is
-# published to a site that resolves anchors client-side or not at all.
+# citations following, which nothing else catches: GitHub renders a dead
+# in-page anchor as a plain, silently-unlinked heading rather than an error.
 for a in $(echo "$pairs" | awk '{print $2}' | sort -u); do
   found=0
   for h in $anchors; do
@@ -1142,32 +1142,3 @@ mise run test-fx
 echo
 echo "ci: all gates passed"
 '''
-
-# ---- Documentation site ----
-#
-# Deliberately not part of `ci`. The site is Astro, so running it in the gate
-# would make Node a build dependency of a Go library whose whole argument is
-# that it imposes none — the same reasoning that keeps sqlc out of the gate in
-# example/withsqlc. The content is plain markdown in docs/guide either way, and
-# it renders on GitHub without any of this.
-
-[tasks.site-dev]
-description = "Serve the documentation site with live reload. Regenerates the guide pages from docs/guide first; edit the markdown there, not the copy under site/src."
-dir = "site"
-run = '''
-[ -d node_modules ] || npm install
-npm run dev
-'''
-
-[tasks.site-build]
-description = "Build the documentation site into site/dist, then verify every internal link in the output resolves. The link check is the load-bearing half: the guide's links are repo-relative and get rewritten for the web, so one can be valid markdown, survive the build, and still 404 after deploy."
-dir = "site"
-run = '''
-[ -d node_modules ] || npm install
-npm run build
-'''
-
-[tasks.site-check]
-description = "Report whether docs/ can be published as it stands, without building. Fails on a link the rewriter has no rule for, on a page with no H1 to take a title from, and on a page missing from the sidebar order. Needs no npm install."
-dir = "site"
-run = "node scripts/sync-docs.mjs --check"

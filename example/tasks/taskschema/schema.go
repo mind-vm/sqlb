@@ -22,7 +22,7 @@
 //   - a migration history generated from this file and applied by goose.
 package taskschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Workspace is the tenant. Every other table except User is scoped to one, and
 // the scoping is enforced in hooks rather than in handlers.

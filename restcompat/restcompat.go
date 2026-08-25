@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Level is how a contract delta lands on a client that already exists.

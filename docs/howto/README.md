@@ -53,8 +53,8 @@ than three guesses.
 | Take a password, token or id list that is not a column | [A body that carries more than the row](../rest/README.md#a-body-that-carries-more-than-the-row) — declared inputs, and the hook that derives what is stored |
 | Give operators a way to browse the data | [Admin](../rest/admin.md) |
 | Notify another system when a row changes | [Events](../rest/events.md) and [Webhooks](../rest/webhooks.md) |
-| Control what a filter may express | [Filtering](../rest/filtering.md), and the [filter grammar reference](https://jryannel.github.io/sqlb/reference/filter-grammar/) |
-| Understand a rejection a client is seeing | [Errors](../rest/errors.md), and the [rejection reference](https://jryannel.github.io/sqlb/reference/rejections/) |
+| Control what a filter may express | [Filtering](../rest/filtering.md), and the [filter grammar reference](../reference/filter-grammar.md) |
+| Understand a rejection a client is seeing | [Errors](../rest/errors.md), and the [rejection reference](../reference/rejections.md) |
 | Add a command for an endpoint the generator cannot see | [Adding a command of your own](../cli/README.md#adding-a-command-of-your-own) — the seam `Client.Run` leaves, and the one client both halves share |
 
 ## Leaving
@@ -66,7 +66,7 @@ than three guesses.
 ## Elsewhere
 
 [Concepts](../concepts/README.md) is the reasoning the recipes assume — five
-pages, one idea each. [Reference](https://jryannel.github.io/sqlb/reference/) is
+pages, one idea each. [Reference](../reference/README.md) is
 the lookup material, including a
-[glossary](https://jryannel.github.io/sqlb/reference/glossary/) of the words
+[glossary](../reference/glossary.md) of the words
 these pages use.

@@ -42,7 +42,7 @@ import (
 // correct and slower. [RegisterVectorType] says what to do about a database
 // that does not have the extension at all.
 //
-// [ADR-0040]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
+// [ADR-0040]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
 type Vector []float32
 
 // String renders the pgvector text form, `[1,2,3]`. It is what the type sends

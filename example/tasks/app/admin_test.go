@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
 )
 
 // adminClient mints a PlatformAdmin token the way cmd/mint-admin does — with

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
 )
 
 // TestTypedColumnsCompileToTheSameSQL checks that the generated facade is a

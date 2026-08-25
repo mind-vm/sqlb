@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/attachments"
-	"github.com/jryannel/sqlb/example/attachments/s3"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/attachments"
+	"github.com/mind-vm/sqlb/example/attachments/s3"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // attachmentCols is the row as the database hands it back, in declaration

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // A declared action is a domain verb with a generated envelope (ADR-0043).

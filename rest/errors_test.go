@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // pgErr stands in for a driver error carrying a SQLSTATE, which is how the

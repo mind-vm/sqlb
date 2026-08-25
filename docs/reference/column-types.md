@@ -91,7 +91,7 @@ Operators, and the three refusals:
 
 Without it the filter still returns the right rows, by scanning the table for
 them — so nothing reports the problem and only a plan would show it. See
-[ADR-0033](https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#array-columns).
+[ADR-0033](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#array-columns).
 
 ## Shorthands
 

@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/introspect"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/introspect"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The round trip is a fixpoint, and this is the test that says so.
@@ -387,8 +387,8 @@ func buildsAgainstSqlb(t *testing.T, src string) error {
 	dir := t.TempDir()
 	for name, content := range map[string]string{
 		"go.mod": "module fixpointcheck\n\ngo 1.25.0\n\n" +
-			"require github.com/jryannel/sqlb v0.0.0\n\n" +
-			"replace github.com/jryannel/sqlb => " + root + "\n",
+			"require github.com/mind-vm/sqlb v0.0.0\n\n" +
+			"replace github.com/mind-vm/sqlb => " + root + "\n",
 		"schema.go": src,
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {

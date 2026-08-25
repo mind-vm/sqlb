@@ -10,7 +10,7 @@
 // (tenant, kind), and sqlb still refuses to declare one.
 package meterschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Meter is one row per (tenant, kind): a counter a producer increments with
 // OnConflictSet rather than reads, mutates and writes back — see

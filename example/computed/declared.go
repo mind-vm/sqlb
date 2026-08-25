@@ -3,8 +3,8 @@ package computed
 import (
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Technique (5): declare the expression.
@@ -23,7 +23,7 @@ import (
 // TABLE this registry produces is the one in Schema minus the three
 // expressions — and it reaches every emitter that describes a row.
 //
-// [ADR-0041]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#computed-fields
+// [ADR-0041]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#computed-fields
 var Declared = declaredRegistry()
 
 func declaredRegistry() *schema.Registry {

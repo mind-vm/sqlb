@@ -10,7 +10,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // TestNewServerMountsAndServes is the batteries-included path: NewServer builds

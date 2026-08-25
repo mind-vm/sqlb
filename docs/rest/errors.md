@@ -23,7 +23,7 @@ schema it only partly knows, and "column is not sortable" is a dead end where
 the same message plus the sortable columns is a fix.
 
 The full catalogue of messages is in the
-[rejection reference](https://jryannel.github.io/sqlb/reference/rejections/).
+[rejection reference](../reference/rejections.md).
 
 ## Reading it in Go
 
@@ -77,9 +77,9 @@ that returns a plain `errors.New(...)` carries no status, so it lands in the
 blunt case above and answers 500 — a refusal for a missing tenant header reads
 identically to a bug. Return a `huma.StatusError` instead —
 `huma.Error400BadRequest("X-Workspace-Id is required")` for that case — and
-[`sqlb.Hooks`'s doc comment](https://pkg.go.dev/github.com/jryannel/sqlb#Hooks)
+[`sqlb.Hooks`'s doc comment](https://pkg.go.dev/github.com/mind-vm/sqlb#Hooks)
 says the same thing from the side a hook author is actually looking at
-([#255](https://github.com/jryannel/sqlb/issues/255)).
+([#255](https://github.com/mind-vm/sqlb/issues/255)).
 
 See [Mutations](../queries/mutations.md#when-the-database-refuses-a-write) for
 the Go side, including the driver classifier that fills in the constraint name.

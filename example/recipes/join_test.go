@@ -1,8 +1,8 @@
 package recipes_test
 
 import (
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // Join takes the table, an alias and the ON predicate — built from EqField,

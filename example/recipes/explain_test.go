@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // The plan Postgres would return for the query below, on a table large enough

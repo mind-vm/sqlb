@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jryannel/sqlb/example/fxapp/access"
+	"github.com/mind-vm/sqlb/example/fxapp/access"
 )
 
 // These need no database and no container: the configuration and the

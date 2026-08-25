@@ -7,8 +7,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Generated Go has to compile, and nothing else in this suite checks that.

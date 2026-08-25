@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/example/attachments/s3"
+	"github.com/mind-vm/sqlb/example/attachments/s3"
 )
 
 // The credentials from AWS's own signing documentation. They are not a secret

@@ -3,7 +3,7 @@ package schema_test
 import (
 	"fmt"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // A schema is written as ordinary Go values, which is what lets one declaration

@@ -48,7 +48,7 @@ func TestTheScaffoldedTestCompilesAndPasses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b = append(b, "\nrequire github.com/jryannel/sqlb v0.0.0\n\nreplace github.com/jryannel/sqlb => "+root+"\n"...)
+	b = append(b, "\nrequire github.com/mind-vm/sqlb v0.0.0\n\nreplace github.com/mind-vm/sqlb => "+root+"\n"...)
 	if err := os.WriteFile(gomod, b, 0o644); err != nil {
 		t.Fatal(err)
 	}

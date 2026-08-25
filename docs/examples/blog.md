@@ -1,6 +1,6 @@
 # blog — the smallest whole thing
 
-**In this repository:** [`example/blog/`](https://github.com/jryannel/sqlb/tree/main/example/blog)
+**In this repository:** [`example/blog/`](https://github.com/mind-vm/sqlb/tree/main/example/blog)
 
 Three tables, everything codegen emits from them, the pieces that had to be
 written by hand, and an assembled server. It is a real test suite rather than a
@@ -48,11 +48,11 @@ server_test.go  the assembled server, and every claim asserted
 
 | | |
 |---|---|
-| [`blogschema/schema.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/blogschema/schema.go) | Four kinds of capability decision, with a comment on each that is not obvious |
-| [`hooks.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/hooks.go) | Eleven lines that constrain every read of a model |
-| [`deletes.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/deletes.go) | Why a hook cannot turn a `DELETE` into an `UPDATE`, and what to do instead |
-| [`post_ext.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/post_ext.go) | Incrementing a counter in the database rather than read-modify-write |
-| [`server_test.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/server_test.go) | The assembled chi + Huma + generated `Register` server |
+| [`blogschema/schema.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/blogschema/schema.go) | Four kinds of capability decision, with a comment on each that is not obvious |
+| [`hooks.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/hooks.go) | Eleven lines that constrain every read of a model |
+| [`deletes.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/deletes.go) | Why a hook cannot turn a `DELETE` into an `UPDATE`, and what to do instead |
+| [`post_ext.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/post_ext.go) | Incrementing a counter in the database rather than read-modify-write |
+| [`server_test.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/server_test.go) | The assembled chi + Huma + generated `Register` server |
 
 ## What it is not
 

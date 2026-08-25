@@ -69,5 +69,5 @@
 // That starts the servers if they are not already up, and runs with -parallel 8
 // — a cap rather than the core-count default, because each test's pool is
 // capped at 8 and the connection ceiling is the product of the two.
-// [sqlbtest.Fresh]: https://pkg.go.dev/github.com/jryannel/sqlb/sqlbtest#Fresh
+// [sqlbtest.Fresh]: https://pkg.go.dev/github.com/mind-vm/sqlb/sqlbtest#Fresh
 package pgtest

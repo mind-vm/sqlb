@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/migrate"
+	"github.com/mind-vm/sqlb/migrate"
 )
 
 func addColumn() migrate.Change {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // Page is 1-based offset pagination. The limit and offset render as literals

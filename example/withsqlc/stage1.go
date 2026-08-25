@@ -11,7 +11,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jryannel/sqlb/example/withsqlc/sqlcgen"
+	"github.com/mind-vm/sqlb/example/withsqlc/sqlcgen"
 )
 
 // The bounds a list endpoint needs. Stage 1 writes them as constants because

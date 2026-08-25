@@ -1,6 +1,6 @@
 # fxapp — sqlb under a dependency-injection container
 
-**In this repository:** [`example/fxapp/`](https://github.com/jryannel/sqlb/tree/main/example/fxapp)
+**In this repository:** [`example/fxapp/`](https://github.com/mind-vm/sqlb/tree/main/example/fxapp)
 
 The example about *wiring*. [blog](blog.md) is the shortest path
 from a schema to a server and [tasks](tasks.md) is that machinery

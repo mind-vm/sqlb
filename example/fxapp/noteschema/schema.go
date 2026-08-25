@@ -22,7 +22,7 @@
 // test asserts by taking the hooks away.
 package noteschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Space is the tenant. Every note belongs to exactly one, and which space a
 // request may see is decided by the bearer key it presents — see the access

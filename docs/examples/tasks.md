@@ -1,6 +1,6 @@
 # tasks — a multi-tenant task manager
 
-**In this repository:** [`example/tasks/`](https://github.com/jryannel/sqlb/tree/main/example/tasks)
+**In this repository:** [`example/tasks/`](https://github.com/mind-vm/sqlb/tree/main/example/tasks)
 
 The larger worked example. [blog](blog.md) shows the shortest path
 from a schema to a server; this shows what the same machinery looks like once an
@@ -125,12 +125,12 @@ a refresh endpoint. Both are noted where they bite.
 
 | | |
 |---|---|
-| [`taskschema/schema.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/taskschema/schema.go) | Six tables, with a comment on every decision that is not obvious |
-| [`app/hooks.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/app/hooks.go) | The whole boundary: one generic scoping function used four times, and reads scoped separately from writes |
-| [`app/app.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/app/app.go) | Six generated resources and six hand-written endpoints, one router |
-| [`auth/jwt.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/auth/jwt.go) | The three checks that make a verifier safe rather than merely working |
-| [`cmd/migrate/main.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/cmd/migrate/main.go) | A generated baseline, plus the three things the DSL cannot express |
-| [`web/src/api/http.ts`](https://github.com/jryannel/sqlb/blob/main/example/tasks/web/src/api/http.ts) | The transport that is deliberately not generated |
+| [`taskschema/schema.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/taskschema/schema.go) | Six tables, with a comment on every decision that is not obvious |
+| [`app/hooks.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/app/hooks.go) | The whole boundary: one generic scoping function used four times, and reads scoped separately from writes |
+| [`app/app.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/app/app.go) | Six generated resources and six hand-written endpoints, one router |
+| [`auth/jwt.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/auth/jwt.go) | The three checks that make a verifier safe rather than merely working |
+| [`cmd/migrate/main.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/cmd/migrate/main.go) | A generated baseline, plus the three things the DSL cannot express |
+| [`web/src/api/http.ts`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/web/src/api/http.ts) | The transport that is deliberately not generated |
 
 ## Next
 

@@ -17,17 +17,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/rooms"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/rooms"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/sqlbtest"
 
 	// Imported for its side effect: declaring Room and Booking registers them
 	// in schema.DefaultRegistry(), which migrateSchema below diffs against an
 	// empty one to get the DDL — the same baseline-migration path
 	// example/tasks/cmd/migrate/main.go uses.
-	_ "github.com/jryannel/sqlb/example/rooms/roomsschema"
+	_ "github.com/mind-vm/sqlb/example/rooms/roomsschema"
 )
 
 // roomsDB migrates a fresh database from the declared schema and returns a

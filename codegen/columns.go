@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // renderColumns emits the typed column facade and a typed update statement per
@@ -26,7 +26,7 @@ func renderColumns(opts Options) ([]byte, error) {
 		return nil, err
 	}
 
-	imports := map[string]bool{"github.com/jryannel/sqlb": true}
+	imports := map[string]bool{"github.com/mind-vm/sqlb": true}
 	// Registry-wide, which is right here for a reason worth naming, since the
 	// REST emitter needs the opposite: this file renders an overridden column
 	// whether or not it is hidden — the facade omits hidden columns but the

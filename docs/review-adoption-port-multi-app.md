@@ -28,7 +28,7 @@ or a behaviour, it was checked against the code or against a running Postgres
 (testcontainers); where it is a judgement call, it says so.
 
 Branch: `claude/subject-mono-fx-sqlb-port` (SHA elided)
-sqlb: `github.com/jryannel/sqlb` (local `replace` → a working checkout, currently at `v0.1.0`+)
+sqlb: `github.com/mind-vm/sqlb` (local `replace` → a working checkout, currently at `v0.1.0`+)
 
 **Status: PAUSED for review.** 3 of ~10 persistent `core` modules ported
 (`waitlist`, `secrets`, `llmcatalog`), all green. Nothing committed yet; the
@@ -145,7 +145,7 @@ helper) is unavailable for composite-key tables. Worth a doc note now, and a
 
 ### 4. Stdlib-only *import surface* still bumps huma/chi at the *module* level
 
-`go list -deps github.com/jryannel/sqlb` → zero non-stdlib packages ✓. But
+`go list -deps github.com/mind-vm/sqlb` → zero non-stdlib packages ✓. But
 `go mod tidy` selects versions per **module**, and sqlb's `go.mod` requires
 `huma/v2 v2.39.0` + `chi/v5 v5.3.1` (its `rest` subpackage, never imported), so
 adding it bumped, in core and every consuming app:
@@ -168,7 +168,7 @@ would make the claim true where it's felt. Doc caveat at minimum.
 The port uses `replace …/sqlb => <working checkout>` in **every** consuming
 module's `go.mod` (core + 4 apps so far) — there's no root `go.work`, so it's not
 a one-liner. Can't be committed to CI. Landing = drop the replace and
-`go get github.com/jryannel/sqlb@v0.1.0` (repo is public + tagged).
+`go get github.com/mind-vm/sqlb@v0.1.0` (repo is public + tagged).
 
 ### 6. `Describe` panics after first use — init-ordering hazard for the pure adoption path
 

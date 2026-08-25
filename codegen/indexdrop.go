@@ -39,8 +39,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // createdIndexPattern matches the CREATE INDEX forms migrate/ddl.go emits —

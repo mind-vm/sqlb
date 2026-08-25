@@ -43,7 +43,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The directory the skill lands in is also the name in its frontmatter, and it
@@ -130,7 +130,7 @@ func skillSiblings(b *strings.Builder, opts Options) {
 		"beside it. ")
 	fmt.Fprintf(b, "They go in `%s/`, next to this one:\n\n", opts.SkillDir)
 	b.WriteString("```bash\n" +
-		"npx skills add jryannel/sqlb\n" +
+		"npx skills add mind-vm/sqlb\n" +
 		"```\n\n")
 	fmt.Fprintf(b, "That is your invocation and not part of sqlb's build — nothing in the library "+
 		"depends on Node. A skill is a directory with a `SKILL.md` in it, so if you would rather "+

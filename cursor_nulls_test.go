@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // dated declares a null placement on a nullable timestamp, the shape #88 is

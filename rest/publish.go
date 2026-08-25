@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // PublishChanges makes every write of T announce itself to p.
@@ -91,8 +91,8 @@ import (
 // This used to default to a process-wide registry, with the registry-taking
 // form under a longer name. Removing that default was [ADR-0047].
 //
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
-// [ADR-0047]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#no-default-hook-registry
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0047]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#no-default-hook-registry
 func PublishChanges[T any](r *sqlb.Registry, p Publisher) error {
 	if r == nil {
 		return errors.New("rest: PublishChanges needs a registry")
@@ -184,7 +184,7 @@ func publishChanges[T any](h *sqlb.Hooks[T], p Publisher) error {
 // and a TxPublisher lands here for the same reason, having no transaction to
 // record into.
 //
-// [ADR-0012]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#change-feed-outbox
+// [ADR-0012]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#change-feed-outbox
 func announce(ctx context.Context, p Publisher, events ...Event) error {
 	if len(events) == 0 {
 		return nil

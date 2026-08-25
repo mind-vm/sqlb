@@ -18,7 +18,7 @@
 // email_address below.
 package evolveschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Customer is who a ticket belongs to.
 var Customer = schema.Table("customers",

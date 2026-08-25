@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Invoice is a struct sqlb did not generate and does not own — the output of

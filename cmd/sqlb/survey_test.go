@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/introspect"
+	"github.com/mind-vm/sqlb/introspect"
 )
 
 // The survey itself needs two databases and is exercised by running it; what is

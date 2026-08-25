@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Searching across a relation, against a real Postgres.

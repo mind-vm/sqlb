@@ -21,7 +21,7 @@ constructors exist, which is what let the guide page stop repeating that table.
 
 ## Elsewhere
 
-- **[pkg.go.dev](https://pkg.go.dev/github.com/jryannel/sqlb)** — the API
+- **[pkg.go.dev](https://pkg.go.dev/github.com/mind-vm/sqlb)** — the API
   reference, with the compiled `Example` functions attached to the symbols they
   document. Those examples are the canonical form: where a documentation page
   and an example disagree, the example is right.

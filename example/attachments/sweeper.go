@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // SweepReport is what one pass reconciled.

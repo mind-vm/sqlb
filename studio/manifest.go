@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // LoadManifest reads a schema.Manifest from a sqlb.json file at path.

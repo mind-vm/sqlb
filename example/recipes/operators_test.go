@@ -3,8 +3,8 @@ package recipes_test
 import (
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // The comparison operators, which are the ones with no surprises:

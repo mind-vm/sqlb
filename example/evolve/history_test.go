@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/restcompat"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/restcompat"
+	"github.com/mind-vm/sqlb/schema"
 
 	// Imported for its side effects: this is the current declaration, and the
 	// other side of every comparison below.
-	_ "github.com/jryannel/sqlb/example/evolve/evolveschema"
+	_ "github.com/mind-vm/sqlb/example/evolve/evolveschema"
 )
 
 // A schema edit changes two things, and they drift independently: the code sqlb

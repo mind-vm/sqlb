@@ -59,10 +59,10 @@ jobs:
       - run: mise run generate-check
       - run: mise run impact-check
       - run: mise run eject-check
-      # git and tr over four tracked files, no Go and no cache. The tagline is
+      # git and tr over two tracked files, no Go and no cache. The tagline is
       # the first sentence anyone reads about this project and it is written
-      # out by hand in four places that nothing links, so the copy the README
-      # stops making is one the site keeps making.
+      # out by hand in two places that nothing links, so the copy the README
+      # stops making is one docs/start/README.md keeps making.
       - run: mise run tagline-check
       # The same shape, over the column vocabulary. docs/schema/README.md names
       # the constructors in prose and points at the reference page for the

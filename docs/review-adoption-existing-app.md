@@ -1377,7 +1377,7 @@ correction.
 |---|---|---|
 | 🔴 A | `database/sql` vs pgx transaction wall | **Decided, in this report's favour.** [ADR-0040](architecture.md#the-driver-is-a-dependency) takes the pgx dependency rather than asking the subject to flip sqlc. The report called (ii) "not recommended"; sqlb agreed and moved instead. Not built — it is Phase 4 of [the road to 1.0](release-1.0.md) |
 | 🔴 B | pgvector not expressible | **Split.** Arrays are **built** ([ADR-0033](architecture.md#array-columns)) — `TEXT[]`/`VARCHAR(n)[]` declare, render, introspect, scan and filter. `tsvector` is **decided out** ([ADR-0037](architecture.md#search-is-ilike-until-it-cannot-be)). Composite PKs have a recorded stance ([ADR-0034](architecture.md#one-column-addresses-a-row)) and the port found them non-blocking. pgvector itself is unchanged and now known to be gated on A ([ADR-0026](architecture.md#vectors-declare-their-index)). `INTERVAL` remains absent |
-| 🔴 C | `rest` requires huma | **Answered, narrower than feared.** chi left the library graph in [#32](https://github.com/jryannel/sqlb/pull/32), and `rest.NewServer` builds the API on `net/http` — so the `humachi.New(...)`-over-existing-chi mount this report describes is no longer the shape. huma stays, deliberately: both escapes were scoped in full on 2026-07-30 and declined ([ADR-0007](architecture.md#generated-rest-handlers)) |
+| 🔴 C | `rest` requires huma | **Answered, narrower than feared.** chi left the library graph in [#32](https://github.com/mind-vm/sqlb/pull/32), and `rest.NewServer` builds the API on `net/http` — so the `humachi.New(...)`-over-existing-chi mount this report describes is no longer the shape. huma stays, deliberately: both escapes were scoped in full on 2026-07-30 and declined ([ADR-0007](architecture.md#generated-rest-handlers)) |
 | 🟡 D | Type mapping fixed and narrow, no override | **Closed.** [ADR-0035](architecture.md#type-overrides) ships type overrides in `codegen.Options` — the `sqlc.yaml` `overrides:` counterpart this report found missing. `uuid → uuid.UUID` is now declarable, which was the row that "touches everything" |
 | 🟡 E | Wire format, three simultaneous breaks | **Two of three answered.** The wire spelling is now a stated policy rather than an accident ([ADR-0036](architecture.md#the-wire-is-the-column-name)), and parent-scoped routes are decided rather than absent ([ADR-0038](architecture.md#collections-are-flat)) — flat, deliberately, with the 404-versus-empty-page cost named. **"sqlb emits no Dart" is no longer true**: [ADR-0031](architecture.md#dart-client) ships a Dart client, so the 10 hand-written Flutter model files are a regeneration rather than hand work. The envelope and grammar breaks stand as costed |
 | 🟡 F | Hooks do not follow an expansion — a real tenant-leak edge | **Fixed, and it was a security bug.** This was the highest-value finding in the report. The expansion now runs the target's hooks and requalifies their predicates onto the join alias, so the composite-FK workaround is belt-and-braces rather than the only thing holding ([ADR-0030](architecture.md#declared-scope-is-required), stream A of the release plan). The report's instruction — add composite keys *before* declaring `Expandable()` — is no longer a precondition |
@@ -1393,10 +1393,10 @@ fields. Two of the six have shipped, and neither is that one:
 
 - **1 · sqlb binary** — built ([ADR-0032](architecture.md#sqlb-command)).
 - **5 · Dart emitter** — built ([ADR-0031](architecture.md#dart-client)).
-- **2 · computed fields** ([#17](https://github.com/jryannel/sqlb/issues/17)),
-  **3 · declared actions** ([#18](https://github.com/jryannel/sqlb/issues/18)),
-  **4 · eject** ([#19](https://github.com/jryannel/sqlb/issues/19)),
-  **6 · impact** ([#21](https://github.com/jryannel/sqlb/issues/21)) — open, and
+- **2 · computed fields** ([#17](https://github.com/mind-vm/sqlb/issues/17)),
+  **3 · declared actions** ([#18](https://github.com/mind-vm/sqlb/issues/18)),
+  **4 · eject** ([#19](https://github.com/mind-vm/sqlb/issues/19)),
+  **6 · impact** ([#21](https://github.com/mind-vm/sqlb/issues/21)) — open, and
   all four are named 1.1 candidates rather than 1.0 blockers.
 
 The recommendation stands unmet and unchallenged: computed fields remain the

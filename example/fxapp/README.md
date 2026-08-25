@@ -15,7 +15,7 @@ used to hand-write that glue in three packages (`dbbase`, `sqlbkit`, `httpkit`);
 `fxkit` is those three, collected.
 
 **It is glue to copy, not a library to import.** It was briefly published as a
-module, `github.com/jryannel/sqlb/sqlbfx`, and
+module, `github.com/mind-vm/sqlb/sqlbfx`, and
 [ADR-0044](../../docs/architecture.md#the-container-is-an-adapter) records the
 reversal: nearly all of it is opinion — chi, humachi, goose, `log/slog` — and
 opinions that load-bearing are better adapted in a file you own than taken

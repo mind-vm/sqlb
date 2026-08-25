@@ -14,8 +14,8 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/auth-workos"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/auth-workos"
 )
 
 // testKeyID is the "kid" every token mintToken signs carries, and the same

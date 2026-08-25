@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // pgEnv names the Postgres these tests run against. It must be Postgres 18:

@@ -117,7 +117,7 @@ import (
 // unreachable through the query, which is a stronger property and the one that
 // still holds if someone writes the query by hand.
 //
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 
 // expandPrefix marks a result column as an expanded relation. It is not a legal
 // column name in any schema this generates, so it cannot collide with one.
@@ -185,9 +185,9 @@ func (b *Builder[T]) Expand(names ...string) *Builder[T] {
 // This is a Go API rather than a request parameter. The wire shape of an
 // expansion is derived from the schema, and a client asking for fewer keys
 // would make one endpoint answer with rows of varying shape
-// ([ADR-0039](https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#a-schema-edit-is-an-api-edit)).
+// ([ADR-0039](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#a-schema-edit-is-an-api-edit)).
 //
-// [ADR-0022]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#references-declare-their-inverse
+// [ADR-0022]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#references-declare-their-inverse
 func (b *Builder[T]) ExpandOnly(name string, columns ...string) *Builder[T] {
 	if b.Expand(name); b.err != nil {
 		return b

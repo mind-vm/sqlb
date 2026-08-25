@@ -6,7 +6,7 @@ against Postgres, and a REST API in front of it.
 sqlb needs Go 1.25 or newer and Postgres.
 
 ```bash
-go get github.com/jryannel/sqlb
+go get github.com/mind-vm/sqlb
 ```
 
 ## See one running first
@@ -45,7 +45,7 @@ table, everything `generate` produces from it, and a server built on
 `rest.Serve` — most of the way through step 4 in about five commands:
 
 ```bash
-go install github.com/jryannel/sqlb/cmd/sqlb@latest
+go install github.com/mind-vm/sqlb/cmd/sqlb@latest
 sqlb init -module github.com/you/blog
 cd blog
 go mod tidy
@@ -78,7 +78,7 @@ lets both be called `Post`.
 // blogschema/schema.go
 package blogschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 var Author = schema.Table("authors",
     schema.UUIDv7("id").PrimaryKey(),
@@ -140,8 +140,8 @@ effects — declaring a table registers it — and writes the artefacts.
 package main
 
 import (
-    "github.com/jryannel/sqlb/codegen"
-    "github.com/jryannel/sqlb/schema"
+    "github.com/mind-vm/sqlb/codegen"
+    "github.com/mind-vm/sqlb/schema"
 
     _ "yourmodule/blogschema"
 )

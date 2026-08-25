@@ -1,12 +1,12 @@
-module github.com/jryannel/sqlb/example/attachments
+module github.com/mind-vm/sqlb/example/attachments
 
 go 1.25.0
 
-replace github.com/jryannel/sqlb => ../../
+replace github.com/mind-vm/sqlb => ../../
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.0
-	github.com/jryannel/sqlb v0.0.0
+	github.com/mind-vm/sqlb v0.0.0
 )
 
 require (

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // An array column is a plain Go slice. `Tags []string` maps to `text[]`, and
@@ -65,7 +65,7 @@ func Example_arrayEmptyValueSets() {
 // That is one of the things taking pgx bought ([ADR-0040]). sqlb used to carry
 // its own array codec because the standard library has none.
 //
-// [ADR-0040]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
+// [ADR-0040]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
 func Example_arrayWritten() {
 	show(sqlb.UpdateRows[recipes.Post]().
 		Set("tags", []string{"go", "a,b", `quote"d`}).

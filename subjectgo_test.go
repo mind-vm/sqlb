@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // subjectEvent is the corpus's analytics_events, trimmed to the columns one
