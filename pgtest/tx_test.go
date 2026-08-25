@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Account is a deliberately small model. What is under test is the transaction

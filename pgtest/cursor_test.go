@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	"github.com/mind-vm/sqlb/schema"
 
 	// Imported for its side effects: declaring a table registers it.
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
 )
 
 // Cursor pagination, judged by Postgres rather than by a golden string.

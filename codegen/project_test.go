@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // run drives the driver half of the sqlb command the way cmd/sqlb does, and

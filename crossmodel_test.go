@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // The two models a checkout needs: the row a request creates, and the row its

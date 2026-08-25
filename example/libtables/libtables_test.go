@@ -16,12 +16,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/libtables/appschema"
-	"github.com/jryannel/sqlb/example/libtables/sessionkit"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/rest"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/libtables/appschema"
+	"github.com/mind-vm/sqlb/example/libtables/sessionkit"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/rest"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // ddl renders what `sqlb migrate` would write for a registry with nothing

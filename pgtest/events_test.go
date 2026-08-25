@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // Note is the smallest resource that exercises the change feed: a

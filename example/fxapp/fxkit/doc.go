@@ -6,7 +6,7 @@
 // # This is glue to copy, not a library to import
 //
 // It lives inside the example on purpose. It was briefly a published module,
-// github.com/jryannel/sqlb/sqlbfx, and ADR-0044 records why that was reversed:
+// github.com/mind-vm/sqlb/sqlbfx, and ADR-0044 records why that was reversed:
 // nearly all of it is opinionated wiring — chi for the router, humachi for the
 // API, goose for the runner, log/slog for the log — and opinions that
 // load-bearing are the wrong thing to publish, because an application on echo
@@ -64,8 +64,8 @@
 //
 // # What is not here
 //
-// The principal seam. [github.com/jryannel/sqlb.WithPrincipal] and
-// [github.com/jryannel/sqlb.PrincipalFrom] are in the engine, because the seam
+// The principal seam. [github.com/mind-vm/sqlb.WithPrincipal] and
+// [github.com/mind-vm/sqlb.PrincipalFrom] are in the engine, because the seam
 // between "who is calling" and "what confines the query" turned out not to be
 // fx-shaped at all: example/tasks had hand-rolled the same thing with no
 // container in sight. Middleware stores the principal, scoping hooks read it

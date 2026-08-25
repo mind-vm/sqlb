@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // This file renders Postgres DDL from schema declarations. It is the only

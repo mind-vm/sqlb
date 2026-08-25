@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // A plan shaped like Postgres emits: an index scan under a sort.

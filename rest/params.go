@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
 )
 
 // listParams builds the OpenAPI parameters for a list operation from the

@@ -64,12 +64,12 @@ rendered live. But three different situations produce the same statement: an
 index you have stopped declaring, one somebody built by hand that the
 declaration never knew about, and, for one migration after upgrading past
 v0.14, one sqlb used to create by implication from a reference and no longer
-does ([#259](https://github.com/jryannel/sqlb/issues/259)). Only the first is
+does ([#259](https://github.com/mind-vm/sqlb/issues/259)). Only the first is
 an intended loss, and rebuilding a large index under `CONCURRENTLY` is not
 cheap.
 
 So `sqlb migrate` and `sqlb check -database` annotate the two they can
-recognise ([#268](https://github.com/jryannel/sqlb/issues/268)):
+recognise ([#268](https://github.com/mind-vm/sqlb/issues/268)):
 
 ```sql
 -- drop index messages_thread_id_idx

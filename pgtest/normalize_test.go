@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/shadow"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/shadow"
 )
 
 // Issue #24: a declared CHECK never round-tripped.

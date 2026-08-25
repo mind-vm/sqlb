@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // QJob is the worked example issue #174 opened with: a queue-style outbox

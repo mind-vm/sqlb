@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/schema"
 
 	// Imported for its side effects: declaring a table registers it.
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
 )
 
 // This is the practice the README describes, run against the worked example:

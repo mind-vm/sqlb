@@ -22,8 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jryannel/sqlb/restcompat"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/restcompat"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // impactFlags is the verb's command line.

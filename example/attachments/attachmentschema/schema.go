@@ -2,7 +2,7 @@
 // example: the single source of truth an author, or an agent, edits.
 package attachmentschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Attachment is a row that points at bytes Postgres never sees.
 //

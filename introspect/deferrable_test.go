@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // deferrableCatalog is one table with a deferred UNIQUE on each of the two

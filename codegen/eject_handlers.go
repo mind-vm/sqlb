@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // ejectHandlers emits the request bodies, the handlers and Register.

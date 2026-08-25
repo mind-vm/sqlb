@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // Select replaces the default projection, and an aggregate carries an alias.

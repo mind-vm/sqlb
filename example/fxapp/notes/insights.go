@@ -8,9 +8,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
-	"github.com/jryannel/sqlb/example/fxapp/store"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb/example/fxapp/store"
 )
 
 // provideOperations contributes the one endpoint the generator does not write.

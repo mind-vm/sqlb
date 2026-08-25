@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Emitting a declared query (ADR-0057).

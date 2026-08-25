@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // users builds n rows that all write the same columns, so that the bind count

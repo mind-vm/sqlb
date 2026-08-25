@@ -257,7 +257,7 @@ completeness rather than re-argued; one belongs to the platform, not to sqlb.
 | Finding | Port | Their rank | Disposition |
 |---|---|---|---|
 | **Bind-parameter cast** — no `$1::date`; `cmp` wraps even an `Expr` in `Param{}` | single-app | #1, "highest-value single addition" | **Before 1.0** |
-| **Expressions in `ON CONFLICT DO UPDATE`** — only `EXCLUDED.<col>` | multi-app | "highest-value sqlb change surfaced by this port", High | **Done** — `OnConflictSet` with `Excluded`/`Current` ([#90](https://github.com/jryannel/sqlb/issues/90)) |
+| **Expressions in `ON CONFLICT DO UPDATE`** — only `EXCLUDED.<col>` | multi-app | "highest-value sqlb change surfaced by this port", High | **Done** — `OnConflictSet` with `Excluded`/`Current` ([#90](https://github.com/mind-vm/sqlb/issues/90)) |
 | **Null-aware negation** — `IsDistinctFrom`, NULL-inclusive `NotOneOf` | single-app | #2 | 1.1, documented now |
 | **`$N`-form raw predicate** — `RawPred` is positional, `$N` is referential | single-app | #4 | 1.1, documented now |
 | **Registry-aware coercion** — `filter.Coerce` is string→type only | single-app | #5 | 1.1 |
@@ -316,25 +316,25 @@ Named so that "it is missing" is not mistaken for "it was forgotten".
 - **Nested `?expand`, and backwards cursors.** Both are already named in
   `compatibility.md` under *Will move*, both are additive, and neither changes
   the meaning of a request that can be sent today.
-- **Declared actions** ([#18](https://github.com/jryannel/sqlb/issues/18)). The
+- **Declared actions** ([#18](https://github.com/mind-vm/sqlb/issues/18)). The
   largest item left on the roadmap, and additive — a schema that declares no
   action is unaffected.
-- ~~**Computed fields** ([#17](https://github.com/jryannel/sqlb/issues/17)).~~
+- ~~**Computed fields** ([#17](https://github.com/mind-vm/sqlb/issues/17)).~~
   Built, additive, and in: `schema.Computed` with `FromSQL` and `Needs`, per
   [ADR-0041](architecture.md#computed-fields). It was deferred as the strongest
   candidate for 1.1 rather than a blocker; it landed early because it is purely
   additive — a schema that declares no computed column compiles to the same SQL.
   The record's `FromGo` tier is **cut** rather than pending: ADR-0041 set the
   condition "if the first two applications express everything in SQL", and both
-  did ([#17](https://github.com/jryannel/sqlb/issues/17)).
-- ~~**`sqlb eject`** ([#19](https://github.com/jryannel/sqlb/issues/19))~~ Built:
+  did ([#17](https://github.com/mind-vm/sqlb/issues/17)).
+- ~~**`sqlb eject`** ([#19](https://github.com/mind-vm/sqlb/issues/19))~~ Built:
   the schema as SQL and the resources as plain `net/http` handlers over pgx, with
   what it does not carry refused by name and a comparison test against the
   generated resources it replaces ([ADR-0042](architecture.md#the-exit-is-generated)).
   It was deferred as an adoption argument rather than a feature; it landed early
   because the argument is the one thing a pre-1.0 library with no consumers can
   actually answer.
-- **`sqlb impact`** ([#21](https://github.com/jryannel/sqlb/issues/21)). Half of
+- **`sqlb impact`** ([#21](https://github.com/mind-vm/sqlb/issues/21)). Half of
   it is built — a REST-contract diff against a committed baseline
   ([ADR-0039](architecture.md#a-schema-edit-is-an-api-edit)) — and what the issue
   asks for beyond that is the blast-radius report: which endpoints, which client

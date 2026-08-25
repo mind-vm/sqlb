@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/introspect"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/introspect"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // DB is what a replay needs: statements, and a transaction to group each file's

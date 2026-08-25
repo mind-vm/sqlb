@@ -1,8 +1,8 @@
 # sqlb
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/jryannel/sqlb.svg)](https://pkg.go.dev/github.com/jryannel/sqlb)
-[![CI](https://github.com/jryannel/sqlb/actions/workflows/ci.yml/badge.svg)](https://github.com/jryannel/sqlb/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/jryannel/sqlb)](go.mod)
+[![Go Reference](https://pkg.go.dev/badge/github.com/mind-vm/sqlb.svg)](https://pkg.go.dev/github.com/mind-vm/sqlb)
+[![CI](https://github.com/mind-vm/sqlb/actions/workflows/ci.yml/badge.svg)](https://github.com/mind-vm/sqlb/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/mind-vm/sqlb)](go.mod)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey.svg)](LICENSE)
 
 Declarative Postgres for Go. A schema is ordinary Go, and everything else is
@@ -10,11 +10,11 @@ derived from it: migrations, typed models, composable queries, REST handlers,
 an OpenAPI document, and clients for TypeScript, Dart and the command line.
 Nothing downstream is written by hand, so nothing drifts out of step.
 
-**[Documentation](https://jryannel.github.io/sqlb/)** ·
-[Quickstart](https://jryannel.github.io/sqlb/start/quickstart/) ·
+**[Documentation](docs/start/README.md)** ·
+[Quickstart](docs/start/quickstart.md) ·
 [Cheatsheet](docs/cheatsheet/README.md) ·
-[API reference](https://pkg.go.dev/github.com/jryannel/sqlb) ·
-[Decision records](https://jryannel.github.io/sqlb/project/architecture/#decisions)
+[API reference](https://pkg.go.dev/github.com/mind-vm/sqlb) ·
+[Decision records](docs/architecture.md#decisions)
 
 ## Why
 
@@ -67,17 +67,17 @@ compiler, one bind-parameter discipline, one set of hooks — two producers.
   response type, and a hidden column has no spelling at all. The OpenAPI
   document cannot say any of that — `?status=eq.published` documents as
   `array<string>` — so it is generated from the model instead
-  ([guide](https://jryannel.github.io/sqlb/typescript/)). The same vocabulary
+  ([guide](docs/typescript/README.md)). The same vocabulary
   reaches a Flutter app as Dart — plus the cursor pager an infinite-scrolling
   list needs, which is the piece a mobile client otherwise rebuilds out of
   `has_more` and an offset counter
-  ([guide](https://jryannel.github.io/sqlb/dart/)) — and **Go**, as a typed
+  ([guide](docs/dart/README.md)) — and **Go**, as a typed
   client that imports the standard library and nothing else, plus an optional
   [cobra](https://github.com/spf13/cobra) command tree over it: one flag per
   filterable column, its operators in the usage string, so `--help` states what
   a resource accepts without a request — which is the form the guarantee has to
   take for a caller with no compile step, such as an agent
-  ([guide](https://jryannel.github.io/sqlb/cli/)).
+  ([guide](docs/cli/README.md)).
 - **A live view is a subscription, not a poll.** `rest.Events` mounts a
   Server-Sent Events stream that carries the *address* of a change —
   `{table, key, op}` — and never the row, so the refetch goes through the
@@ -88,7 +88,7 @@ compiler, one bind-parameter discipline, one set of hooks — two producers.
   swapping them is a constructor call. The subscriber is generated too, in
   TypeScript and in Dart, so what an application writes is which cache to
   invalidate rather than which keys to invalidate in it
-  ([guide](https://jryannel.github.io/sqlb/rest/events/)).
+  ([guide](docs/rest/events.md)).
 - **One dependency, and it is the one you already have.** The engine is written
   on [pgx](https://github.com/jackc/pgx) and takes nothing else; a CI gate fails
   on anything that is not pgx or something pgx itself pulls in. That is a
@@ -103,17 +103,17 @@ compiler, one bind-parameter discipline, one set of hooks — two producers.
 ## Install
 
 ```bash
-go get github.com/jryannel/sqlb
+go get github.com/mind-vm/sqlb
 ```
 
 Go 1.25 or newer, and Postgres.
-[Quickstart](https://jryannel.github.io/sqlb/start/quickstart/) goes
+[Quickstart](docs/start/quickstart.md) goes
 from here to a running server.
 
 The generator is a command, and the loop is one line each way:
 
 ```bash
-go install github.com/jryannel/sqlb/cmd/sqlb@latest
+go install github.com/mind-vm/sqlb/cmd/sqlb@latest
 
 sqlb generate ./schema                # models, typed columns, REST bodies, manifest, clients
 sqlb check ./schema                   # the CI drift gate: writes nothing, fails if stale
@@ -152,7 +152,7 @@ request by request. See [the way out](docs/eject.md).
 
 **Pre-1.0, one author, no observed consumers.** That is the honest starting
 position, and no amount of feature work substitutes for elapsed time under real
-traffic. [Compatibility](https://jryannel.github.io/sqlb/project/compatibility/)
+traffic. [Compatibility](docs/compatibility.md)
 says what `v0.1.0` freezes and which surfaces are expected to move.
 
 What *is* proven, and re-checked on every run rather than asserted: CI applies
@@ -166,20 +166,20 @@ Postgres only. `LISTEN/NOTIFY`, jsonb aggregation and `RETURNING` are all
 load-bearing; multi-dialect support would cost the best features.
 
 Not built yet, in the order they matter: an MCP server over the manifest.
-[Vision](https://jryannel.github.io/sqlb/project/vision/) has the detail.
+[Vision](docs/vision.md) has the detail.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Start here](https://jryannel.github.io/sqlb/start/) | Overview, quickstart, a worked first app, structs-first adoption |
-| [Concepts](https://jryannel.github.io/sqlb/concepts/) | The five ideas the rest of it rests on |
-| [Cheatsheet](docs/cheatsheet/README.md) | Every surface on one page — schema DSL, builder, mutations, hooks, filter grammar, migrations, codegen, CLI. A lookup table, and the file to hand a coding agent ([on the site](https://jryannel.github.io/sqlb/cheatsheet/)) |
-| [Schema](https://jryannel.github.io/sqlb/schema/) · [Queries](https://jryannel.github.io/sqlb/queries/) · [REST](https://jryannel.github.io/sqlb/rest/) · [TypeScript](https://jryannel.github.io/sqlb/typescript/) · [Dart](https://jryannel.github.io/sqlb/dart/) · [CLI](https://jryannel.github.io/sqlb/cli/) · [Migrations](https://jryannel.github.io/sqlb/migrations/) | One section per surface |
-| [Examples](https://jryannel.github.io/sqlb/examples/) | Six worked applications, and what each one proves |
-| [Reference](https://jryannel.github.io/sqlb/reference/) | Filter operators, column types, capabilities, codegen options, CLI, rejections |
-| [Architecture](https://jryannel.github.io/sqlb/project/architecture/) | How the pieces fit, the request path, where safety lives |
-| [Decision records](https://jryannel.github.io/sqlb/project/architecture/#decisions) | What was decided, why, and what would change our mind |
+| [Start here](docs/start/README.md) | Overview, quickstart, a worked first app, structs-first adoption |
+| [Concepts](docs/concepts/README.md) | The five ideas the rest of it rests on |
+| [Cheatsheet](docs/cheatsheet/README.md) | Every surface on one page — schema DSL, builder, mutations, hooks, filter grammar, migrations, codegen, CLI. A lookup table, and the file to hand a coding agent |
+| [Schema](docs/schema/README.md) · [Queries](docs/queries/README.md) · [REST](docs/rest/README.md) · [TypeScript](docs/typescript/README.md) · [Dart](docs/dart/README.md) · [CLI](docs/cli/README.md) · [Migrations](docs/migrations/README.md) | One section per surface |
+| [Examples](docs/examples/README.md) | Six worked applications, and what each one proves |
+| [Reference](docs/reference/README.md) | Filter operators, column types, capabilities, codegen options, CLI, rejections |
+| [Architecture](docs/architecture.md) | How the pieces fit, the request path, where safety lives |
+| [Decision records](docs/architecture.md#decisions) | What was decided, why, and what would change our mind |
 | [`example/recipes`](example/recipes/) | Eighty-odd small examples, one file per aspect — the place to look when you know what you are building and need to know how one piece is spelled |
 | [`example/blog`](example/blog/) | A worked schema and everything codegen emits from it |
 | [`example/tasks`](example/tasks/) | A multi-tenant task manager: auth, migrations, a runnable server, and a generated TypeScript client, Dart client and CLI |

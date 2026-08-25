@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // keyless has no primary key, which is the case Stable has to tolerate and the

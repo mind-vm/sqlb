@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 //go:embed templates/base.html templates/index.html templates/table.html templates/login.html templates/rows.html templates/row.html templates/form.html templates/action.html

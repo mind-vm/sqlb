@@ -46,7 +46,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Structural limits for a JSON filter tree, the analogue of MaxGroupDepth and

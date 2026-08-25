@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // The context is the only channel between HTTP middleware and a sqlb hook.

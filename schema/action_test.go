@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // tasksWith builds a tasks table carrying one action, for the refusals below.

@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb/filter"
 )
 
 // The REST filter grammar compiles a query string into the same predicate AST

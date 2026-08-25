@@ -88,7 +88,7 @@ hand-written code that sits outside every gate you have.
 evaluation counted 1,848 snake_case JSON tags against 334 camelCase — 85%
 already matching, with a residual to rename on both sides. Another found
 camelCase throughout. For a camelCase front end this lands on every route at
-once, and it is tracked as [#116](https://github.com/jryannel/sqlb/issues/116),
+once, and it is tracked as [#116](https://github.com/mind-vm/sqlb/issues/116),
 which argues the single spelling could be *derived* rather than literal.
 Unresolved — do not present this one as settled.
 
@@ -173,7 +173,7 @@ rule you are enforcing rather than a key anything else refers to — and when yo
 want a *partial* one (`WHERE deleted_at IS NULL`), which a constraint cannot be.
 
 sqlb declares the two separately and will not quietly substitute one for the
-other: since [#108](https://github.com/jryannel/sqlb/issues/108) the constraint
+other: since [#108](https://github.com/mind-vm/sqlb/issues/108) the constraint
 imports as a constraint, named by Postgres's own `<table>_<cols>_key` convention
 so an adopted database diffs to nothing.
 
@@ -319,9 +319,9 @@ moment an engineer finds them.
 
 | gap | seen in |
 |---|---|
-| [#121](https://github.com/jryannel/sqlb/issues/121) `EXCLUDE` constraints | 1 app — no near-miss; dropping it loses an invariant |
-| [#114](https://github.com/jryannel/sqlb/issues/114) `smallint` / [#120](https://github.com/jryannel/sqlb/issues/120) `real` | 2 apps, 6 valiro columns |
-| [#115](https://github.com/jryannel/sqlb/issues/115) `Diff` renders no `CREATE EXTENSION` | every bootstrap |
+| [#121](https://github.com/mind-vm/sqlb/issues/121) `EXCLUDE` constraints | 1 app — no near-miss; dropping it loses an invariant |
+| [#114](https://github.com/mind-vm/sqlb/issues/114) `smallint` / [#120](https://github.com/mind-vm/sqlb/issues/120) `real` | 2 apps, 6 valiro columns |
+| [#115](https://github.com/mind-vm/sqlb/issues/115) `Diff` renders no `CREATE EXTENSION` | every bootstrap |
 
 **An unsupported column type costs more than one column.** The CHECKs and indexes
 over it cannot be declared either — **four of the nine** distinct skip messages
@@ -338,13 +338,13 @@ what imports partially, what a round trip fails to reproduce. Read-only against
 the source, seconds to run.
 
 ```bash
-go run github.com/jryannel/sqlb/cmd/sqlb@main survey "$SRC" "$SCRATCH" > survey.md
+go run github.com/mind-vm/sqlb/cmd/sqlb@main survey "$SRC" "$SCRATCH" > survey.md
 ```
 
 The scratch database must carry the same extensions as the source
-([#115](https://github.com/jryannel/sqlb/issues/115)), and a project whose
+([#115](https://github.com/mind-vm/sqlb/issues/115)), and a project whose
 migration runner keeps per-module bookkeeping tables needs `-exclude`
-([#123](https://github.com/jryannel/sqlb/issues/123)).
+([#123](https://github.com/mind-vm/sqlb/issues/123)).
 
 # The rule to triage by
 

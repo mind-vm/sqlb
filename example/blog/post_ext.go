@@ -1,6 +1,6 @@
 package blog
 
-import "github.com/jryannel/sqlb"
+import "github.com/mind-vm/sqlb"
 
 // Hand-written extensions to the generated types.
 //

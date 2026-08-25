@@ -9,7 +9,7 @@
 // on Booking's AddExclude call below and ../README.md for what it settles.
 package roomsschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Room is the thing being booked.
 var Room = schema.Table("rooms",

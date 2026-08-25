@@ -1,14 +1,8 @@
----
-title: "tasks — a multi-tenant task manager"
-description: Six tables, JWT authentication, a workspace boundary held entirely by hooks, a migration history, and a generated TypeScript client and CLI.
-sidebar:
-  label: tasks
-  order: 2
----
+# tasks — a multi-tenant task manager
 
-**In this repository:** [`example/tasks/`](https://github.com/jryannel/sqlb/tree/main/example/tasks)
+**In this repository:** [`example/tasks/`](https://github.com/mind-vm/sqlb/tree/main/example/tasks)
 
-The larger worked example. [blog](/sqlb/examples/blog/) shows the shortest path
+The larger worked example. [blog](blog.md) shows the shortest path
 from a schema to a server; this shows what the same machinery looks like once an
 application has a real shape — six tables, twenty-five endpoints, and a boundary
 that has to hold.
@@ -131,15 +125,15 @@ a refresh endpoint. Both are noted where they bite.
 
 | | |
 |---|---|
-| [`taskschema/schema.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/taskschema/schema.go) | Six tables, with a comment on every decision that is not obvious |
-| [`app/hooks.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/app/hooks.go) | The whole boundary: one generic scoping function used four times, and reads scoped separately from writes |
-| [`app/app.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/app/app.go) | Six generated resources and six hand-written endpoints, one router |
-| [`auth/jwt.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/auth/jwt.go) | The three checks that make a verifier safe rather than merely working |
-| [`cmd/migrate/main.go`](https://github.com/jryannel/sqlb/blob/main/example/tasks/cmd/migrate/main.go) | A generated baseline, plus the three things the DSL cannot express |
-| [`web/src/api/http.ts`](https://github.com/jryannel/sqlb/blob/main/example/tasks/web/src/api/http.ts) | The transport that is deliberately not generated |
+| [`taskschema/schema.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/taskschema/schema.go) | Six tables, with a comment on every decision that is not obvious |
+| [`app/hooks.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/app/hooks.go) | The whole boundary: one generic scoping function used four times, and reads scoped separately from writes |
+| [`app/app.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/app/app.go) | Six generated resources and six hand-written endpoints, one router |
+| [`auth/jwt.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/auth/jwt.go) | The three checks that make a verifier safe rather than merely working |
+| [`cmd/migrate/main.go`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/cmd/migrate/main.go) | A generated baseline, plus the three things the DSL cannot express |
+| [`web/src/api/http.ts`](https://github.com/mind-vm/sqlb/blob/main/example/tasks/web/src/api/http.ts) | The transport that is deliberately not generated |
 
 ## Next
 
-- [Hooks](/sqlb/queries/hooks/) — the mechanism this example is an argument for
-- [library](/sqlb/examples/library/) — the mirror image: no authentication at
+- [Hooks](../queries/hooks.md) — the mechanism this example is an argument for
+- [library](library.md) — the mirror image: no authentication at
   all, and the hard part is a finite resource

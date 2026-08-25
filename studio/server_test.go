@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // testManifest is a small, hand-built fixture rather than a file on disk, so

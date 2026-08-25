@@ -42,7 +42,7 @@ Three files, because the layers are usable separately:
 
 The runtime is a file of its own so that an application with more than one
 generated module has one `Page` and wires one `Transport` rather than N
-([#110](https://github.com/jryannel/sqlb/issues/110)). Point two modules at one
+([#110](https://github.com/mind-vm/sqlb/issues/110)). Point two modules at one
 `TSDir` and they share it: nothing in it is schema-specific, so the second
 writer produces the same bytes and `check` stays meaningful for both.
 
@@ -266,7 +266,7 @@ calls its selectable-column type.
 
 `sqlb generate` refuses that rather than writing a file the compiler rejects,
 naming the identifier, both tables, and what each contributed
-([#261](https://github.com/jryannel/sqlb/issues/261)). The fix is to rename one
+([#261](https://github.com/mind-vm/sqlb/issues/261)). The fix is to rename one
 of the tables — the generated names follow. Before this check the generator
 reported success and `tsc` reported `TS2300: Duplicate identifier`, naming
 neither table.

@@ -54,7 +54,7 @@ caller's data as a side effect of inspecting it.
 reports *no difference* is making a claim, and one that cannot see a property
 makes that claim about it whether or not a difference exists.
 
-[#153]: https://github.com/jryannel/sqlb/issues/153
+[#153]: https://github.com/mind-vm/sqlb/issues/153
 
 ## Explain, which plans without running
 

@@ -33,9 +33,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/shadow"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/shadow"
 )
 
 // migrateFlags is the verb's command line.

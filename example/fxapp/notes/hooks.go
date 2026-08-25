@@ -3,10 +3,10 @@ package notes
 import (
 	"context"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
-	"github.com/jryannel/sqlb/example/fxapp/spaces"
-	"github.com/jryannel/sqlb/example/fxapp/store"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb/example/fxapp/spaces"
+	"github.com/mind-vm/sqlb/example/fxapp/store"
 )
 
 // provideHooks is the space boundary for notes.

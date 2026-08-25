@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // lintLevel is how much of the lint result `check` prints.

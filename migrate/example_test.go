@@ -3,8 +3,8 @@ package migrate_test
 import (
 	"fmt"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Diff compares the schema a database currently has against the one the code

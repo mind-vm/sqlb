@@ -11,7 +11,7 @@ package notes
 import (
 	"go.uber.org/fx"
 
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
 )
 
 var Module = fx.Module("notes",

@@ -1,13 +1,7 @@
----
-title: Generated CLI reference
-description: Commands, global flags, per-operation flags, environment variables and precedence for the cobra tree codegen emits.
-sidebar:
-  label: Generated CLI
-  order: 5
----
+# Generated CLI reference
 
 Checked against `codegen/gocli.go` and `codegen/gocli_runtime.go`. The guide
-page is [Go CLI](/sqlb/cli/).
+page is [Go CLI](../cli/README.md).
 
 Names below use `taskctl` as the binary name; yours is whatever `CLIName` says,
 and the environment prefix is that name upper-cased.
@@ -68,7 +62,7 @@ an error message can be typed verbatim.
 ### What `--help` narrows
 
 The operator set in each flag's usage is narrowed by column type, exactly as the
-[filter grammar](/sqlb/reference/filter-grammar/) narrows it:
+[filter grammar](filter-grammar.md) narrows it:
 
 ```
       --status stringArray    Filter on status, written operator.value, or a bare value for
@@ -142,4 +136,4 @@ cli.New(&cli.Client{
 Interactive prompts, a config file, output formatting beyond `--compact`,
 credential storage, and any command for an endpoint you wrote by hand. A login
 endpoint is not a table; the generated tree covers generated CRUD and stops
-there ([ADR-0029](/sqlb/project/architecture/#go-cli)).
+there ([ADR-0029](../architecture.md#go-cli)).

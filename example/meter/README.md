@@ -4,7 +4,7 @@
 corpus it counted (53 lines, 37 of them `DO UPDATE`) and the one sqlb's census
 said had no spelling. That finding is out of date. **The arithmetic-upsert gap
 is closed** — `Insert.OnConflictSet(column string, value Expr)` landed in
-[#90](https://github.com/jryannel/sqlb/issues/90) — and this example is the
+[#90](https://github.com/mind-vm/sqlb/issues/90) — and this example is the
 demonstration under real concurrency, not a bug report. If you came here
 looking for the gap, it is not here; what is here is what is left once it
 closes.

@@ -14,8 +14,8 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb/internal/pgfake"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // What a generated list endpoint costs above the database, against the handler

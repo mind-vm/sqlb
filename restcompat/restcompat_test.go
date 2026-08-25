@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/restcompat"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/restcompat"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // opts parametrises the blog's posts table so a test can state a before and an

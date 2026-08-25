@@ -18,8 +18,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // nameOf reads back which database a pool is connected to.

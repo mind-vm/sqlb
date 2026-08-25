@@ -21,8 +21,8 @@ changed](#what-the-tests-changed).*
 says what its example confirmed and what it corrected. Three corrections are
 worth reading before the rest of this document, because they are exactly the
 kind of drift the introduction above warns will happen: the arithmetic upsert
-(§2) closed in [#90](https://github.com/jryannel/sqlb/issues/90), the `EXCLUDE`
-constraint (§4) shipped in [#121](https://github.com/jryannel/sqlb/issues/121),
+(§2) closed in [#90](https://github.com/mind-vm/sqlb/issues/90), the `EXCLUDE`
+constraint (§4) shipped in [#121](https://github.com/mind-vm/sqlb/issues/121),
 and the self-referencing `Ref` (§6) is now expressible via `TableDef.AddField`.
 This document's own age is the demonstration of its first sentence: fifteen
 days was enough for three of the six "not expressible" verdicts below to stop
@@ -74,7 +74,7 @@ running Postgres, and say what it did rather than what the source implies.
 | Range overlap / `EXCLUDE USING gist` | 2 | **Not expressible.** No range types, no exclusion constraints |
 | `tsvector` | 1 | **Deliberately out** — [ADR-0037](architecture.md#search-is-ilike-until-it-cannot-be). The blocker is the generated column, not the type |
 | `DISTINCT ON` | 1 | **`Raw` only,** measured. `RawSel` reaches it, but only as the *first* projection item — a positional convention nothing enforces, so getting it wrong is a syntax error at the database rather than a build error in Go |
-| Idempotency key | 28 | **Works,** measured, and not the way it reads. `OnConflictDoNothing` skips the row, so `One` has no row to return. It answered `ErrNotFound` — a retried payment arriving as "not found" — and since [#146](https://github.com/jryannel/sqlb/issues/146) it refuses instead, naming both routes out. What returns the first call's row is `OnConflictUpdate(target, target…)`: a write that changes nothing is still a written row, and a written row is a returned one |
+| Idempotency key | 28 | **Works,** measured, and not the way it reads. `OnConflictDoNothing` skips the row, so `One` has no row to return. It answered `ErrNotFound` — a retried payment arriving as "not found" — and since [#146](https://github.com/mind-vm/sqlb/issues/146) it refuses instead, naming both routes out. What returns the first call's row is `OnConflictUpdate(target, target…)`: a write that changes nothing is still a written row, and a written row is a returned one |
 | Self-referencing parent (`parent_id`) | 0 here, universal | **Not expressible.** `Ref(name, target *TableDef)` needs the target value, which does not exist yet inside its own `Table(…)` call, and there is no `AddField`. `ExternalRef` compiles but gives up the type and `?expand` — and, measured, the foreign key too: a `parent_id` naming a row that is not there is accepted |
 | `WITH RECURSIVE` | 0 | **`Raw`, by design** — [vision](vision.md) non-goals |
 | Generated column / trigger / backfill | 1 trigger, 12 backfills | **DDL not rendered.** Hand-written migrations interleave; the "one source of truth" story keeps its asterisk |
@@ -147,7 +147,7 @@ a 404. What works is `OnConflictUpdate([]string{"key"}, "key")`, updating the
 conflict target to itself: a write that changes nothing is still a write, and a
 written row is returned. It is correct, it is one line, and it reads like a typo.
 
-*Updated after [#146](https://github.com/jryannel/sqlb/issues/146):* the pairing
+*Updated after [#146](https://github.com/mind-vm/sqlb/issues/146):* the pairing
 is now refused at the terminal rather than answered, with a message naming
 `Exec` for "make sure it exists" and the line above for "give me the row either
 way". The finding stands; what changed is that it is no longer discovered from
@@ -265,7 +265,7 @@ untouched item on the list.
 
 **Built:** [`example/meter`](../example/meter). Leads with a correction: the
 arithmetic upsert this entry calls "the reason to build it" is no longer
-missing — `OnConflictSet` landed in [#90](https://github.com/jryannel/sqlb/issues/90),
+missing — `OnConflictSet` landed in [#90](https://github.com/mind-vm/sqlb/issues/90),
 and the example's `TestArithmeticUpsertUnderConcurrency` is its demonstration
 under real concurrent writers, not merely a sequential proof. The composite
 key, the `date_trunc` bucket's parameterisation trap, and the empty-range
@@ -327,7 +327,7 @@ a lock test says anything about.
 **Built:** [`example/rooms`](../example/rooms). Leads with a correction: the
 `EXCLUDE USING gist` constraint this entry says is "not expressible" now is —
 `schema.Exclusion` and `TableDef.AddExclude` shipped
-([#121](https://github.com/jryannel/sqlb/issues/121)), and its own doc example
+([#121](https://github.com/mind-vm/sqlb/issues/121)), and its own doc example
 is almost this exact scenario. The example is the demonstration under real
 contention (8 goroutines racing an overlapping confirmed booking; exactly one
 wins), not a discovery. The timestamptz day-filter trap below is still real
@@ -424,7 +424,7 @@ point where an HTTP status has to be chosen or a batch has to be sized.
 - **Idempotency key** — 28 lines in the corpus. Written, and the assumption in
   this line was wrong: `OnConflictDoNothing` does not return the first call's
   row. `OnConflictUpdate(target, target…)` does. It returned `ErrNotFound`, and
-  after [#146](https://github.com/jryannel/sqlb/issues/146) the pairing is
+  after [#146](https://github.com/mind-vm/sqlb/issues/146) the pairing is
   refused outright. See [What the tests changed](#what-the-tests-changed).
 - **Optimistic concurrency** — a version column, `Update…Where(version.Eq(n))`,
   and the zero-rows-affected path. Written, and the mechanism is entirely there.

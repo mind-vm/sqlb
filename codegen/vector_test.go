@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // A vector column emits as sqlb.Vector, which is the second thing in a
@@ -28,7 +28,7 @@ func TestVectorModelEmitsTheTypeAndItsImport(t *testing.T) {
 		t.Fatal("no model file was rendered")
 	}
 	for _, want := range []string{
-		`import "github.com/jryannel/sqlb"`,
+		`import "github.com/mind-vm/sqlb"`,
 		"Embedding sqlb.Vector",
 	} {
 		if !strings.Contains(models, want) {

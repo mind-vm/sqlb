@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/withsqlc/sqlcgen"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/withsqlc/sqlcgen"
 )
 
 // The capabilities of a struct sqlb did not generate, restated at startup

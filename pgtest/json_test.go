@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Containment against a real Postgres.

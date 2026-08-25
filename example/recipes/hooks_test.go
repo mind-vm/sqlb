@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // orgKey is how these recipes carry a tenant on the context. In an application

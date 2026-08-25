@@ -20,7 +20,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jryannel/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
 )
 
 // ttl is short deliberately: a platform-admin token is minted for one

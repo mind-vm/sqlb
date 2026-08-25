@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // build turns catalog rows into a registry. It is a pure function, which is the

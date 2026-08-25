@@ -3,7 +3,7 @@ package fxapp_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // The tests that exercise the server run against a real Postgres, for the

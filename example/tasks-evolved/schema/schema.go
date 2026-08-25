@@ -25,7 +25,7 @@
 // carry from step to step.
 package schema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // labelsGIN is schema.Index{Columns: []string{"labels"}, Method: "gin"},
 // factored out because every Vn function that still carries the labels array

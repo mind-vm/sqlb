@@ -20,7 +20,7 @@
 // sentence each. Grep is the intended entry point:
 //
 //	rg -l 'cursor' example/recipes      # the files about keyset paging
-//	go doc github.com/jryannel/sqlb/example/recipes
+//	go doc github.com/mind-vm/sqlb/example/recipes
 //
 // # Adding one
 //

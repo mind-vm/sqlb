@@ -27,8 +27,8 @@ import (
 	// hands it one over the same pool rather than a second one.
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/jryannel/sqlb/example/tasks/app"
-	"github.com/jryannel/sqlb/example/tasks/migrations"
+	"github.com/mind-vm/sqlb/example/tasks/app"
+	"github.com/mind-vm/sqlb/example/tasks/migrations"
 )
 
 func main() {

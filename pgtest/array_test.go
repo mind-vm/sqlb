@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Array columns, against the database they are for.

@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The other half of testing on sqlb: a real database, and still no container.

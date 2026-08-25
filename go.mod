@@ -1,4 +1,4 @@
-module github.com/jryannel/sqlb
+module github.com/mind-vm/sqlb
 
 go 1.25.0
 

@@ -23,10 +23,10 @@ import (
 	// hands it one over the same pool rather than opening a second one.
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/tasks2"
-	"github.com/jryannel/sqlb/example/tasks2/migrations"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/tasks2"
+	"github.com/mind-vm/sqlb/example/tasks2/migrations"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 func main() {

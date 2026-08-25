@@ -10,7 +10,7 @@
 // prototype) actually take.
 package tasks2schema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // List groups tasks. There is exactly one tenant in this example — the whole
 // database — so unlike example/tasks's Workspace there is nothing to scope by

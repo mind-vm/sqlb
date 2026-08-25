@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // A verb that answers with something that is not a row (#312), through every

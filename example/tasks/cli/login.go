@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jryannel/sqlb/example/tasks/cli/client"
+	"github.com/mind-vm/sqlb/example/tasks/cli/client"
 )
 
 // NewLoginCommand returns `taskctl login`, issuing POST /auth/login through c.

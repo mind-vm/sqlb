@@ -47,8 +47,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/attachments/s3"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/attachments/s3"
 )
 
 // Policy is what an application decides and a schema cannot.

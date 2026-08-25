@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // tsDeclPattern matches a top-level declaration in emitted TypeScript. Only the

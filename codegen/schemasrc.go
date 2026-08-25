@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // RenderSchema renders a registry as the Go source that would declare it.
@@ -108,7 +108,7 @@ func schemaHeader(opts SchemaOptions) *bytes.Buffer {
 // neither can be read from DDL. Adding them is a deliberate edit — start with
 // what a client genuinely needs to filter, sort or search on.
 `)
-	fmt.Fprintf(&b, "package %s\n\nimport \"github.com/jryannel/sqlb/schema\"\n\n", opts.Package)
+	fmt.Fprintf(&b, "package %s\n\nimport \"github.com/mind-vm/sqlb/schema\"\n\n", opts.Package)
 	return &b
 }
 

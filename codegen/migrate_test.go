@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // Everything here is the half of `sqlb migrate` that needs no Postgres: the

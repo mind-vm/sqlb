@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // CompleteTask is the verb behind the declared "complete" action, in its

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Named scopes, and the handle that releases them (#177).

@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jryannel/sqlb/example/tasks/app"
+	"github.com/mind-vm/sqlb/example/tasks/app"
 )
 
 // The change feed, tested where its one real risk lives.

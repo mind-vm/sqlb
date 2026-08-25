@@ -9,10 +9,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/internal/pgfake"
-	"github.com/jryannel/sqlb/outbox"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb/outbox"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // The assertion the whole swap rests on. If Outbox stops satisfying

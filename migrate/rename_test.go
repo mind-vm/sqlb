@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // downs returns the Down of every change in the order a migration applies

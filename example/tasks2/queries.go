@@ -3,7 +3,7 @@ package tasks2
 import (
 	"context"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // OverdueTasks answers the "overdue" query declared on Task.

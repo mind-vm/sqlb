@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The placement rides on the `sort` token rather than becoming a token of its

@@ -7,12 +7,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	"github.com/mind-vm/sqlb/rest"
 
 	// Imported for its side effects, as in stage 3.
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
 )
 
 // orgContextKey carries the tenant the way a real application's authentication

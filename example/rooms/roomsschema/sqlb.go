@@ -1,8 +1,8 @@
 package roomsschema
 
-//go:generate go run github.com/jryannel/sqlb/cmd/sqlb generate .
+//go:generate go run github.com/mind-vm/sqlb/cmd/sqlb generate .
 
-import "github.com/jryannel/sqlb/codegen"
+import "github.com/mind-vm/sqlb/codegen"
 
 // SqlbProject tells `sqlb generate` what this example emits: Go only, no
 // REST exposure and no clients, because neither Room nor Booking declares a

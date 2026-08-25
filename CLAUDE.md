@@ -38,8 +38,9 @@ Read in this order, and stop as soon as you have what you need:
    two branches once both reached for 0059. The numbers still in older
    citations are held consistent by `adr-check` for as long as they last.
 
-`docs/` mirrors to the published site. Everything under it is prose for humans;
-the API reference is the Go doc comments.
+Everything under `docs/` is prose for humans, readable straight from a
+checkout or on GitHub — there is no separate published site. The API
+reference is the Go doc comments.
 
 ## Layout
 
@@ -74,33 +75,11 @@ it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
 `test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
-`mise tasks` describes all 40.
-
-**`mise run site-check` needs no npm install.** It is the fast way to find out
-whether a docs edit can be published, and the check that catches a link whose
-target moved. It also refuses a new file at the root of `docs/` that is neither
-published nor listed in `UNPUBLISHED` with a reason — the directory holds both
-kinds and nothing else says which is which.
+`mise tasks` describes all 37.
 
 ## Traps
 
-Five things that are not visible from where you would look for them.
-
-**The gate is two workflows.** `ci` and `site` are separate on purpose —
-folding Astro into the gate would make Node a build dependency of a Go library.
-The second one used to be called `pages` and used to deploy; the repository is
-private now, and a private repository on this plan cannot serve Pages, so it
-builds and stops. It runs on pull requests as well as on `main`, which the
-deploying version could not — that is what closes the trap this paragraph
-carried for two releases, when `gh pr checks` showed one workflow of two and
-v0.7.0 was tagged with `pages` red.
-
-**A docs link can still break across two green pull requests.** One adds a page
-linking to a file, another moves the file; each is green on its own base and the
-pair is red — which no per-PR check can see, and is the reason `site` kept its
-push trigger as well. `sync-docs` refuses to build rather than emitting a dead
-link, which is what it is for. Run `mise run site-check` when you move or rename
-anything `docs/` points at.
+Two things that are not visible from where you would look for them.
 
 **Docs mirror source by hand.** `docs/typescript/README.md` and
 `docs/dart/README.md` restate what `codegen.Options` says about the files each
@@ -113,10 +92,6 @@ reference page for the table, and `column-check` fails if that page and
 **`docs/howto/` is an index, not a section.** One page, and every recipe it
 names lives in the section that owns its subject. A new how-to belongs in that
 section with a row added here — not as a second page under `howto/`.
-
-**A fresh worktree has no `site/node_modules`.** `npm run build` fails with
-`astro: command not found` until `npm ci` in `site/`. Prefer `site-check`,
-which does not need it.
 
 ## Conventions
 
@@ -148,18 +123,10 @@ diffing `go.mod` against a pinned allow-list rather than by asking a reviewer
 to notice a new import.
 
 **Releases.** A release is an annotated tag whose message *is* the notes, plus
-a GitHub release carrying the same text, on a commit where **both** workflows
-are green. [docs/compatibility.md](docs/compatibility.md) says what is frozen
-and what is expected to move; a pre-1.0 minor may break a surface listed under
-*Will move*, and the notes carry the mechanical edit that fixes it.
-
-Check `gh run list --commit <sha>` before tagging. `site` is path-filtered, so
-a commit touching no docs has no run of it at all — which reads the same as a
-missing one and is not: what the paragraph above asks for is that nothing is
-*red*, and this is the difference between a workflow that did not need to run
-and one that ran and failed. Tagging the releases-page commit satisfies it
-without having to tell them apart, which is why the ordering used to be
-mandatory and is now merely the easy path.
+a GitHub release carrying the same text, on a commit where `ci` is green.
+[docs/compatibility.md](docs/compatibility.md) says what is frozen and what is
+expected to move; a pre-1.0 minor may break a surface listed under *Will
+move*, and the notes carry the mechanical edit that fixes it.
 
 ## Things that are deliberate
 

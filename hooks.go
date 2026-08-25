@@ -108,7 +108,7 @@ func (s scopedFn[F]) keep(released map[string]struct{}) bool {
 // in one process shared rules neither had asked for, and a module that stopped
 // registering left the previous module's scoping silently in force.
 //
-// [ADR-0047]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#no-default-hook-registry
+// [ADR-0047]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#no-default-hook-registry
 type Registry struct {
 	m sync.Map // reflect.Type -> *Hooks[T]
 }
@@ -236,7 +236,7 @@ func (h *Hooks[T]) BeforeQuery(fn func(context.Context, *Builder[T]) error) *Hoo
 // counts. The check is the same one, asked after the release rather than before,
 // which is what keeps this from being the flag that record declined to add.
 //
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 func (h *Hooks[T]) Scope(name string) *ScopedHooks[T] {
 	if name == "" {
 		panic("sqlb: Scope called with an empty name; an unnamed registration is Hooks.BeforeQuery itself")
@@ -261,7 +261,7 @@ func (h *Hooks[T]) Scope(name string) *ScopedHooks[T] {
 // [#289] reports having to derive under time pressure. See the "create side"
 // section of docs/queries/hooks.md for the worked version.
 //
-// [#289]: https://github.com/jryannel/sqlb/issues/289
+// [#289]: https://github.com/mind-vm/sqlb/issues/289
 type ScopedHooks[T any] struct {
 	hooks *Hooks[T]
 	name  string
@@ -304,7 +304,7 @@ func (s *ScopedHooks[T]) BeforeDelete(fn func(context.Context, *Delete[T]) error
 // section of docs/queries/hooks.md for the fallback that satisfies a
 // trusted-path create instead.
 //
-// [#289]: https://github.com/jryannel/sqlb/issues/289
+// [#289]: https://github.com/mind-vm/sqlb/issues/289
 func (s *ScopedHooks[T]) BeforeCreate(func(context.Context, *T) error) *ScopedHooks[T] {
 	panic("sqlb: BeforeCreate is not scopeable — a create with no request has no claims to " +
 		"release, so a fixture, seed, import or job satisfies the hook itself instead; see the " +
@@ -431,7 +431,7 @@ func (h *Hooks[T]) AfterDeleteRows(fn func(context.Context, []T) error) *Hooks[T
 // no registration could possibly be meeting, because there is no registration
 // ([ADR-0030]).
 //
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 type RegisteredHooks struct {
 	BeforeQuery  bool
 	BeforeCreate bool

@@ -1,13 +1,13 @@
-module github.com/jryannel/sqlb/example/vault
+module github.com/mind-vm/sqlb/example/vault
 
 go 1.25.0
 
-replace github.com/jryannel/sqlb => ../../
+replace github.com/mind-vm/sqlb => ../../
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.0
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/jryannel/sqlb v0.0.0-00010101000000-000000000000
+	github.com/mind-vm/sqlb v0.0.0-00010101000000-000000000000
 )
 
 require (

@@ -12,16 +12,16 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 	// Imported for the side effect: catalogschema.Category registers itself
 	// (and, via AddField, its parent column) into schema.DefaultRegistry()
 	// on package init. Nothing here calls into the package directly — the
 	// row type below is the hand-written mirror of what it declares, the
 	// same split example/vault and expand_test.go both use.
-	_ "github.com/jryannel/sqlb/example/catalog/catalogschema"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/sqlbtest"
+	_ "github.com/mind-vm/sqlb/example/catalog/catalogschema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // Category is the row type for catalogschema's "categories" table, written by

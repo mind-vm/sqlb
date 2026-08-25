@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/example/attachments/s3"
+	"github.com/mind-vm/sqlb/example/attachments/s3"
 )
 
 // The one question the other two test files cannot answer: does real storage

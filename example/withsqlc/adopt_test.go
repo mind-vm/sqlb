@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/withsqlc/sqlcgen"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/withsqlc/sqlcgen"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/internal/pgfake"
 )
 
 // The load-bearing claim: stock sqlc output carries no db tags, and sqlb maps

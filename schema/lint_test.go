@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 func rules(ds schema.Diagnostics) map[string]bool {

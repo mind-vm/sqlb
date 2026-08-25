@@ -42,7 +42,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // HandwrittenOp describes one endpoint `sqlb docs` cannot see on its own:

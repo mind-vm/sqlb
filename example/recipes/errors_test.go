@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // The sentinel errors, and what each one means:

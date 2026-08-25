@@ -46,7 +46,7 @@ const (
 // required: the wire is three fields, and a hand-written subscriber against
 // `EventSource` is a dozen lines.
 //
-// [ADR-0012]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#change-feed-outbox
+// [ADR-0012]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#change-feed-outbox
 type Event struct {
 	// Table is the SQL table name, matching what the generated client's
 	// keysByTable is keyed by.
@@ -127,7 +127,7 @@ type Delivery struct {
 // replicas — implements the same two-method contract and replaces the Broker
 // without the endpoint, the wire format or any client changing.
 //
-// [ADR-0012]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#change-feed-outbox
+// [ADR-0012]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#change-feed-outbox
 type Source interface {
 	// Subscribe returns the channel this subscriber's deliveries arrive on.
 	//
@@ -175,7 +175,7 @@ type Publisher interface {
 //     transaction, where there is no transaction to record into and the change
 //     is already durable. Both methods therefore have to work.
 //
-// [ADR-0040]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
+// [ADR-0040]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
 type TxPublisher interface {
 	Publisher
 

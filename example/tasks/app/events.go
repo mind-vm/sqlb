@@ -5,9 +5,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/tasks"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/tasks"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // The change feed.

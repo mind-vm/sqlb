@@ -99,6 +99,6 @@ have to be argued for, and neither has been.
 ## Read next
 
 - [Filtering and search](../rest/filtering.md) — the grammar in full
-- [Filter grammar reference](https://jryannel.github.io/sqlb/reference/filter-grammar/)
+- [Filter grammar reference](../reference/filter-grammar.md)
   — the operator matrix
 - [ADR-0003](../architecture.md#one-ast-two-producers) — the decision record

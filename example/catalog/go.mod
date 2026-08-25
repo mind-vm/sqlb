@@ -1,12 +1,12 @@
-module github.com/jryannel/sqlb/example/catalog
+module github.com/mind-vm/sqlb/example/catalog
 
 go 1.25.7
 
-replace github.com/jryannel/sqlb => ../../
+replace github.com/mind-vm/sqlb => ../../
 
 require (
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/jryannel/sqlb v0.0.0-00010101000000-000000000000
+	github.com/mind-vm/sqlb v0.0.0-00010101000000-000000000000
 )
 
 require (

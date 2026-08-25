@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Defaults applied when Options leaves a limit unset. They are deliberately

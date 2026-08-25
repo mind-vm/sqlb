@@ -24,8 +24,8 @@ package main
 import (
 	"os"
 
-	"github.com/jryannel/sqlb/example/tasks/cli"
-	"github.com/jryannel/sqlb/example/tasks/cli/client"
+	"github.com/mind-vm/sqlb/example/tasks/cli"
+	"github.com/mind-vm/sqlb/example/tasks/cli/client"
 )
 
 func main() {

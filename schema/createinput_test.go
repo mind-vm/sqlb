@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The create body's non-column half (#309), and the four things it may not be.

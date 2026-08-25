@@ -1,13 +1,7 @@
----
-title: Codegen reference
-description: Every field of codegen.Options, its default, and what it emits — plus the Check mode that belongs in CI.
-sidebar:
-  label: Codegen options
-  order: 4
----
+# Codegen reference
 
 Checked against `codegen/codegen.go`. The concept page is
-[Generated, not hidden](/sqlb/concepts/generated-not-hidden/).
+[Generated, not hidden](../concepts/generated-not-hidden.md).
 
 Codegen is a normal Go program that imports your schema package for its side
 effects — declaring a table registers it — and writes the artefacts. There is no
@@ -17,8 +11,8 @@ CLI to install.
 package main
 
 import (
-    "github.com/jryannel/sqlb/codegen"
-    "github.com/jryannel/sqlb/schema"
+    "github.com/mind-vm/sqlb/codegen"
+    "github.com/mind-vm/sqlb/schema"
 
     _ "yourmodule/blogschema"
 )
@@ -85,7 +79,7 @@ one column is an error rather than last-one-wins.
 ### What an override reaches, and what it does not
 
 This is the part worth reading before using it
-([ADR-0035](https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#type-overrides)).
+([ADR-0035](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#type-overrides)).
 
 | | An override… |
 |---|---|
@@ -118,7 +112,7 @@ does not depend on.
 | `TSQueriesFile` | `queries.gen.ts` | TanStack Query `queryOptions`, `infiniteQueryOptions` and `mutationOptions`. Takes `@tanstack/react-query` as a peer dependency; set to `"-"` to skip |
 
 Two files because the layers are usable separately. See
-[TypeScript SDK](/sqlb/typescript/).
+[TypeScript SDK](../typescript/README.md).
 
 ## Dart client
 
@@ -130,7 +124,7 @@ Two files because the layers are usable separately. See
 One file, not two: there is no framework layer to make optional, because Dart
 has no equivalent of TanStack Query to bind to. The output is clean under
 `package:lints/recommended` and stable under `dart format`, so a consuming
-project needs no exclusion for either. See [Dart SDK](/sqlb/dart/).
+project needs no exclusion for either. See [Dart SDK](../dart/README.md).
 
 ## Go CLI
 
@@ -147,7 +141,7 @@ speaks to the API over HTTP, so the binary holds no database credential and
 needs no build tag to keep one out.
 
 A schema that exposes no resource emits no CLI at all, rather than a file that
-imports cobra for an empty tree. See [Go CLI](/sqlb/cli/).
+imports cobra for an empty tree. See [Go CLI](../cli/README.md).
 
 ## Checking for staleness
 
@@ -164,7 +158,7 @@ would emit, including the TypeScript client, the Dart client and the CLI.
 
 ## Rendering a schema from a database
 
-The other direction, for [adopting a database](/sqlb/migrations/adopting/):
+The other direction, for [adopting a database](../migrations/adopting.md):
 
 ```go
 src, err := codegen.RenderSchema(reg, codegen.SchemaOptions{Package: "blogschema"})

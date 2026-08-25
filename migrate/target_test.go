@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // withUUIDv7 declares the one construct MinPostgres currently affects.

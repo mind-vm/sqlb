@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // renderREST emits the request body types and the registration function for
@@ -49,8 +49,8 @@ func renderREST(opts Options) ([]byte, error) {
 	// that never says time.Time.
 	imports := map[string]bool{
 		"github.com/danielgtaylor/huma/v2": true,
-		"github.com/jryannel/sqlb":         true,
-		"github.com/jryannel/sqlb/rest":    true,
+		"github.com/mind-vm/sqlb":          true,
+		"github.com/mind-vm/sqlb/rest":     true,
 	}
 	for _, t := range exposed {
 		create, _ := createBody(t)

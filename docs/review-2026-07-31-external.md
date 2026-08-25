@@ -6,7 +6,7 @@ web-researched comparison against the ecosystem as of July 2026, and a
 production-readiness audit including a simulated week-1 adoption. Every defect
 reported below was verified against the source; the ones marked *reproduced*
 were confirmed with throwaway tests before being written down. Fifteen issues
-were filed: [#65](https://github.com/jryannel/sqlb/issues/65)–[#79](https://github.com/jryannel/sqlb/issues/79).
+were filed: [#65](https://github.com/mind-vm/sqlb/issues/65)–[#79](https://github.com/mind-vm/sqlb/issues/79).
 
 ## Verdict
 
@@ -58,21 +58,21 @@ behavior; none are committed.
 
 | # | Finding | Severity |
 |---|---|---|
-| [#66](https://github.com/jryannel/sqlb/issues/66) | JSON filter tree decodes numbers as float64: an int64 filter above 2^53 binds a **different value** than the identical URL filter — silent wrong rows from an untrusted request, violating ADR-0003's one-compiler promise. Reproduced. | major |
-| [#67](https://github.com/jryannel/sqlb/issues/67) | A declared action with a Hidden column in `Writes` fetches without it and persists a zero-derived value over the stored one — under the `FOR UPDATE` lock meant to make read-modify-write safe. Reproduced. | major |
-| [#68](https://github.com/jryannel/sqlb/issues/68) | `restcompat` never diffs `ReadOnly`/`Immutable`, so writer-side contract breaks pass `sqlb impact -error`; `FacetPatch` is declared and never emitted. Three false negatives reproduced. | major |
-| [#69](https://github.com/jryannel/sqlb/issues/69) | The ejected filter parser enforces neither `MaxListValues` nor `MaxValueLength` (100k-member `in.` list reproduced), and ejected search leaves LIKE wildcards live — the exit does not hold the API's own line, while claiming to. | major |
-| [#65](https://github.com/jryannel/sqlb/issues/65) | The quickstart's Step 3 still opens with `sql.Open` — the documented first path has not compiled since the ADR-0040 pgx flip. | major (adoption) |
-| [#70](https://github.com/jryannel/sqlb/issues/70) | Ejected handlers answer constraint violations 500 where the API answered 409/422, and the eject README's refusals list does not name the loss. | minor |
-| [#71](https://github.com/jryannel/sqlb/issues/71) | Typed-nil pointer comparand bypasses nil→`IS NULL`: `Eq(row.DeletedAt)` with a nil `*time.Time` matches nothing, silently. Reproduced. | minor |
-| [#72](https://github.com/jryannel/sqlb/issues/72) | Cursor machinery matches ordering columns by bare name: a qualified join column sharing the PK's name suppresses `Stable` and encodes the wrong boundary. Reproduced. | minor |
-| [#73](https://github.com/jryannel/sqlb/issues/73) | Multi-row insert decides default-zero omission per statement: a zero row in a mixed batch writes `0` instead of its default. Reproduced. | minor |
-| [#74](https://github.com/jryannel/sqlb/issues/74) | A second `?sort=`/`?filter=`/`?search=` is silently dropped, and POST/PATCH accept unknown query parameters — against the "refused, never ignored" stance. | minor |
-| [#75](https://github.com/jryannel/sqlb/issues/75) | `?page=`/`?offset=` are the one unbudgeted input dimension: deep offsets are a cheap scan lever, and `(page-1)*size` can overflow. | minor |
-| [#76](https://github.com/jryannel/sqlb/issues/76) | A hook predicate on a computed column, carried across an expansion join, fails at request time with a bare 42703 — against fail-at-build. | minor |
-| [#77](https://github.com/jryannel/sqlb/issues/77) | Consumers cannot test without Docker: `pgfake` is internal, and an `Executor` stub means hand-implementing `pgx.Rows`. The single biggest week-1 friction. | enhancement |
-| [#78](https://github.com/jryannel/sqlb/issues/78) | `cmd/sqlb` scratch cleanup discards the `os.RemoveAll` error; the leftover-policing test is racy against the shared module root (one observed flake). | minor |
-| [#79](https://github.com/jryannel/sqlb/issues/79) | `docs/comparisons.md` staleness: entoas does not generate handlers, Atlas lint went paid (v0.38), and the nearest competitors (GORM, jet, bob, prest, the Huma+hand-rolled-filters incumbent) are missing rows. | docs |
+| [#66](https://github.com/mind-vm/sqlb/issues/66) | JSON filter tree decodes numbers as float64: an int64 filter above 2^53 binds a **different value** than the identical URL filter — silent wrong rows from an untrusted request, violating ADR-0003's one-compiler promise. Reproduced. | major |
+| [#67](https://github.com/mind-vm/sqlb/issues/67) | A declared action with a Hidden column in `Writes` fetches without it and persists a zero-derived value over the stored one — under the `FOR UPDATE` lock meant to make read-modify-write safe. Reproduced. | major |
+| [#68](https://github.com/mind-vm/sqlb/issues/68) | `restcompat` never diffs `ReadOnly`/`Immutable`, so writer-side contract breaks pass `sqlb impact -error`; `FacetPatch` is declared and never emitted. Three false negatives reproduced. | major |
+| [#69](https://github.com/mind-vm/sqlb/issues/69) | The ejected filter parser enforces neither `MaxListValues` nor `MaxValueLength` (100k-member `in.` list reproduced), and ejected search leaves LIKE wildcards live — the exit does not hold the API's own line, while claiming to. | major |
+| [#65](https://github.com/mind-vm/sqlb/issues/65) | The quickstart's Step 3 still opens with `sql.Open` — the documented first path has not compiled since the ADR-0040 pgx flip. | major (adoption) |
+| [#70](https://github.com/mind-vm/sqlb/issues/70) | Ejected handlers answer constraint violations 500 where the API answered 409/422, and the eject README's refusals list does not name the loss. | minor |
+| [#71](https://github.com/mind-vm/sqlb/issues/71) | Typed-nil pointer comparand bypasses nil→`IS NULL`: `Eq(row.DeletedAt)` with a nil `*time.Time` matches nothing, silently. Reproduced. | minor |
+| [#72](https://github.com/mind-vm/sqlb/issues/72) | Cursor machinery matches ordering columns by bare name: a qualified join column sharing the PK's name suppresses `Stable` and encodes the wrong boundary. Reproduced. | minor |
+| [#73](https://github.com/mind-vm/sqlb/issues/73) | Multi-row insert decides default-zero omission per statement: a zero row in a mixed batch writes `0` instead of its default. Reproduced. | minor |
+| [#74](https://github.com/mind-vm/sqlb/issues/74) | A second `?sort=`/`?filter=`/`?search=` is silently dropped, and POST/PATCH accept unknown query parameters — against the "refused, never ignored" stance. | minor |
+| [#75](https://github.com/mind-vm/sqlb/issues/75) | `?page=`/`?offset=` are the one unbudgeted input dimension: deep offsets are a cheap scan lever, and `(page-1)*size` can overflow. | minor |
+| [#76](https://github.com/mind-vm/sqlb/issues/76) | A hook predicate on a computed column, carried across an expansion join, fails at request time with a bare 42703 — against fail-at-build. | minor |
+| [#77](https://github.com/mind-vm/sqlb/issues/77) | Consumers cannot test without Docker: `pgfake` is internal, and an `Executor` stub means hand-implementing `pgx.Rows`. The single biggest week-1 friction. | enhancement |
+| [#78](https://github.com/mind-vm/sqlb/issues/78) | `cmd/sqlb` scratch cleanup discards the `os.RemoveAll` error; the leftover-policing test is racy against the shared module root (one observed flake). | minor |
+| [#79](https://github.com/mind-vm/sqlb/issues/79) | `docs/comparisons.md` staleness: entoas does not generate handlers, Atlas lint went paid (v0.38), and the nearest competitors (GORM, jet, bob, prest, the Huma+hand-rolled-filters incumbent) are missing rows. | docs |
 
 **Test-coverage gaps behind the findings**: no test combines action `Writes`
 with Hidden/ReadOnly columns; no `restcompat` test flips a body-only
@@ -82,7 +82,7 @@ mapping, expand+scope, or cursor paging end-to-end through HTTP.
 
 ## How sqlb compares (researched July 2026)
 
-Full detail in [#79](https://github.com/jryannel/sqlb/issues/79)'s context; the
+Full detail in [#79](https://github.com/mind-vm/sqlb/issues/79)'s context; the
 table evaluators actually build:
 
 | Alternative | State (July 2026) | Their edge | sqlb's edge |
@@ -118,8 +118,8 @@ Bar: a small team ships a working multi-tenant CRUD app in week 1 on the
 documented path. **Verdict: usable now** — via `example/tasks` as the
 template — with these concrete costs:
 
-1. **The quickstart doesn't compile** ([#65](https://github.com/jryannel/sqlb/issues/65)). Day-1 hours lost unless the team cribs from `example/tasks/cmd/server`. The cheapest fix on this list and the one with the worst funnel effect.
-2. **No test double** ([#77](https://github.com/jryannel/sqlb/issues/77)). First handler test means Docker in the unit loop or hand-rolling a `pgx.Rows` fake. Exporting `pgfake` closes it cheaply.
+1. **The quickstart doesn't compile** ([#65](https://github.com/mind-vm/sqlb/issues/65)). Day-1 hours lost unless the team cribs from `example/tasks/cmd/server`. The cheapest fix on this list and the one with the worst funnel effect.
+2. **No test double** ([#77](https://github.com/mind-vm/sqlb/issues/77)). First handler test means Docker in the unit loop or hand-rolling a `pgx.Rows` fake. Exporting `pgfake` closes it cheaply.
 3. **Auth is BYO.** `rest.Options.Security` documents; enforcement is your middleware, with `example/tasks/auth` (JWT) the only reference. Fine for a team that has wired chi middleware before; a wall for one that hasn't.
 4. **snake_case wire names, by design** (ADR-0036). A JS front end either adopts snake_case or transforms client-side; the generated TS client softens this considerably.
 5. **Money and big integers need care**: `numeric → float64` by default (override via `codegen.Options.Types`, but no decimal guidance page), and `bigint` serializes as a JSON number (2^53 loss in JS clients — known, documented-at-minimum).
@@ -135,9 +135,9 @@ The library's own bar — "six months of someone other than the author running
 it against production traffic" ([release-1.0.md](release-1.0.md)) — is honest
 and unmet, and cannot be built. Beyond elapsed time:
 
-1. **The major findings above** ([#66](https://github.com/jryannel/sqlb/issues/66)–[#69](https://github.com/jryannel/sqlb/issues/69)): silent wrong rows from a well-formed JSON filter, action write-back corruption, a compat gate that passes breaking deploys, and an eject path that drops the API's DoS caps. All small fixes; all the kind that spend adopter trust faster than time earns it.
+1. **The major findings above** ([#66](https://github.com/mind-vm/sqlb/issues/66)–[#69](https://github.com/mind-vm/sqlb/issues/69)): silent wrong rows from a well-formed JSON filter, action write-back corruption, a compat gate that passes breaking deploys, and an eject path that drops the API's DoS caps. All small fixes; all the kind that spend adopter trust faster than time earns it.
 2. **Observability is a seam, not a feature.** The sanctioned pattern (wrap the 2-method `Executor`; pgx's `QueryTracer` for OTel) lives in a test file, not a docs page. No metrics, no slow-query hook, no request-ID propagation guidance. All buildable; all DIY; none documented.
-3. **Load-shaping gaps**: no rate-limiting story; no warning that `Filterable` on an unindexed column is a per-request seq scan; `Searchable` is `ILIKE '%x%'` with no trigram-index guidance; unbounded `?page=` ([#75](https://github.com/jryannel/sqlb/issues/75)).
+3. **Load-shaping gaps**: no rate-limiting story; no warning that `Filterable` on an unindexed column is a per-request seq scan; `Searchable` is `ILIKE '%x%'` with no trigram-index guidance; unbounded `?page=` ([#75](https://github.com/mind-vm/sqlb/issues/75)).
 4. **Operational migration guidance**: lock-aware DDL and `Unblock` are genuinely good, but concurrent-deploy safety (two replicas applying at boot) is wholly the runner's problem and undocumented; `shadow` never validates Down migrations.
 5. **Bus factor 1.** One author, no org, no SECURITY.md. The ADR density and the eject path are the only mitigations — the eject path being a real one: the exit produces working code with no sqlb import, which is more de-risking than most pre-1.0 libraries offer.
 6. **The deferred traps owed doc notes before the tag** (release-1.0.md stream G): `NotOneOf` silently dropping NULL rows, `RawPred`'s `$N` repetition 500.
@@ -151,7 +151,7 @@ caps the downside in a way nothing else in this category does. For
 production, the code is closer to ready than its age has any right to be, but
 the honest gate is the one the project set for itself: someone other than the
 author, running it, for a while. The highest-leverage week of work: fix
-[#65](https://github.com/jryannel/sqlb/issues/65)–[#69](https://github.com/jryannel/sqlb/issues/69),
-export the test fake ([#77](https://github.com/jryannel/sqlb/issues/77)), and
+[#65](https://github.com/mind-vm/sqlb/issues/65)–[#69](https://github.com/mind-vm/sqlb/issues/69),
+export the test fake ([#77](https://github.com/mind-vm/sqlb/issues/77)), and
 write the observability and load-shaping pages — at which point the remaining
 gap is not something code review can close.

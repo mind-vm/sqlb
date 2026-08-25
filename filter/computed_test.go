@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
 )
 
 // Report is a model with two derived columns: one the row can answer on its

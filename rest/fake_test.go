@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/internal/pgfake"
 )
 
 // The models under test mirror what codegen emits: db tags for column names,

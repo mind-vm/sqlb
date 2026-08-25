@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
 )
 
 // itemInput addresses a single row.

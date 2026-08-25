@@ -15,6 +15,6 @@
 // the right order.
 package main
 
-import "github.com/jryannel/sqlb/example/fxapp"
+import "github.com/mind-vm/sqlb/example/fxapp"
 
 func main() { fxapp.Run() }

@@ -54,7 +54,7 @@ type BrokerOptions struct {
 // row changed and displays it forever — is the one that looks like everything
 // is working.
 //
-// [ADR-0012]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#change-feed-outbox
+// [ADR-0012]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#change-feed-outbox
 type Broker struct {
 	history int
 	buffer  int

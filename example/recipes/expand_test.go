@@ -1,8 +1,8 @@
 package recipes_test
 
 import (
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // Expand resolves a declared relation inline, one LEFT JOIN each, and the

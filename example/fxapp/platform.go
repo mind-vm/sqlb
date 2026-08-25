@@ -7,9 +7,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"go.uber.org/fx"
 
-	"github.com/jryannel/sqlb/example/fxapp/config"
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
-	"github.com/jryannel/sqlb/example/fxapp/logs"
+	"github.com/mind-vm/sqlb/example/fxapp/config"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb/example/fxapp/logs"
 )
 
 // Platform is the reusable half of the module list: the logger, and the fxkit

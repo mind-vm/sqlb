@@ -53,13 +53,13 @@ The ecosystem CLI ([`skills`](https://github.com/vercel-labs/skills)) takes an
 `owner/repo` shorthand and places files where each agent tool expects them:
 
 ```bash
-npx skills add jryannel/sqlb
+npx skills add mind-vm/sqlb
 ```
 
 One skill by name, rather than all of them:
 
 ```bash
-npx skills add jryannel/sqlb --skill sqlb-queries
+npx skills add mind-vm/sqlb --skill sqlb-queries
 ```
 
 Project scope is the default, which is what you want — the skill lands in the

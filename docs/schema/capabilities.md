@@ -8,7 +8,7 @@ never a leak and never a silently ignored parameter.
 [Capabilities](../concepts/capabilities.md) in Concepts is the model; this is
 how to declare them and which combinations are worth knowing. The full method
 list is in the
-[capability reference](https://jryannel.github.io/sqlb/reference/capabilities/).
+[capability reference](../reference/capabilities.md).
 
 ## The vocabulary
 
@@ -106,7 +106,7 @@ secret each hidden column is.
 It is refused on a column that is not `Hidden`, where the typed column is there
 regardless and the word would be a claim with no effect.
 
-[#155]: https://github.com/jryannel/sqlb/issues/155
+[#155]: https://github.com/mind-vm/sqlb/issues/155
 
 ## `ReadOnly` plus a hook
 
@@ -166,7 +166,7 @@ adding a resource.
 What can say it is the **mount**. `rest.Options.Columns` narrows one resource to
 the columns it names, the way `rest.Options.Computed` narrows it to the derived
 columns it is willing to pay for
-([#148](https://github.com/jryannel/sqlb/issues/148)):
+([#148](https://github.com/mind-vm/sqlb/issues/148)):
 
 ```go
 // The generated one, over every column the schema declares.
@@ -212,7 +212,7 @@ products, and the admin panel exists to read the drafts — and that rule is a
 Hooks are keyed by the model's Go type, so a rule registered to confine the
 storefront confines every reader of that model, the admin mount included. Name
 the rule, and one mount can say it is the surface the rule is not about
-([#177](https://github.com/jryannel/sqlb/issues/177)):
+([#177](https://github.com/mind-vm/sqlb/issues/177)):
 
 ```go
 // The rule, named — which is what makes it releasable at all.

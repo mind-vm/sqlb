@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/example/tasks/app"
-	"github.com/jryannel/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb/example/tasks/app"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
 )
 
 // The tests drive the assembled server over HTTP rather than calling handlers,

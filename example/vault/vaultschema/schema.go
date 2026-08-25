@@ -2,7 +2,7 @@
 // single source of truth an author, or an agent, edits.
 package vaultschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Secret is a row whose entire payload only Go may write.
 //

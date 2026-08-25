@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/example/tasks/cli/client"
+	"github.com/mind-vm/sqlb/example/tasks/cli/client"
 )
 
 // run executes one command line against a stub server and returns stdout.

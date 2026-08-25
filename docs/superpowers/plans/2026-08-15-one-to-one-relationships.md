@@ -270,7 +270,7 @@ comma-separated grammar the parser already implements for `order=`/`limit=`.
 
 - [ ] **Step 2: Write the failing test**
 
-Create `/Users/jryannel/dev/github.com/jryannel/sqlb/relation_reverse_test.go`:
+Create `/Users/jryannel/dev/github.com/mind-vm/sqlb/relation_reverse_test.go`:
 
 ```go
 package sqlb_test
@@ -279,7 +279,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 type oneToOneUser struct {
