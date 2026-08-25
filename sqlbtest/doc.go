@@ -43,7 +43,7 @@
 // # Using it
 //
 //	db := sqlbtest.New(
-//	    sqlbtest.Reply{Cols: []string{"id", "title"}, Rows: [][]any{{"p1", "Hello"}}},
+//	    sqlbtest.Rows(Post{ID: "p1", Title: "Hello"}),
 //	)
 //	handle := sqlb.New(db).WithHooks(hooks)
 //
@@ -53,6 +53,13 @@
 //	if !strings.Contains(db.LastStatement(), `"tenant_id" = $1`) {
 //	    t.Errorf("the scoping hook did not reach the statement:\n%s", db.LastStatement())
 //	}
+//
+// [Rows] takes the model values a test is thinking about and derives the columns
+// from the model, which is the half a hand-written [Reply] gets wrong: its Cols
+// and Rows are two literals that have to agree on order. [Count] answers the
+// count statement a paged read issues, and [Reply] is still what to write when
+// the question is about the shape of the result rather than about rows of a
+// model — a Select of aliased expressions, a column no model maps, a failure.
 //
 // A [DB] is safe for concurrent use, because the code under test may not be
 // sequential.

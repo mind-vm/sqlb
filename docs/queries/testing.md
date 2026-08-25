@@ -7,7 +7,7 @@ exported, so an application gets the same loop.
 
 ```go
 db := sqlbtest.New(
-    sqlbtest.Reply{Cols: []string{"id", "title"}, Rows: [][]any{{"p1", "Hello"}}},
+    sqlbtest.Rows(Post{ID: "p1", Title: "Hello"}),
 )
 handle := sqlb.New(db).WithHooks(hooks)
 
@@ -45,16 +45,48 @@ answers only Postgres can give.
 
 ## Scripting
 
+`Rows` says what the database holds in the terms the test is already thinking in
+— model values — and derives the columns from the model:
+
+```go
+db := sqlbtest.New(sqlbtest.Rows(
+    Post{ID: "p1", TenantID: "acme", Title: "Hello"},
+    Post{ID: "p2", TenantID: "acme", Title: "Second"},
+))
+```
+
+Prefer it to a hand-written `Reply` for rows of a model, because a `Reply`'s
+`Cols` and `Rows` are two literals that have to agree on order and nothing checks
+that they do. When they disagree between columns of the same type the read
+succeeds and hands back a `Post` with the tenant id in its title.
+
+`Rows` follows the default projection: computed columns are left out, because
+that is what the projection does with them unless a query asks with
+`WithComputed`. `hidden` and `writeonly` columns *are* answered, because those
+are response rules applied where a REST resource is bound, not projection rules
+— a test asserting that a hidden column stayed out of a statement is asking
+about the SQL, and reads `LastStatement()`.
+
+`Count` answers the count statement a paged read issues, which is where the
+`int64` matters: that is what Postgres sends and what the scalar scanner narrows
+from, so a plain `42` fails at scan time.
+
 A `Reply` matches by substring, so a test can tell the page query from the count
 query without parsing SQL. Replies are tried in order and the first match wins,
-so the specific ones go first:
+so the specific ones go first — `Count` carries its own `Match`, and `Matching`
+narrows a constructed reply without needing a variable to reach the field:
 
 ```go
 db := sqlbtest.New(
-    sqlbtest.Reply{Match: "count(", Cols: []string{"count"}, Rows: [][]any{{int64(42)}}},
-    sqlbtest.Reply{Cols: postColumns, Rows: postRows},
+    sqlbtest.Count(42),
+    sqlbtest.Rows(archived...).Matching(`"archived_at" IS NOT NULL`),
+    sqlbtest.Rows(posts...),
 )
 ```
+
+Write a `Reply` directly when the question is about the shape of the result
+rather than about rows of a model: a `Select` of two aliased expressions, a
+column no model maps, or either of the failures below.
 
 A statement no `Reply` matches **fails**, with an error quoting it. That is one
 place the double is stricter than it has to be, and deliberately: answering an
