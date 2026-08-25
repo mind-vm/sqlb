@@ -23,6 +23,20 @@ func writableColumns(t *schema.TableManifest) []schema.ColumnManifest {
 	return out
 }
 
+// createInput is the create body's declared properties that are not columns —
+// what a create request carries beyond the row (#309). Empty for almost every
+// resource, because a create body is normally its columns and nothing else.
+//
+// There is no update counterpart, and the nil an edit passes in its place is
+// not an omission: the schema declares CreateInput and nothing like it for a
+// PATCH, so a body property is a thing a create can carry and an update cannot.
+func createInput(t *schema.TableManifest) []schema.BodyProperty {
+	if t.REST == nil {
+		return nil
+	}
+	return t.REST.CreateInput
+}
+
 // formField is one input on the create/edit form. The widget choice is
 // deliberately narrow: a checkbox for bool and a select for a declared enum
 // are the only two cases the manifest answers unambiguously (bool has
@@ -74,8 +88,14 @@ func editValue(c schema.ColumnManifest, val any) string {
 }
 
 // buildFormFields renders writableColumns against row's current values, or
-// empty values when row is nil (the create form).
-func buildFormFields(t *schema.TableManifest, row map[string]any) []formField {
+// empty values when row is nil (the create form), followed by props — the
+// declared properties that are not columns, which the create form has and the
+// edit form does not.
+//
+// They go last rather than interleaved because there is nowhere to interleave
+// them to: a body property has no position in the table, and the columns come
+// out in the order the schema declares them.
+func buildFormFields(t *schema.TableManifest, props []schema.BodyProperty, row map[string]any) []formField {
 	var fields []formField
 	for _, c := range writableColumns(t) {
 		var val any
@@ -101,13 +121,19 @@ func buildFormFields(t *schema.TableManifest, row map[string]any) []formField {
 		}
 		fields = append(fields, f)
 	}
-	return fields
+	return append(fields, buildBodyFields(props)...)
 }
 
 // formFieldsFromForm rebuilds the field list from a rejected submission, so
 // an error redisplay shows what the operator typed rather than reverting to
 // the row's last-fetched values.
-func formFieldsFromForm(t *schema.TableManifest, form url.Values) []formField {
+//
+// props is what buildFormFields was given, threaded through the redisplay by
+// whichever handler is submitting. A create form that offered a declared
+// property has to offer it again: without it the operator's second attempt is
+// refused for the same missing property, and the form still has nowhere to
+// type it.
+func formFieldsFromForm(t *schema.TableManifest, props []schema.BodyProperty, form url.Values) []formField {
 	var fields []formField
 	for _, c := range writableColumns(t) {
 		f := formField{Name: c.Name, Nullable: c.Nullable, Hint: hintFor(c)}
@@ -125,7 +151,7 @@ func formFieldsFromForm(t *schema.TableManifest, form url.Values) []formField {
 		}
 		fields = append(fields, f)
 	}
-	return fields
+	return append(fields, bodyFieldsFromForm(props, form)...)
 }
 
 // scalarValue converts one submitted text value into the JSON type the
@@ -166,10 +192,10 @@ func encodeFieldValue(c schema.ColumnManifest, raw string) (any, error) {
 	return out, nil
 }
 
-// actionHint mirrors hintFor for an action body property. ActionProperty has
-// no Array field (ADR-0043's body vocabulary doesn't carry one), so there is
-// no array case to add here.
-func actionHint(p schema.ActionProperty) string {
+// bodyHint mirrors hintFor for a declared body property. BodyProperty has no
+// Array field (ADR-0043's body vocabulary doesn't carry one), so there is no
+// array case to add here.
+func bodyHint(p schema.BodyProperty) string {
 	h := p.Type
 	if p.Nullable {
 		h += ", optional"
@@ -177,10 +203,14 @@ func actionHint(p schema.ActionProperty) string {
 	return h
 }
 
-func buildActionFields(body []schema.ActionProperty) []formField {
+// buildBodyFields renders declared properties as empty inputs. Both bodies
+// that declare them arrive here — an action's, and the non-column half of a
+// create's — because a property is the same thing wherever it was declared,
+// which is what schema.BodyProperty says by having one name for both (#309).
+func buildBodyFields(body []schema.BodyProperty) []formField {
 	var fields []formField
 	for _, p := range body {
-		f := formField{Name: p.Name, Nullable: p.Nullable, Hint: actionHint(p)}
+		f := formField{Name: p.Name, Nullable: p.Nullable, Hint: bodyHint(p)}
 		switch {
 		case p.Type == "bool":
 			f.Kind = "checkbox"
@@ -195,10 +225,10 @@ func buildActionFields(body []schema.ActionProperty) []formField {
 	return fields
 }
 
-func actionFieldsFromForm(body []schema.ActionProperty, form url.Values) []formField {
+func bodyFieldsFromForm(body []schema.BodyProperty, form url.Values) []formField {
 	var fields []formField
 	for _, p := range body {
-		f := formField{Name: p.Name, Nullable: p.Nullable, Hint: actionHint(p)}
+		f := formField{Name: p.Name, Nullable: p.Nullable, Hint: bodyHint(p)}
 		switch {
 		case p.Type == "bool":
 			f.Kind = "checkbox"
@@ -216,32 +246,46 @@ func actionFieldsFromForm(body []schema.ActionProperty, form url.Values) []formF
 	return fields
 }
 
+// bodyPropertyValue encodes one submitted property, and reports whether the
+// body should carry it at all: a blank text or select is left out, so that the
+// property's own default applies rather than an empty string overriding it.
+//
+// The key it is stored under is the property's name exactly as declared, not
+// its WireCase spelling. WireCase is a function of a *column* name and a
+// property is not a column. Every emitter writes the declared name verbatim
+// (codegen's renderActionInput and renderBodyProps both tag with d.Name), so a
+// camelCase schema would otherwise have studio sending completedAt to a
+// handler that only knows completed_at.
+func bodyPropertyValue(p schema.BodyProperty, form url.Values) (any, bool, error) {
+	if p.Type == "bool" {
+		return form.Has(p.Name), true, nil
+	}
+	if p.Nullable && form.Has(p.Name+"__clear") {
+		return nil, true, nil
+	}
+	raw := form.Get(p.Name)
+	if raw == "" {
+		return nil, false, nil
+	}
+	val, err := scalarValue(p.Type, raw)
+	if err != nil {
+		return nil, false, fmt.Errorf("%s: %w", p.Name, err)
+	}
+	return val, true, nil
+}
+
 // parseActionBody encodes a submitted form into the JSON body a declared
-// action expects, keyed by the property's wire spelling. ActionProperty
-// carries no precomputed Wire the way ColumnManifest does, so this derives
-// it the same way a client with only this manifest would have to: the
-// declared WireCase applied to the property's name (schema/wire.go).
-func parseActionBody(wire schema.WireCase, body []schema.ActionProperty, form url.Values) (map[string]any, error) {
+// action expects.
+func parseActionBody(body []schema.BodyProperty, form url.Values) (map[string]any, error) {
 	out := map[string]any{}
 	for _, p := range body {
-		key := wire.WireName(p.Name)
-		if p.Type == "bool" {
-			out[key] = form.Has(p.Name)
-			continue
-		}
-		if p.Nullable && form.Has(p.Name+"__clear") {
-			out[key] = nil
-			continue
-		}
-		raw := form.Get(p.Name)
-		if raw == "" {
-			continue
-		}
-		val, err := scalarValue(p.Type, raw)
+		val, send, err := bodyPropertyValue(p, form)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", p.Name, err)
+			return nil, err
 		}
-		out[key] = val
+		if send {
+			out[p.Name] = val
+		}
 	}
 	return out, nil
 }
@@ -252,7 +296,12 @@ func parseActionBody(wire schema.WireCase, body []schema.ActionProperty, form ur
 // default" on create — unless its "<name>__clear" companion is present, which
 // forces an explicit null so a nullable field can be cleared rather than only
 // ever grown.
-func parseFormBody(t *schema.TableManifest, form url.Values) (map[string]any, error) {
+//
+// props are the declared properties that are not columns, empty on the edit
+// path. They cannot collide with a column's key: the schema refuses a property
+// named for a column in either spelling, precisely because one JSON object
+// cannot carry both under one name (schema's validateCreateInput).
+func parseFormBody(t *schema.TableManifest, props []schema.BodyProperty, form url.Values) (map[string]any, error) {
 	body := map[string]any{}
 	for _, c := range writableColumns(t) {
 		wire := wireOf(c)
@@ -273,6 +322,15 @@ func parseFormBody(t *schema.TableManifest, form url.Values) (map[string]any, er
 			return nil, fmt.Errorf("%s: %w", c.Name, err)
 		}
 		body[wire] = val
+	}
+	for _, p := range props {
+		val, send, err := bodyPropertyValue(p, form)
+		if err != nil {
+			return nil, err
+		}
+		if send {
+			body[p.Name] = val
+		}
 	}
 	return body, nil
 }

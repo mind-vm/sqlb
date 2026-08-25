@@ -39,7 +39,7 @@ type QuerySnap struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
 	// Params is the query string's parameters, in declaration order.
-	Params []PropSnap `json:"params,omitempty"`
+	Params []BodyPropSnap `json:"params,omitempty"`
 	// Reads names the tables the query declares it reads. See diffQueries for
 	// why a change to it is neutral and why the honest summary names the
 	// direction.
@@ -67,16 +67,7 @@ func captureQueries(t *schema.TableDef, path string) []QuerySnap {
 		for _, tbl := range q.Reads {
 			snap.Reads = append(snap.Reads, tbl.Name())
 		}
-		for _, f := range q.Params {
-			d := f.Desc()
-			snap.Params = append(snap.Params, PropSnap{
-				Name:       d.Name,
-				Type:       string(d.Type),
-				Enum:       d.EnumValues,
-				Nullable:   d.Nullable,
-				HasDefault: d.DatabaseSupplied(),
-			})
-		}
+		snap.Params = captureBodyProps(q.Params)
 		out = append(out, snap)
 	}
 	// Sorted, so that reordering the declarations in a schema file is not a
@@ -106,7 +97,7 @@ func diffQueries(path string, o, n map[string]QuerySnap, add func(Break)) {
 			add(Break{LevelBreaking, path, FacetQuery, name,
 				fmt.Sprintf("query moved from %s to %s; a deployed client holds the old URL", ov.Path, nv.Path)})
 		}
-		diffProps(path, name, queryParam, ov.Params, nv.Params, add)
+		diffProps(path, queryParam, name+".", ov.Params, nv.Params, add)
 
 		if !sameStrings(ov.Reads, nv.Reads) {
 			add(Break{LevelNeutral, path, FacetQuery, name, readsSummary(ov.Reads, nv.Reads)})

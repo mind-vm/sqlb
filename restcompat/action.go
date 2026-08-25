@@ -25,7 +25,7 @@ type ActionSnap struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
 	// Body is the request body's properties, in declaration order.
-	Body []PropSnap `json:"body,omitempty"`
+	Body []BodyPropSnap `json:"body,omitempty"`
 	// Writes names the columns the envelope persists. No client couples to it,
 	// so a change here is neutral — but it widens or narrows what one route
 	// can mutate, which is exactly the blast-radius question this tool is for.
@@ -38,12 +38,20 @@ type ActionSnap struct {
 	Touches []string `json:"touches,omitempty"`
 }
 
-// PropSnap is one declared property of a request: a property of an action's
-// body, or a parameter of a query. The two are one type because they are one
-// shape — a name, a type, and the three flags that decide whether a request
-// must carry it — and because the rules that classify a change to one are the
-// rules that classify a change to the other; see propKind.
-type PropSnap struct {
+// BodyPropSnap is one declared property of a request — an action's body, the
+// non-column half of a create's (#309), or a query's parameters.
+//
+// It was ActionPropSnap until a create body could declare one too; the alias
+// below keeps a baseline reader compiling, and the JSON is unchanged either way.
+//
+// The name has since outgrown itself by one caller: a query's parameters are
+// not a body, and they are this type because they are this shape — a name, a
+// type, and the three flags that decide whether a request must carry it — and
+// because the rules that classify a change to one are the rules that classify
+// a change to any of them. Renaming it a second time inside one release would
+// cost two deprecated aliases to buy one accurate word. If a fourth
+// declaration arrives that is also not a body, that is the moment.
+type BodyPropSnap struct {
 	Name       string   `json:"name"`
 	Type       string   `json:"type"`
 	Enum       []string `json:"enum,omitempty"`
@@ -51,31 +59,48 @@ type PropSnap struct {
 	HasDefault bool     `json:"has_default,omitempty"`
 }
 
+// ActionPropSnap is the former name of [BodyPropSnap].
+//
+// Deprecated: use BodyPropSnap.
+type ActionPropSnap = BodyPropSnap
+
 // required reports whether a request must carry the property. It is the create
 // body's rule: a nullable property may be absent as null, and a defaulted one
 // may be absent so the default applies.
-func (p PropSnap) required() bool { return !p.Nullable && !p.HasDefault }
+func (p BodyPropSnap) required() bool { return !p.Nullable && !p.HasDefault }
 
 // captureActions projects a table's verbs into their contract form.
 func captureActions(t *schema.TableDef, path string) []ActionSnap {
 	var out []ActionSnap
 	for _, a := range t.Actions() {
-		snap := ActionSnap{Name: a.Name, Path: a.FullPath(path), Writes: a.Writes, Touches: a.Touches}
-		for _, f := range a.Body {
-			d := f.Desc()
-			snap.Body = append(snap.Body, PropSnap{
-				Name:       d.Name,
-				Type:       string(d.Type),
-				Enum:       d.EnumValues,
-				Nullable:   d.Nullable,
-				HasDefault: d.DatabaseSupplied(),
-			})
+		snap := ActionSnap{
+			Name: a.Name, Path: a.FullPath(path),
+			Body:   captureBodyProps(a.Body),
+			Writes: a.Writes, Touches: a.Touches,
 		}
 		out = append(out, snap)
 	}
 	// Sorted, so that reordering the declarations in a schema file is not a
 	// diff in the recorded contract.
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// captureBodyProps projects a declared body into its contract form, in
+// declaration order. One function for both declarations that have a body, so
+// that the two cannot record the same property differently.
+func captureBodyProps(body []*schema.Field) []BodyPropSnap {
+	var out []BodyPropSnap
+	for _, f := range body {
+		d := f.Desc()
+		out = append(out, BodyPropSnap{
+			Name:       d.Name,
+			Type:       string(d.Type),
+			Enum:       d.EnumValues,
+			Nullable:   d.Nullable,
+			HasDefault: d.DatabaseSupplied(),
+		})
+	}
 	return out
 }
 
@@ -115,56 +140,61 @@ func diffActions(path string, o, n map[string]ActionSnap, add func(Break)) {
 	}
 }
 
-// actionBody is the vocabulary diffProps uses for an action's request body.
-var actionBody = propKind{
-	facet: FacetAction,
-	noun:  "body property",
-	// The property is gone. A client still sending it is now sending something
-	// the operation does not declare.
-	removed: "body property removed",
-}
-
-// propKind is the vocabulary one property-bearing surface uses to describe its
-// own properties to a reader.
+// propKind is the vocabulary one property-bearing declaration uses to describe
+// its own properties to a reader.
 //
-// The classification below it is identical for an action's request body and a
-// query's parameters: the same rule for whether a request must carry the
-// property, the same rule for a type change, the same rule for a narrowed enum.
-// Only the words differ. So the rules live once and the words are passed in —
-// which is the point, because the next fix to one of those rules would
-// otherwise have to be made twice and would be made once (#68 was that fix,
-// and it landed when there was only one caller to make it in).
+// The classifier below is identical for all three: the same rule for whether a
+// request must carry the property, the same rule for a type change, the same
+// rule for a narrowed enum. An action's body and a create's differ only in
+// which facet they are reported under; a query's parameters differ in the noun
+// as well, since they are not a body. So the rules live once and the words are
+// passed in — which is the point, because the next fix to one of those rules
+// would otherwise have to be made three times and would be made once (#68 was
+// that fix, and it landed when there was only one caller to make it in).
 type propKind struct {
 	facet Facet
 	// noun names one property in a summary: "body property", "parameter".
 	noun string
 	// removed is the whole summary for a property that is gone, rather than a
-	// suffix on noun, because it is the one case where the two surfaces differ
+	// suffix on noun, because it is the one case where the declarations differ
 	// in substance and not only in wording — see queryParam.
 	removed string
 }
 
+// The three declarations that carry properties. The first two share a noun and
+// differ only in facet, which is what makes them two values rather than one
+// with the facet passed alongside: a caller naming its kind reads as the thing
+// it is.
+var (
+	actionBody = propKind{FacetAction, "body property", "body property removed"}
+	createBody = propKind{FacetCreate, "body property", "body property removed"}
+)
+
 // diffActionBody compares two versions of one verb's request body.
 func diffActionBody(path, action string, o, n ActionSnap, add func(Break)) {
-	diffProps(path, action, actionBody, o.Body, n.Body, add)
+	diffProps(path, actionBody, action+".", o.Body, n.Body, add)
 }
 
-// diffProps classifies the change to one operation's declared properties.
+// diffProps compares two versions of one declared property set, whichever
+// declaration it came from.
 //
-// owner is the action or query the properties belong to; it prefixes the field
-// name so a break reads as complete.note rather than as note, which matters
-// once a resource declares more than one operation with a property of the same
-// name.
-func diffProps(path, owner string, kind propKind, oldSide, newSide []PropSnap, add func(Break)) {
-	oldProps := propsByName(oldSide)
-	newProps := propsByName(newSide)
+// prefix qualifies the field name in the report: an action's properties are
+// reported under "complete.note", a query's under "overdue.as_of", and a
+// create's under the bare property name, because a resource has one create
+// body and does not need it qualified.
+func diffProps(path string, kind propKind, prefix string, oldBody, newBody []BodyPropSnap, add func(Break)) {
+	oldProps := propsByName(oldBody)
+	newProps := propsByName(newBody)
 
 	for _, name := range unionProps(oldProps, newProps) {
-		field := owner + "." + name
+		field := prefix + name
 		op, inOld := oldProps[name]
 		np, inNew := newProps[name]
 		switch {
 		case inOld && !inNew:
+			// The property is gone. A client still sending it is now sending
+			// something the operation does not declare — or, for a query,
+			// something it is refused for; see queryParam.
 			add(Break{LevelBreaking, path, kind.facet, field, kind.removed})
 		case !inOld && inNew:
 			if np.required() {
@@ -217,8 +247,8 @@ func levelForEnum(old, new []string) Level {
 	return LevelAdditive
 }
 
-func propsByName(props []PropSnap) map[string]PropSnap {
-	out := make(map[string]PropSnap, len(props))
+func propsByName(props []BodyPropSnap) map[string]BodyPropSnap {
+	out := make(map[string]BodyPropSnap, len(props))
 	for _, p := range props {
 		out[p.Name] = p
 	}
@@ -244,7 +274,7 @@ func unionActions(a, b map[string]ActionSnap) []string {
 	return keys
 }
 
-func unionProps(a, b map[string]PropSnap) []string {
+func unionProps(a, b map[string]BodyPropSnap) []string {
 	seen := map[string]bool{}
 	var keys []string
 	for k := range a {
