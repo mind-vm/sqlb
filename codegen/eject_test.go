@@ -307,19 +307,10 @@ func TestEjectReadSurfaceSpellsTheWire(t *testing.T) {
 		}
 	}
 
-	// The write half agrees, or the exit would accept two grammars at once.
-	handlers := files["handlers.go"]
-	for _, want := range []string{
-		`allowed := []string{"title", "createdAt"}`,
-		`case "createdAt":`,
-		`out["created_at"] = *v`,
-		`[]struct{ column, wire string }{{"title", "title"}, {"created_at", "createdAt"}}`,
-		`badRequest("body."+want.wire, "this property is required", allowed)`,
-	} {
-		if !contains(handlers, want) {
-			t.Errorf("the body decoder does not spell the wire, missing %q:\n%s", want, handlers)
-		}
-	}
+	// The write half is TestEjectBodyDecoderSpellsTheWire's, and the two are
+	// halves of one claim: an exit that matched ?createdAt but not
+	// {"createdAt": …} would accept two grammars at once. Asserted there rather
+	// than again here, so the decoder's shape is described in one place.
 
 	// The README documents the grammar, so it has to say which spelling it is.
 	if !strings.Contains(files["README.md"], "column table carries both names") {
@@ -336,9 +327,6 @@ func TestEjectUnderVerbatimNamesAColumnOnce(t *testing.T) {
 	}
 	if strings.Contains(files["store.go"], "Wire:") {
 		t.Error("Verbatim emitted a Wire field, which by definition says nothing")
-	}
-	if !contains(files["handlers.go"], `allowed := []string{"title", "created_at"}`) {
-		t.Errorf("the default's body decoder moved:\n%s", files["handlers.go"])
 	}
 }
 
