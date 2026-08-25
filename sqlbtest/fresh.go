@@ -2,12 +2,14 @@ package sqlbtest
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -311,12 +313,41 @@ func adminExec(ctx context.Context, t testing.TB, conn *pgx.Conn, statement stri
 	}
 }
 
+// Two things distinguish one scratch database from another, and neither is a
+// clock.
+//
+// processTag distinguishes processes, which is what `go test ./...` needs:
+// package binaries run concurrently, and two packages with a TestCreate each
+// would otherwise fight over one database and fail in a way that looks like a
+// bug in the code under test. nameSeq distinguishes calls inside one process,
+// which is what a package with two tests needs.
+//
+// This used to be `time.Now().UnixNano() % 1e9` doing both jobs, and it did
+// neither reliably. A clock is only as fine as the host's resolution — on a
+// machine whose reading advances in microseconds, four calls to [Fresh] land
+// on the same tick and produce the same name — and two processes started
+// together read times that are close, not different. A counter cannot repeat
+// and a random tag does not depend on when the process started.
+var (
+	processTag = newProcessTag()
+	nameSeq    atomic.Uint64
+)
+
+// newProcessTag returns forty bits of randomness as hex: short enough to leave
+// the test's own name room inside an identifier, wide enough that the several
+// dozen package binaries of a `go test ./...` do not collide.
+func newProcessTag() string {
+	var b [5]byte
+	// crypto/rand.Read does not fail. Since Go 1.24 it either fills the buffer
+	// or crashes the program, and the error it returns is always nil.
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
+}
+
 // databaseName derives a legal, unique name from the test's.
 //
-// Unique across packages as well as within one, which the timestamp is for:
-// `go test ./...` runs package binaries concurrently, and two packages with a
-// TestCreate each would otherwise fight over one database and fail in a way
-// that looks like a bug in the code under test.
+// Unique across packages as well as within one, and without consulting a
+// clock — see [processTag] for why that is the whole point.
 func databaseName(t testing.TB) string {
 	name := strings.Map(func(r rune) rune {
 		switch {
@@ -330,12 +361,15 @@ func databaseName(t testing.TB) string {
 	}, t.Name())
 
 	// Postgres truncates an identifier at 63 bytes, which would collide two
-	// long subtests into one database.
-	const max = 40
-	if len(name) > max {
-		name = name[:max]
+	// long subtests into one database. The test's name is what gets cut,
+	// because it is the part that is decoration: the tag and the counter are
+	// what make the name unique, so the budget is whatever they leave.
+	suffix := fmt.Sprintf("_%s_%d", processTag, nameSeq.Add(1))
+	const maxIdent = 63
+	if budget := maxIdent - len("t_") - len(suffix); len(name) > budget {
+		name = name[:budget]
 	}
-	return fmt.Sprintf("t_%s_%d", name, time.Now().UnixNano()%1e9)
+	return "t_" + name + suffix
 }
 
 // dsnRenderer returns a function producing the DSN for a named database on the
