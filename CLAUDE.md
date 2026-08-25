@@ -68,8 +68,11 @@ mise run ci     # the gate: never rewrites, only fails
 
 `mise run preflight` is the push path: heal, build, database-free tests, about
 fifteen seconds. `mise run ci` mirrors `.github/workflows/ci.yml` in full and is
-for reproducing a CI failure rather than for routine use — CI is the gate. The
-database-backed suites read a DSN and start nothing; `mise run pg-up` provides
+for reproducing a CI failure rather than for routine use. `ci.yml` itself runs
+only on a pushed release tag, not on every push or pull request, so these two
+local commands are the gate during regular development — the GitHub workflow
+is the release-time re-check, not a PR check. The database-backed suites read
+a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
@@ -86,14 +89,14 @@ kinds and nothing else says which is which.
 
 Five things that are not visible from where you would look for them.
 
-**The gate is two workflows.** `ci` and `site` are separate on purpose —
-folding Astro into the gate would make Node a build dependency of a Go library.
-The second one used to be called `pages` and used to deploy; the repository is
-private now, and a private repository on this plan cannot serve Pages, so it
-builds and stops. It runs on pull requests as well as on `main`, which the
-deploying version could not — that is what closes the trap this paragraph
-carried for two releases, when `gh pr checks` showed one workflow of two and
-v0.7.0 was tagged with `pages` red.
+**The gate is two workflows, and a pull request now shows only one of them.**
+`ci` and `site` are separate on purpose — folding Astro into the gate would
+make Node a build dependency of a Go library. `ci` used to run on every push
+and pull request; it now runs only once a release tag is pushed, so `gh pr
+checks` reports `site` alone during regular development — that absence is
+expected, not the trap this paragraph used to describe. `mise run
+preflight`/`mise run ci` locally are the gate until then; see "Releases" below
+for where `ci`'s tag-triggered result gets checked.
 
 **A docs link can still break across two green pull requests.** One adds a page
 linking to a file, another moves the file; each is green on its own base and the
@@ -148,18 +151,19 @@ diffing `go.mod` against a pinned allow-list rather than by asking a reviewer
 to notice a new import.
 
 **Releases.** A release is an annotated tag whose message *is* the notes, plus
-a GitHub release carrying the same text, on a commit where **both** workflows
-are green. [docs/compatibility.md](docs/compatibility.md) says what is frozen
-and what is expected to move; a pre-1.0 minor may break a surface listed under
-*Will move*, and the notes carry the mechanical edit that fixes it.
+a GitHub release carrying the same text, once both workflows are green on it.
+[docs/compatibility.md](docs/compatibility.md) says what is frozen and what is
+expected to move; a pre-1.0 minor may break a surface listed under *Will
+move*, and the notes carry the mechanical edit that fixes it.
 
-Check `gh run list --commit <sha>` before tagging. `site` is path-filtered, so
-a commit touching no docs has no run of it at all — which reads the same as a
-missing one and is not: what the paragraph above asks for is that nothing is
-*red*, and this is the difference between a workflow that did not need to run
-and one that ran and failed. Tagging the releases-page commit satisfies it
-without having to tell them apart, which is why the ordering used to be
-mandatory and is now merely the easy path.
+The two are checked at different points, because only one of them runs before
+the tag exists. Check `gh run list --commit <sha>` for `site` before tagging,
+same as always — it is path-filtered, so a commit touching no docs has no run
+of it at all, which reads the same as a missing one and is not: what matters
+is that nothing is *red*. `ci` runs only once the tag is pushed, so its result
+can only be read after: push the tag, then `gh run list --commit <sha>` again
+(or watch the run the push just started) before turning it into a GitHub
+release.
 
 ## Things that are deliberate
 

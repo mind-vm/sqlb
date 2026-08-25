@@ -1,26 +1,29 @@
 # Mirrors `mise run ci`. Tool versions come from mise.toml, so a green run here
 # and a green run locally use the same Go and the same golangci-lint — the whole
 # reason those versions are pinned.
+#
+# Runs only on a pushed release tag, not on every push or pull request.
+# Development has no server-side gate: `mise run preflight` and `mise run ci`
+# locally are what catches a broken commit before it lands on main. This
+# workflow is the release-time re-check instead — tag first, then read this
+# run's result before the tag becomes a GitHub release (CLAUDE.md,
+# "Releases").
 name: ci
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ["v*"]
 
 permissions:
   contents: read
 
-# One run per branch. Pushing twice in a minute — which is what happens when an
-# agent amends a commit after CI has already started — otherwise leaves the
-# first run grinding through three jobs whose answer nobody will read.
-#
-# Not applied to main: a superseded run there is the record of whether that
-# commit was good, and cancelling it would leave a commit on the default branch
-# with no verdict at all.
+# A tag is pushed once, deliberately, so there is no superseded run to cancel
+# the way an amended branch push had one. Not cancelled regardless: a tag's
+# run is the release verdict, and cancelling it would leave a release with no
+# answer at all.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: false
 
 jobs:
   gate:
