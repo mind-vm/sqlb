@@ -108,6 +108,10 @@ that case is caught at the source instead, above.
 
 ## Deployment
 
+Nothing deploys at present — see the workflow section below. What follows is
+what the configuration is set up for, and is what a return to publishing would
+use rather than re-derive.
+
 `site.config.mjs` holds `site` and `base`. `astro.config.mjs` configures Astro
 from it, `sync-docs.mjs` prefixes generated links with it, and Starlight prefixes
 its own navigation automatically. It is currently set for a GitHub Pages project
@@ -123,10 +127,17 @@ Do not try to hold it in your head: change `base`, run `mise run site-build`, an
 the link check names every href that no longer resolves. It found exactly this
 when the base was first switched to `"/"` as a test.
 
-`.github/workflows/pages.yml` builds and deploys on a push to `main` that
+`.github/workflows/site.yml` builds on a push to `main` or a pull request that
 touches `site/**` or `docs/**`, and on `workflow_dispatch`. It runs
-`npm run build`, so the link check gates the deploy: a link that would 404 in
-production fails there instead of shipping.
+`npm run build`, so the link check is what it is for: a link that resolves to
+nothing fails there.
+
+It used to deploy to GitHub Pages, and does not any more — the repository is
+private, and a private repository on this plan cannot serve Pages, so the
+deploy step answered 404 on every push and made the workflow permanently red.
+The build survives the deployment because the build was always the half that
+caught anything. Nothing here is wasted if Pages comes back: the deploy job was
+six lines, and `site.config.mjs` still holds the URL it would publish under.
 
 It is deliberately separate from `ci`. The site is Astro, so folding it into the
 gate would make Node a build dependency of a Go library whose whole argument is
@@ -138,3 +149,7 @@ The path filter is the whole of `docs/`, not the published subset. It listed
 an ADR was committed, CI was green, and the page 404d because no deploy ran.
 Building on an unpublished `docs/` change is cheap; not building on a published
 one is invisible.
+
+`mise run site-check` is the same link check without `npm ci`, and is what to
+run locally — see CLAUDE.md. The workflow is the version that also compiles the
+Astro site, which is the part `site-check` cannot do.

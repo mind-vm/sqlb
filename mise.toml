@@ -1160,7 +1160,7 @@ npm run dev
 '''
 
 [tasks.site-build]
-description = "Build the documentation site into site/dist, then verify every internal link in the output resolves. The link check is the load-bearing half: the guide's links are repo-relative and get rewritten for the web, so one can be valid markdown, survive the build, and still 404 after deploy."
+description = "Build the documentation site into site/dist, then verify every internal link in the output resolves. The link check is the load-bearing half: the guide's links are repo-relative and get rewritten for the web, so one can be valid markdown, survive the build, and still resolve to nothing in the output. This is what the `site` workflow runs — it no longer deploys, since a private repository on this plan cannot serve Pages, so the build is the whole of it."
 dir = "site"
 run = '''
 [ -d node_modules ] || npm install
