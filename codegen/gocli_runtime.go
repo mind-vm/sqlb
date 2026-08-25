@@ -373,30 +373,41 @@ func ItemPath(collection, id string) string {
 const cliCobra = `
 // --------------------------------------------------------------------- cobra
 
+// nullableColumn is a column --set-null accepts, in its two spellings: the one
+// the flag is written with, which is the column's own and does not move when
+// the schema declares a WireCase, and the one the request body has to use,
+// which does. Under the default they are the same string.
+type nullableColumn struct {
+	Column string
+	Wire   string
+}
+
 // setNullFields records an explicit null for each named column.
 //
 // A value flag can say that a column is now empty; it cannot say that it is now
 // null, and the two write different SQL. This is the command-line form of the
 // presence map the generated patch body keeps for the same reason.
-func setNullFields(body map[string]any, names, nullable []string) error {
+func setNullFields(body map[string]any, names []string, nullable []nullableColumn) error {
+	allowed := make([]string, 0, len(nullable))
+	for _, c := range nullable {
+		allowed = append(allowed, c.Column)
+	}
 	for _, name := range names {
 		column := strings.ReplaceAll(name, "-", "_")
-		if !containsString(nullable, column) {
-			return fmt.Errorf("--set-null %s: not a nullable column of this resource; allowed: %s",
-				name, strings.Join(nullable, ", "))
+		wire := ""
+		for _, c := range nullable {
+			if c.Column == column {
+				wire = c.Wire
+				break
+			}
 		}
-		body[column] = nil
+		if wire == "" {
+			return fmt.Errorf("--set-null %s: not a nullable column of this resource; allowed: %s",
+				name, strings.Join(allowed, ", "))
+		}
+		body[wire] = nil
 	}
 	return nil
-}
-
-func containsString(list []string, s string) bool {
-	for _, item := range list {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }
 
 func envOr(name, def string) string {

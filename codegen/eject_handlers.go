@@ -45,8 +45,9 @@ func ejectHandlers(opts EjectOptions, exposed []*schema.TableDef) ([]byte, error
 
 	ejectOptionsType(b, exposed)
 	ejectRegister(b, exposed)
+	wire := opts.Registry.Wire()
 	for _, t := range exposed {
-		ejectResource(b, t)
+		ejectResource(b, t, wire)
 	}
 	return gofmt("handlers.go", b.Bytes())
 }
@@ -155,7 +156,7 @@ func ejectRegister(b *bytes.Buffer, exposed []*schema.TableDef) {
 
 // ejectResource emits one resource: its bodies, its obligation check and its
 // handlers.
-func ejectResource(b *bytes.Buffer, t *schema.TableDef) {
+func ejectResource(b *bytes.Buffer, t *schema.TableDef, wire schema.WireCase) {
 	typeName := TypeName(t)
 	name := resourceName(t)
 	lower := unexportedGoName(typeName)
@@ -167,13 +168,13 @@ func ejectResource(b *bytes.Buffer, t *schema.TableDef) {
 	hasDefaults := false
 	if rest.Ops.Has(schema.OpCreate) {
 		hasDefaults = ejectInsertDefaults(b, t, lower)
-		ejectBodyDecoder(b, t, lower, forCreate)
+		ejectBodyDecoder(b, t, lower, forCreate, wire)
 		if props := createInput(t); len(props) > 0 {
 			ejectCreateInputDecoder(b, t, props)
 		}
 	}
 	if rest.Ops.Has(schema.OpUpdate) {
-		ejectBodyDecoder(b, t, lower, forUpdate)
+		ejectBodyDecoder(b, t, lower, forUpdate, wire)
 	}
 
 	fmt.Fprintf(b, "\n// register%s mounts %s.\n", name, rest.Path)
@@ -344,7 +345,7 @@ func ejectSortLiteral(terms []string) string {
 // A map of raw messages rather than a struct, because that is what answers the
 // question a PATCH asks: `{}` and `{"title": null}` decode identically into a
 // struct of pointers, and they mean different things.
-func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bodyKind) {
+func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bodyKind, wire schema.WireCase) {
 	fields := bodyFields(t, kind)
 	verb, suffix := "create", "Create"
 	if kind == forUpdate {
@@ -358,9 +359,14 @@ func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bo
 	if kind == forCreate {
 		props = createInput(t)
 	}
+	// A column is named the way the request spells it, which is the schema's
+	// WireCase and the same spelling the row struct's json tags carry. The map
+	// this returns is keyed by column name instead, because it goes to an
+	// INSERT or an UPDATE — see the case bodies below. A declared property has
+	// only the one spelling, since a wire case is a function of a column name.
 	allowed := make([]string, 0, len(fields)+len(props))
 	for _, f := range fields {
-		allowed = append(allowed, fmt.Sprintf("%q", f.Desc().Name))
+		allowed = append(allowed, fmt.Sprintf("%q", wire.WireName(f.Desc().Name)))
 	}
 	for _, f := range props {
 		allowed = append(allowed, fmt.Sprintf("%q", f.Desc().Name))
@@ -390,18 +396,18 @@ func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bo
 			// explicit null is a rejection rather than a silent zero.
 			target = "*" + goType
 		}
-		fmt.Fprintf(b, "\t\tcase %q:\n", d.Name)
+		fmt.Fprintf(b, "\t\tcase %q:\n", wire.WireName(d.Name))
 		fmt.Fprintf(b, "\t\t\tvar v %s\n", target)
 		fmt.Fprintln(b, "\t\t\tif err := json.Unmarshal(msg, &v); err != nil {")
 		fmt.Fprintf(b, "\t\t\t\treturn nil, badRequest(\"body.\"+name, err.Error(), nil)\n")
 		fmt.Fprintln(b, "\t\t\t}")
 		if pointer {
-			fmt.Fprintln(b, "\t\t\tout[name] = v")
+			fmt.Fprintf(b, "\t\t\tout[%q] = v\n", d.Name)
 		} else {
 			fmt.Fprintln(b, "\t\t\tif v == nil {")
 			fmt.Fprintln(b, "\t\t\t\treturn nil, badRequest(\"body.\"+name, \"this column is not nullable\", nil)")
 			fmt.Fprintln(b, "\t\t\t}")
-			fmt.Fprintln(b, "\t\t\tout[name] = *v")
+			fmt.Fprintf(b, "\t\t\tout[%q] = *v\n", d.Name)
 		}
 	}
 
@@ -415,17 +421,15 @@ func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bo
 	fmt.Fprintln(b, "\t}")
 
 	if kind == forCreate {
-		var required []string
+		// Looked up by column, since that is what out is keyed by, and reported
+		// by wire name, since that is the property the caller left out.
 		for _, f := range fields {
-			if d := f.Desc(); !optionalOnCreate(d) {
-				required = append(required, fmt.Sprintf("%q", d.Name))
+			d := f.Desc()
+			if optionalOnCreate(d) {
+				continue
 			}
-		}
-		if len(required) > 0 {
-			fmt.Fprintf(b, "\tfor _, name := range []string{%s} {\n", strings.Join(required, ", "))
-			fmt.Fprintln(b, "\t\tif _, ok := out[name]; !ok {")
-			fmt.Fprintln(b, "\t\t\treturn nil, badRequest(\"body.\"+name, \"this property is required\", allowed)")
-			fmt.Fprintln(b, "\t\t}")
+			fmt.Fprintf(b, "\tif _, ok := out[%q]; !ok {\n", d.Name)
+			fmt.Fprintf(b, "\t\treturn nil, badRequest(\"body.%s\", \"this property is required\", allowed)\n", wire.WireName(d.Name))
 			fmt.Fprintln(b, "\t}")
 		}
 	}
