@@ -65,8 +65,9 @@ before — an empty base path, root-mounted, which is what
 | [`manifest.go`](manifest.go) | `LoadManifest` — the only place this module reads a file. Everything else is an HTTP client and a renderer. |
 | [`server.go`](server.go) | Routes, and the shape every handler follows: fetch through `client.go`, render through `form.go`'s field builders. |
 | [`client.go`](client.go) | The REST client. Decodes into `map[string]any` — there is no generated type to decode into, which is the whole point. |
-| [`form.go`](form.go) | Where a column or an action's declared `Body` becomes an HTML field, and a submitted field becomes a typed JSON value. The narrowest part on purpose: a checkbox for `bool`, a `<select>` for a declared `Enum`, text with a hint for everything else. |
+| [`form.go`](form.go) | Where a column or a declared body property — an action's `Body`, a create's `CreateInput` — becomes an HTML field, and a submitted field becomes a typed JSON value. The narrowest part on purpose: a checkbox for `bool`, a `<select>` for a declared `Enum`, text with a hint for everything else. |
 | [`server_test.go`](server_test.go) | An `httptest` fake standing in for a generated REST API — login, the grid, edit, create, and both action shapes, each against real request/response bodies rather than the templates in isolation. |
+| [`createinput_test.go`](createinput_test.go) | The same fake for the one shape the columns do not describe: a create body carrying a property that is not a column, which the create form has to offer and the edit form must not. |
 
 ## What it does not do
 
