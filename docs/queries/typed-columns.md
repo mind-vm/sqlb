@@ -53,17 +53,44 @@ setter per writable column, typed by that column:
 _, err := blog.UpdatePost().
     SetStatus(blog.PostStatusPublished).
     Where(blog.PostCols.ID.Eq(id)).
+    Stmt().
     Exec(ctx, db)
 ```
 
 Worth using, since the untyped `Set(string, any)` checks the column name against
 the model but not the value's type.
 
-A `ReadOnly` column has no setter, which is the mechanism rather than a
-convention. Where the operation the schema forbade is one you do want from Go —
-incrementing a counter in the database rather than read-modify-write — the
-extension goes in a hand-written file beside the generated one; see
-[the seam](../concepts/generated-not-hidden.md#the-seam).
+The wrapper carries the setters and `Where`, and **`Stmt()` is where the
+statement itself is** — `Exec`, `One`, `Everything`, `SetExpr`, `Resolved`.
+It is one call rather than a re-export of `Update[T]`'s surface because the
+wrapper's job is the typed half; the rest is already spelled once, on the
+statement.
+
+`SetExpr` is the case worth naming, since it is why the escape hatch is one
+method away rather than absent. Incrementing a counter in the database rather
+than read-modify-write has no typed spelling — the value is an expression, not
+a `int64` — so it goes through `Stmt()`:
+
+```go
+_, err := blog.UpdatePost().
+    Where(blog.PostCols.ID.Eq(id)).
+    Stmt().
+    SetExpr("view_count", sqlb.Raw{SQL: "view_count + ?", Args: []any{1}}).
+    Exec(ctx, db)
+```
+
+**Every writable column gets a setter, including `ReadOnly` and `Immutable`
+ones.** Those two are REST-boundary rules and the boundary is defended where it
+exists — they are absent from the generated request bodies and the handler
+clears them — so excluding them here protected nothing. It only meant that the
+code which is the *sole* writer of a `ReadOnly` column was the one code that
+could not write it typed, and had to reach for `Set(string, any)` on exactly
+the columns where a typo costs most.
+
+Two columns stay out. The primary key, because it addresses the row rather than
+being part of what an update writes; and a computed column, because `ReadOnly`
+is a rule about who may write and a computed column has nothing to write to — a
+setter for one would compile and then fail every statement it was used in.
 
 ## When it is not available
 
