@@ -2674,18 +2674,26 @@ more than the row" is a report attached to a verb, not a new RPC surface.
 The shape mirrors the read side's own widening: `do` becomes
 `func(ctx, *T, In) (Out, error)` in place of `func(ctx, *T, In) error`,
 with `Out` defaulting to `row[T]` so every action declared today keeps
-compiling and keeps answering exactly what it answers now. Still
-unsettled and left for the second and third action that actually reach
-for it: whether `Out` needs a declaration in the field vocabulary the way
-a body does, or stays outside the schema's reach at the cost of the
-TypeScript client typing it `unknown`; whether `Writes` still persists
-from the mutated `*T` when `do` also returns a separate `Out`, or the two
-become one value; whether the widening reaches `sqlb.json`,
-`restcompat` and the TypeScript, Dart and CLI emitters the way a
-declared body and write set already do, or ships Go-only first as
-`Query`'s own `Out` still does; and whether a widened action is still
-one surface next to CRUD or the first crack in that boundary.
-[#218](https://github.com/jryannel/sqlb/issues/218) tracks the
+compiling and keeps answering exactly what it answers now. Four things were left
+unsettled for the second and third action that actually reached for it,
+and [a verb may declare what it answers with](#a-verb-may-declare-what-it-answers-with)
+answers all four, on the evidence of
+[#312](https://github.com/jryannel/sqlb/issues/312) and
+[#310](https://github.com/jryannel/sqlb/issues/310): `Out` **is** declared
+in the field vocabulary, for the reason a body is — a shape sqlb cannot
+see is a client method typed `unknown`; `Writes` **does** still persist
+from the mutated `*T`, so the envelope is unchanged and only the response
+differs; the widening **does** reach `sqlb.json`, `restcompat` and all
+three client emitters rather than shipping Go-only; and a widened action
+**is** still one surface next to CRUD, since the status stays 200 and a
+`GET` action is still declined.
+
+One thing about the sketch above did not survive contact: `Out` cannot
+default to `row[T]`, because Go has no default type parameter. The
+compatibility it was there to buy is bought instead by leaving `Action`
+alone and adding `ActionReturning` beside it — every action declared
+today keeps compiling because its registration is the one it always was.
+[#218](https://github.com/jryannel/sqlb/issues/218) tracked the
 implementation.
 
 ### The container is an adapter
