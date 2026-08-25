@@ -90,6 +90,11 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// keep working without it.
 		"singleton":        {Registry: singletonFixture()},
 		"keylesssingleton": {Registry: keylessSingletonFixture()},
+		// A create body carrying properties that are not columns (#309): a
+		// second body type, an Input() method returning it, and — like the
+		// actions case — imports earned by a property rather than by a column,
+		// on a table whose own columns need none.
+		"createinput": {Registry: createInputCompileFixture()},
 	})
 }
 
@@ -232,4 +237,25 @@ func compiles(t *testing.T, cases map[string]codegen.Options) {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Errorf("generated code does not compile: %v\n%s", err, out)
 	}
+}
+
+// createInputCompileFixture is the declared create input in the shape that
+// exercises the emitter's type rules: a required property, a nullable one that
+// becomes a pointer, and one whose Go type needs an import this table's columns
+// do not.
+func createInputCompileFixture() *schema.Registry {
+	r := schema.NewRegistry()
+	r.Table("children",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Text("name"),
+		schema.Varchar("pin_hash", 255).Hidden(),
+	).Expose(schema.REST{
+		Ops: schema.CRUD | schema.OpList,
+		CreateInput: schema.Body(
+			schema.Varchar("pin", 4),
+			schema.Text("invite_code").Nullable(),
+			schema.Timestamp("consent_at"),
+		),
+	})
+	return r
 }

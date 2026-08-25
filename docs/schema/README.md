@@ -629,6 +629,13 @@ generated skill and the ejected handlers, which is the point: the alternative is
 a constant in one hand-maintained SDK facade that no other client and no agent
 reading the spec ever sees.
 
+`CreateInput` is the one field here that is not about a read. It declares
+properties the create body carries that are **not columns** — a plaintext PIN
+beside a `pin_hash` column, a token that is hashed and never stored, a list of
+ids that becomes rows of another table — and the value reaches `BeforeCreate`
+through the context rather than the row. See
+[A body that carries more than the row](../rest/README.md#a-body-that-carries-more-than-the-row).
+
 ## Modules
 
 A registry is the unit of isolation. Independent modules each declare into their

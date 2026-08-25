@@ -18,7 +18,7 @@ Read in this order, and stop as soon as you have what you need:
    Go way instead, as `// Command sqlb …` at the head of `cmd/sqlb/main.go`.
 2. **[docs/architecture.md](docs/architecture.md)** for how the pieces fit and
    why the seams are where they are — including its
-   **[Decisions](docs/architecture.md#decisions)** section, 64 of them, and
+   **[Decisions](docs/architecture.md#decisions)** section, 65 of them, and
    they are *load-bearing rather than historical*. A decision here is usually
    the answer to "why is this not simpler", and reversing one without reading
    it is the most common way to spend an afternoon rediscovering a rejected
@@ -48,7 +48,7 @@ Fourteen Go modules. The six worth knowing before you start are below, and
 
 | | |
 |---|---|
-| `.` | the engine — builder, compiler, hooks, model cache. 22 files at the root, which is the package |
+| `.` | the engine — builder, compiler, hooks, model cache. 23 files at the root, which is the package |
 | `pgtest/` | round-trip tests against a real Postgres. Its own module so the engine's suite stays database-free. It takes a DSN and starts nothing — `mise run pg-up` provides one, and `sqlbtest.Fresh` makes a database per test on it |
 | `example/tasks/`, `example/fxapp/` | worked applications, each with its own gate |
 | `example/auth-workos/` | a `sqlb.Verifier[T]` adapter for WorkOS AuthKit — its own module so the WorkOS SDK and JWT/JWKS dependencies never reach sqlb core's `go.mod` |
