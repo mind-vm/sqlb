@@ -2090,6 +2090,23 @@ so a camelCase schema's worked example printed a request that would 400.
 Both are fixed now, and both are evidence that "one setting, several
 surfaces" has to be tested surface by surface rather than asserted.
 
+A third gap had the same shape and a sharper cost: the surfaces were
+tested for what they *serve* and not for what they *accept*. The generated
+request bodies, the ejected body decoder and the CLI's `--set-null` each
+tagged their JSON properties with the column's own name while the row
+struct beside them, the TypeScript client and the Dart client all sent the
+derived spelling — so under `WireCase(Camel)` a generated client could
+read a resource and not write one, which is the failure mode a single
+derived spelling exists to make impossible. The guard that missed it
+asserted the spelling reaches five surfaces and never looked at a request
+body, so it now checks both directions: the property a client sends, and
+the column name that same generated code hands the statement, which is
+where the two spellings are *supposed* to part company. A create body's
+declared non-column properties are the other place they legitimately
+differ, and they are spelled verbatim: the derivation is a function of a
+*column* name, and a property that names no column has nothing to derive
+from.
+
 `compatibility.md`'s frozen entry reads "one spelling per deployment,
 computed from the column name by the schema's declared `WireCase`" rather
 than "the column's own name, verbatim" — what's frozen is that there is
