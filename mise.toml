@@ -355,21 +355,22 @@ exit 0
 '''
 
 [tasks.preflight]
-description = "What to run before pushing. NOT the gate — `ci` is, and it runs on GitHub. This heals what the tooling can fix on its own, then proves the tree compiles and its database-free tests pass. Seconds, no Docker, no race detector, no Node, no Dart."
+description = "What to run before pushing. `ci` on GitHub now runs only on a pushed release tag, not on every push or pull request, so this is the gate during regular development. Heals what the tooling can fix on its own, then proves the tree compiles and its database-free tests pass. Seconds, no Docker, no race detector, no Node, no Dart."
 run = '''
 set -e
-# The gate moved to CI deliberately. `mise run ci` on a laptop is the same
-# fourteen stages GitHub already runs in three parallel jobs, and running it
-# locally buys nothing but a slower loop — measured at 90s warm on an idle
-# machine, seven containers of its own, and considerably worse when several
-# worktrees do it at once. What is left here is only the part whose answer is
-# worth having *before* a push rather than three minutes after it.
+# `ci` on GitHub only runs once a release tag is pushed (CLAUDE.md,
+# "Releases"), so no server-side check gates a push or a pull request — this
+# is what does. `mise run ci` still reproduces the full fourteen-stage run for
+# chasing a specific failure, but running it before every push buys nothing
+# but a slower loop for the parts whose answer does not need Docker, Node or
+# Dart — measured at 90s warm on an idle machine, seven containers of its own.
+# What is left here is the part worth a local answer before every push.
 #
-# `heal` first, because the most common way this repository turns CI red is
-# drift a fixer would have silenced: unformatted code, a lint finding with an
-# autofix, an untidied go.mod, generated output that no longer matches its
-# source. Each of those costs a full CI round-trip to learn and one second to
-# fix, so it is fixed here.
+# `heal` first, because the most common way this repository turns `ci` red at
+# tag time is drift a fixer would have silenced: unformatted code, a lint
+# finding with an autofix, an untidied go.mod, generated output that no longer
+# matches its source. Each of those costs a full CI round-trip to learn and
+# one second to fix, so it is fixed here.
 mise run heal
 
 # Then the two questions worth a local answer: does it build, and do the tests
@@ -382,7 +383,7 @@ done
 go test ./...
 
 echo
-echo "preflight: ok — CI is the gate, and it runs on the PR"
+echo "preflight: ok — the gate until a release tag triggers ci"
 '''
 
 [tasks.tidy]

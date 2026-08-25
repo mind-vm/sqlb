@@ -69,8 +69,11 @@ mise run ci     # the gate: never rewrites, only fails
 
 `mise run preflight` is the push path: heal, build, database-free tests, about
 fifteen seconds. `mise run ci` mirrors `.github/workflows/ci.yml` in full and is
-for reproducing a CI failure rather than for routine use — CI is the gate. The
-database-backed suites read a DSN and start nothing; `mise run pg-up` provides
+for reproducing a CI failure rather than for routine use. `ci.yml` itself runs
+only on a pushed release tag, not on every push or pull request, so these two
+local commands are the gate during regular development — the GitHub workflow
+is the release-time re-check, not a PR check. The database-backed suites read
+a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
@@ -79,7 +82,14 @@ steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 
 ## Traps
 
-Two things that are not visible from where you would look for them.
+Three things that are not visible from where you would look for them.
+
+**A pull request shows no CI status at all.** `ci` runs only once a release
+tag is pushed, not on every push or pull request, so `gh pr checks` reports
+nothing on a PR — that absence is expected, not a sign of misconfiguration.
+`mise run preflight`/`mise run ci` locally are the gate during regular
+development; see "Releases" below for where `ci`'s tag-triggered result gets
+checked.
 
 **Docs mirror source by hand.** `docs/typescript/README.md` and
 `docs/dart/README.md` restate what `codegen.Options` says about the files each
@@ -122,11 +132,14 @@ engine's dependency list is a decision, not a memory, and it is checked by
 diffing `go.mod` against a pinned allow-list rather than by asking a reviewer
 to notice a new import.
 
-**Releases.** A release is an annotated tag whose message *is* the notes, plus
-a GitHub release carrying the same text, on a commit where `ci` is green.
+a GitHub release carrying the same text, once `ci` is green on it.
 [docs/compatibility.md](docs/compatibility.md) says what is frozen and what is
 expected to move; a pre-1.0 minor may break a surface listed under *Will
 move*, and the notes carry the mechanical edit that fixes it.
+
+`ci` runs only once the tag is pushed, so its result can only be read after:
+push the tag, then `gh run list --commit <sha>` (or watch the run the push
+just started) before turning it into a GitHub release.
 
 ## Things that are deliberate
 
