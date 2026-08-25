@@ -1,0 +1,70 @@
+# Builds the documentation site, and stops there.
+#
+# It used to deploy to GitHub Pages as well. The repository is private now, and
+# a private repository on this plan cannot serve Pages — `deploy-pages` answers
+# 404 with "Ensure GitHub Pages has been enabled", which made every push to
+# `main` red for a reason that had nothing to do with the commit. A permanently
+# red workflow is worse than no workflow: it is the one people learn to skip,
+# and CLAUDE.md asks for a release on a commit where everything is green.
+#
+# The build is kept because the build is the check. `npm run build` runs the
+# link check, so a docs edit whose link resolves to nothing fails here — that
+# outcome is unchanged by there being nowhere to publish, and it is the half
+# that ever caught anything.
+name: site
+
+on:
+  push:
+    branches: [main]
+    # The site is generated from docs/, so an edit there has to rebuild it.
+    #
+    # Deliberately the whole directory rather than the published subset. This
+    # filter listed docs/guide/** when the guide was the only source, and adding
+    # docs/adr/ and docs/ silently outgrew it: ADR-0022 was committed, CI was
+    # green, and the page 404d because no build ran. A filter that has to be
+    # widened every time SOURCES grows is a filter that will be wrong again.
+    # Building on an unpublished docs/ change is cheap; not building on a
+    # published one is invisible.
+    paths:
+      - "site/**"
+      - "docs/**"
+      - ".github/workflows/site.yml"
+  # On pull requests too, which the deploying version could not do: a deploy
+  # belongs on `main` and a check belongs where the change is. This closes the
+  # trap CLAUDE.md carried for two releases — that `gh pr checks` showed one of
+  # the two workflows, so a docs break was invisible until after the merge.
+  # Keeping the push trigger as well is not redundant: two pull requests can be
+  # green on their own base and red as a pair, and only the merge sees that.
+  pull_request:
+    paths:
+      - "site/**"
+      - "docs/**"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One build per ref, and a superseded one is cancelled: nothing is published, so
+# there is no half-written state to protect — which is what the deploying
+# version's `cancel-in-progress: false` was for.
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      # ci rather than install: the lockfile is committed, so the runner builds
+      # what was resolved locally instead of re-resolving.
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site

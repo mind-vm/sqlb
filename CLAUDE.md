@@ -86,19 +86,21 @@ kinds and nothing else says which is which.
 
 Five things that are not visible from where you would look for them.
 
-**The gate is two workflows, and a PR shows one.** `ci` and `pages` are
-separate on purpose — folding Astro into the gate would make Node a build
-dependency of a Go library. But `pages` triggers only on pushes to `main`, so
-it never appears on a pull request. `gh pr checks` is therefore half the
-answer; `gh run list --commit <sha>` is the whole of it. This has bitten twice:
-v0.7.0 was tagged with `pages` red, and v0.8.0 nearly was.
+**The gate is two workflows.** `ci` and `site` are separate on purpose —
+folding Astro into the gate would make Node a build dependency of a Go library.
+The second one used to be called `pages` and used to deploy; the repository is
+private now, and a private repository on this plan cannot serve Pages, so it
+builds and stops. It runs on pull requests as well as on `main`, which the
+deploying version could not — that is what closes the trap this paragraph
+carried for two releases, when `gh pr checks` showed one workflow of two and
+v0.7.0 was tagged with `pages` red.
 
-**A docs link can break across two green pull requests.** One adds a page
-linking to a file, another moves the file; each is green on its own base and
-the pair is red. `sync-docs` refuses to publish rather than emitting a dead
-link, which is what it is for — but the failure lands on `main`, not on either
-PR. Run `mise run site-check` when you move or rename anything `docs/` points
-at.
+**A docs link can still break across two green pull requests.** One adds a page
+linking to a file, another moves the file; each is green on its own base and the
+pair is red — which no per-PR check can see, and is the reason `site` kept its
+push trigger as well. `sync-docs` refuses to build rather than emitting a dead
+link, which is what it is for. Run `mise run site-check` when you move or rename
+anything `docs/` points at.
 
 **Docs mirror source by hand.** `docs/typescript/README.md` and
 `docs/dart/README.md` restate what `codegen.Options` says about the files each
@@ -151,11 +153,13 @@ are green. [docs/compatibility.md](docs/compatibility.md) says what is frozen
 and what is expected to move; a pre-1.0 minor may break a surface listed under
 *Will move*, and the notes carry the mechanical edit that fixes it.
 
-Tag the *releases-page commit* rather than the feature commit — `pages` only
-runs on a push to `main` touching a published path, so a tag on a commit that
-publishes nothing can never show the green this paragraph asks for. Check
-`gh run list --commit <sha>` before tagging; `gh pr checks` is not enough,
-since `pages` never runs on a pull request.
+Check `gh run list --commit <sha>` before tagging. `site` is path-filtered, so
+a commit touching no docs has no run of it at all — which reads the same as a
+missing one and is not: what the paragraph above asks for is that nothing is
+*red*, and this is the difference between a workflow that did not need to run
+and one that ran and failed. Tagging the releases-page commit satisfies it
+without having to tell them apart, which is why the ordering used to be
+mandatory and is now merely the easy path.
 
 ## Things that are deliberate
 
