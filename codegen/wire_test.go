@@ -19,6 +19,9 @@ func wireFixture(c schema.WireCase) *schema.Registry {
 		schema.UUIDv7("id").PrimaryKey(),
 		schema.Text("title").Filterable().Sortable(),
 		schema.Timestamp("created_at").Filterable().Sortable(),
+		// Nullable, so a patch can say null, which is the one thing a value
+		// flag cannot express and so the one thing --set-null has to spell.
+		schema.Text("published_by").Nullable(),
 	).Expose(schema.REST{Path: "/articles", Ops: schema.CRUD | schema.OpList})
 	return r
 }
@@ -75,6 +78,29 @@ func TestWireCaseReachesEverySurface(t *testing.T) {
 	if !strings.Contains(files["models_gen.go"], `db:"created_at"`) {
 		t.Error("models.go lost the column name, which is what reaches Postgres")
 	}
+
+	// The request bodies are the surface a client writes *to*, and they were
+	// the one this test did not look at. A body tagged with the column name is
+	// a POST or a PATCH no generated client can make: the TypeScript client
+	// sends createdAt and the server binds created_at.
+	rest := files["rest_gen.go"]
+	for _, want := range []string{
+		`json:"createdAt"`,           // the create body
+		`json:"createdAt,omitempty"`, // the patch body
+		`u.present["createdAt"]`,     // and what a patch counts as present
+	} {
+		if !strings.Contains(rest, want) {
+			t.Errorf("rest_gen.go does not carry the wire spelling %q:\n%s", want, rest)
+		}
+	}
+	// What Changes() hands the statement is still the column, which is the one
+	// place in that file the two spellings are supposed to differ.
+	if !strings.Contains(rest, `out["created_at"]`) {
+		t.Errorf("rest_gen.go stopped naming the column the UPDATE has to set:\n%s", rest)
+	}
+	if strings.Contains(rest, `json:"created_at"`) {
+		t.Errorf("rest_gen.go tags a body property with the database spelling:\n%s", rest)
+	}
 }
 
 // Verbatim is the default and emits exactly what it always did — no wire entry,
@@ -125,6 +151,21 @@ func TestCLIFlagsAreStableAcrossWireCases(t *testing.T) {
 	}
 	if !strings.Contains(verbatim, `q.Add("created_at"`) {
 		t.Error("Verbatim's CLI stopped sending the column name")
+	}
+
+	// --set-null is a body assignment too, and it is the one the value flags do
+	// not cover. The flag still names the column — that is the documented
+	// command line — and the key it writes moves with the setting.
+	for _, src := range []string{camel, verbatim} {
+		if !strings.Contains(src, `registerCompletion(cmd, "set-null", []string{"published_by"})`) {
+			t.Errorf("--set-null stopped accepting the column's own spelling:\n%s", src)
+		}
+	}
+	if !strings.Contains(camel, `[]nullableColumn{{"published_by", "publishedBy"}}`) {
+		t.Error("--set-null sends the column spelling rather than the wire spelling")
+	}
+	if !strings.Contains(verbatim, `[]nullableColumn{{"published_by", "published_by"}}`) {
+		t.Error("Verbatim's --set-null stopped sending the column name")
 	}
 }
 

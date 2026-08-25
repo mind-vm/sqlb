@@ -95,9 +95,15 @@ func renderREST(opts Options) ([]byte, error) {
 
 	b := header(opts.Package, sortedSet(imports))
 
+	// A body's property names are the wire spelling, which is the one the row
+	// struct, the TypeScript client and the Dart client already use. Tagged
+	// with the column name instead, a body under a non-default WireCase is one
+	// no generated client can fill: the client sends createdAt and the server
+	// is looking for created_at.
+	wire := opts.Registry.Wire()
 	for _, t := range exposed {
-		renderCreateBody(b, t, ov)
-		renderUpdateBody(b, t, ov)
+		renderCreateBody(b, t, ov, wire)
+		renderUpdateBody(b, t, ov, wire)
 	}
 	for _, a := range acts {
 		renderActionInput(b, a)
@@ -258,7 +264,7 @@ func optionalOnCreate(d *schema.FieldDesc) bool {
 	return d.Nullable || d.DatabaseSupplied()
 }
 
-func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
+func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire schema.WireCase) {
 	fields, ok := createBody(t)
 	if !ok {
 		return
@@ -273,7 +279,7 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range fields {
 		d := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), d.Name, omitEmpty(optionalOnCreate(d)), enumTag(d))
+		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), wire.WireName(d.Name), omitEmpty(optionalOnCreate(d)), enumTag(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", c)
 		}
@@ -375,7 +381,7 @@ func renderBodyProps(b *bytes.Buffer, props []*schema.Field) {
 	}
 }
 
-func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
+func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire schema.WireCase) {
 	fields, ok := patchBody(t)
 	if !ok {
 		return
@@ -390,7 +396,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range fields {
 		d := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), d.Name, enumTag(d))
+		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), wire.WireName(d.Name), enumTag(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", c)
 		}
@@ -403,7 +409,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	fmt.Fprintln(b, "}")
 
 	fmt.Fprintf(b, "\n// UnmarshalJSON decodes the body and remembers which properties were present.\n")
-	fmt.Fprintf(b, "//\n// Without this a nil pointer would be ambiguous: `{}` and `{\"%s\": null}` decode\n", fields[0].Desc().Name)
+	fmt.Fprintf(b, "//\n// Without this a nil pointer would be ambiguous: `{}` and `{\"%s\": null}` decode\n", wire.WireName(fields[0].Desc().Name))
 	fmt.Fprintf(b, "// identically, but the first must change nothing and the second must write NULL.\n")
 	fmt.Fprintf(b, "func (u *%s) UnmarshalJSON(data []byte) error {\n", name)
 	fmt.Fprintf(b, "\ttype plain %s\n", name)
@@ -420,13 +426,17 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	for _, f := range fields {
 		d := f.Desc()
 		field := GoName(d.Name)
-		fmt.Fprintf(b, "\tif u.present[%q] {\n", d.Name)
+		// present is keyed by what the request said and out by what the
+		// statement will set, so the two part company here under any WireCase
+		// but the default. The error is read by the client, so it names the
+		// property the client sent.
+		fmt.Fprintf(b, "\tif u.present[%q] {\n", wire.WireName(d.Name))
 		if d.Nullable {
 			// A nil pointer that was present is an explicit null.
 			fmt.Fprintf(b, "\t\tout[%q] = u.%s\n", d.Name, field)
 		} else {
 			fmt.Fprintf(b, "\t\tif u.%s == nil {\n", field)
-			fmt.Fprintf(b, "\t\t\treturn nil, errors.New(%q)\n", d.Name+" is not nullable and cannot be set to null")
+			fmt.Fprintf(b, "\t\t\treturn nil, errors.New(%q)\n", wire.WireName(d.Name)+" is not nullable and cannot be set to null")
 			fmt.Fprintf(b, "\t\t}\n")
 			fmt.Fprintf(b, "\t\tout[%q] = *u.%s\n", d.Name, field)
 		}
