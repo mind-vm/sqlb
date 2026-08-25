@@ -8,7 +8,7 @@ anything about the host.
 
 With nothing written down, three libraries in one real application each chose
 differently and all three chose wrong
-([#281](https://github.com/jryannel/sqlb/issues/281)):
+([#281](https://github.com/mind-vm/sqlb/issues/281)):
 
 | What it did | What it cost |
 |---|---|

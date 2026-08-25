@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // errNested stands in for a build error the caller put on a subquery.

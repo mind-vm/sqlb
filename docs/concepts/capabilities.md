@@ -112,6 +112,6 @@ where it is reviewable.
 
 - [Capabilities](../schema/capabilities.md) — how to declare them, and the
   patterns
-- [Capability reference](https://jryannel.github.io/sqlb/reference/capabilities/)
+- [Capability reference](../reference/capabilities.md)
   — every method and what it permits
 - [ADR-0006](../architecture.md#capabilities-are-opt-in) — the decision record

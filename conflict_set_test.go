@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // The shape from #90: a table whose updated_at should come from the database

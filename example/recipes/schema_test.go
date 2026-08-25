@@ -3,7 +3,7 @@ package recipes_test
 import (
 	"fmt"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The declaration the models in models.go are generated from. A schema file

@@ -179,7 +179,7 @@ Load `sqlb-authoring` for "does `Filterable` exist, and what does `Scoped` enfor
 Generating this file does not install them: this is the one emitter that writes into a directory sqlb does not own, so it writes exactly one file and nothing beside it. They go in `.claude/skills/`, next to this one:
 
 ```bash
-npx skills add jryannel/sqlb
+npx skills add mind-vm/sqlb
 ```
 
 That is your invocation and not part of sqlb's build — nothing in the library depends on Node. A skill is a directory with a `SKILL.md` in it, so if you would rather not, a checkout and `cp -r skills/sqlb-* .claude/skills/` is the same thing.

@@ -34,13 +34,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/shadow"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/shadow"
 
 	// Imported for its side effects: declaring a table registers it, and the
 	// registry is the whole subject of this test.
-	_ "github.com/jryannel/sqlb/example/evolve/evolveschema"
+	_ "github.com/mind-vm/sqlb/example/evolve/evolveschema"
 )
 
 // pgEnv names the Postgres this package runs against. Provisioning happens

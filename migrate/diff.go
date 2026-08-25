@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Diff computes the changes that take current to target.

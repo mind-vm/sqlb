@@ -1,10 +1,10 @@
 package noteschema
 
-//go:generate go run github.com/jryannel/sqlb/cmd/sqlb generate .
+//go:generate go run github.com/mind-vm/sqlb/cmd/sqlb generate .
 
 import (
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
 )
 
 // SqlbProject tells `sqlb generate` what this example emits and where.
@@ -47,13 +47,13 @@ func SqlbProject() codegen.Project {
 			// mount, matching the package these resources live in. Neither
 			// is derivable — this is exactly the gap #171 named.
 			WiringMigrations: codegen.WiringSet{
-				Type:     "github.com/jryannel/sqlb/example/fxapp/fxkit.MigrationSet",
+				Type:     "github.com/mind-vm/sqlb/example/fxapp/fxkit.MigrationSet",
 				Group:    fxkit.GroupMigrations,
 				Name:     "notes",
 				EmbedDir: "migrations",
 			},
 			WiringOperations: codegen.WiringSet{
-				Type:  "github.com/jryannel/sqlb/example/fxapp/fxkit.OperationSet",
+				Type:  "github.com/mind-vm/sqlb/example/fxapp/fxkit.OperationSet",
 				Group: fxkit.GroupOperations,
 				Name:  "store",
 			},

@@ -138,7 +138,7 @@ not a gap in what sqlb can *express* — the SQL above is proof it can — it is
 gap in what sqlb can *declare*, and the declaration is what the emitters read.
 
 Both of those are what [ADR-0041](../../docs/architecture.md#computed-fields) and
-[issue #17](https://github.com/jryannel/sqlb/issues/17) argued for, and both are
+[issue #17](https://github.com/mind-vm/sqlb/issues/17) argued for, and both are
 closed below.
 
 ## 5 · Declare it

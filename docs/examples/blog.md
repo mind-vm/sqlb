@@ -1,18 +1,12 @@
----
-title: "blog — the smallest whole thing"
-description: A worked schema, everything codegen emits from it, the two hand-written pieces generated code cannot produce, and an assembled server.
-sidebar:
-  label: blog
-  order: 1
----
+# blog — the smallest whole thing
 
-**In this repository:** [`example/blog/`](https://github.com/jryannel/sqlb/tree/main/example/blog)
+**In this repository:** [`example/blog/`](https://github.com/mind-vm/sqlb/tree/main/example/blog)
 
 Three tables, everything codegen emits from them, the pieces that had to be
 written by hand, and an assembled server. It is a real test suite rather than a
 listing, so it cannot drift from the code.
 
-[Your first app](/sqlb/start/first-app/) walks it line by line. This page is the
+[Your first app](../start/first-app.md) walks it line by line. This page is the
 summary.
 
 ## What it proves
@@ -54,11 +48,11 @@ server_test.go  the assembled server, and every claim asserted
 
 | | |
 |---|---|
-| [`blogschema/schema.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/blogschema/schema.go) | Four kinds of capability decision, with a comment on each that is not obvious |
-| [`hooks.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/hooks.go) | Eleven lines that constrain every read of a model |
-| [`deletes.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/deletes.go) | Why a hook cannot turn a `DELETE` into an `UPDATE`, and what to do instead |
-| [`post_ext.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/post_ext.go) | Incrementing a counter in the database rather than read-modify-write |
-| [`server_test.go`](https://github.com/jryannel/sqlb/blob/main/example/blog/server_test.go) | The assembled chi + Huma + generated `Register` server |
+| [`blogschema/schema.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/blogschema/schema.go) | Four kinds of capability decision, with a comment on each that is not obvious |
+| [`hooks.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/hooks.go) | Eleven lines that constrain every read of a model |
+| [`deletes.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/deletes.go) | Why a hook cannot turn a `DELETE` into an `UPDATE`, and what to do instead |
+| [`post_ext.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/post_ext.go) | Incrementing a counter in the database rather than read-modify-write |
+| [`server_test.go`](https://github.com/mind-vm/sqlb/blob/main/example/blog/server_test.go) | The assembled chi + Huma + generated `Register` server |
 
 ## What it is not
 
@@ -67,10 +61,10 @@ show the shape, and it is one more predicate on the same hook. It runs against
 an in-memory `database/sql` driver rather than a container, which keeps it in
 the fast inner loop: it is proving what codegen emits and how the pieces
 assemble, not what Postgres does under concurrency. For that, read
-[library](/sqlb/examples/library/) or [exchange](/sqlb/examples/exchange/).
+[library](library.md) or [exchange](exchange.md).
 
 ## Next
 
-- [Your first app](/sqlb/start/first-app/) — the walkthrough
-- [tasks](/sqlb/examples/tasks/) — the same machinery once an application has a
+- [Your first app](../start/first-app.md) — the walkthrough
+- [tasks](tasks.md) — the same machinery once an application has a
   real shape

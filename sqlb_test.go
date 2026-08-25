@@ -12,9 +12,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/internal/pgfake"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The model under test mirrors what codegen emits from a schema declaration:

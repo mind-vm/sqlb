@@ -80,7 +80,7 @@ Leave it at zero to take the default. All five ceilings read a zero that way, so
 none of them can be turned *off*; a negative one is refused at validation rather
 than silently resolving to the loosest available bound ([#151]).
 
-[#151]: https://github.com/jryannel/sqlb/issues/151
+[#151]: https://github.com/mind-vm/sqlb/issues/151
 
 ## Every list is ordered deterministically
 

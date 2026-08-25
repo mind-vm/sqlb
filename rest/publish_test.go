@@ -11,8 +11,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/humatest"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // recorder is a Publisher that remembers, so a test can assert on what a write

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/computed"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/computed"
 )
 
 // TestDerivedProjection is the payoff: one statement carries the row and the

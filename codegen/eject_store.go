@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // projected are the columns a SELECT reads back, in declaration order.

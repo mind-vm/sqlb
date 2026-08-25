@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
 )
 
 // Booking is the shape #241 was reported against: a booking calendar whose

@@ -38,7 +38,7 @@ package sqlb
 // argument later, if the index declaration turns out to need it, is additive.
 // That asymmetry is the same one ADR-0017 used to start enums from text.
 //
-// [ADR-0026]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#vectors-declare-their-index
+// [ADR-0026]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#vectors-declare-their-index
 
 // Nearness is a similarity comparison between a vector column and a query
 // vector, from which the projection, the threshold and the ordering are all

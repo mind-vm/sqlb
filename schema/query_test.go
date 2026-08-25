@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // tasksWithQuery builds a tasks table carrying one query, for the refusals

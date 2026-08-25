@@ -22,11 +22,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 
 	// Imported for its side effects: declaring a table registers it.
-	_ "github.com/jryannel/sqlb/example/fxapp/noteschema"
+	_ "github.com/mind-vm/sqlb/example/fxapp/noteschema"
 )
 
 func main() {

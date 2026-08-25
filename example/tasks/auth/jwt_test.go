@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
 )
 
 // These tests are about the verifier, not the signer. A JWT implementation is

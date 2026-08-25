@@ -128,7 +128,7 @@ same verb a transaction it can write anything through. The three surfaces that
 print `Writes` cannot see the difference, and a caller with no compile step,
 which is the caller [ADR-0029](../architecture.md#go-cli) has in mind,
 reads `status, completed_at` and concludes the route is confined to one row
-([#149](https://github.com/jryannel/sqlb/issues/149)).
+([#149](https://github.com/mind-vm/sqlb/issues/149)).
 
 `Touches` is how a wide route says it is wide:
 

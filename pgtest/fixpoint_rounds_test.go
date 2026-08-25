@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/introspect"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/introspect"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // The round trip converges, but not always on the first round — and this is the

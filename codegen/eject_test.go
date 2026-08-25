@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 func ejectFixture() *schema.Registry {
@@ -73,7 +73,7 @@ func TestEjectWritesASelfContainedPackage(t *testing.T) {
 	// The whole argument of the verb: nothing here imports sqlb. A package that
 	// did would be an exit you cannot take.
 	for name, src := range files {
-		if strings.HasSuffix(name, ".go") && strings.Contains(src, `"github.com/jryannel/sqlb`) {
+		if strings.HasSuffix(name, ".go") && strings.Contains(src, `"github.com/mind-vm/sqlb`) {
 			t.Errorf("%s imports sqlb, so the exit is not one", name)
 		}
 	}

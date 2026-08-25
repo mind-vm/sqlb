@@ -1,13 +1,7 @@
----
-title: Rejection reference
-description: The problem document sqlb returns, every message the filter parser and the REST layer can produce, and what each status means.
-sidebar:
-  label: Rejections
-  order: 6
----
+# Rejection reference
 
 Checked against `rest/errors.go`, `rest/item.go` and `filter/filter.go`. The
-guide page is [Rejections](/sqlb/rest/errors/).
+guide page is [Rejections](../rest/errors.md).
 
 ## The document
 
@@ -127,7 +121,7 @@ the compiled SQL with it.
 An error that already carries a status is passed through, so a deliberate
 refusal from a hook keeps the status it chose rather than being flattened to a
 500. Filling in `ConstraintError.Constraint` needs a driver-specific classifier
-registered once at startup; see [Mutations](/sqlb/queries/mutations/#when-the-database-refuses-a-write).
+registered once at startup; see [Mutations](../queries/mutations.md#when-the-database-refuses-a-write).
 
 ## Reading it
 
@@ -160,8 +154,8 @@ if (isProblem(body)) {
 | `sqlb.ErrNotFound` | `One` matched nothing |
 | `sqlb.ErrUnscoped` | An update or delete with no `Where`; call `Everything()` to confirm |
 | `sqlb.ErrBadCursor` | A cursor used against a different ordering. The message names both |
-| `sqlb.ErrAfterCommit` | The write committed; one or more after-commit callbacks failed. The two cases need opposite responses — see [Hooks](/sqlb/queries/hooks/#aftercommit-for-side-effects) |
+| `sqlb.ErrAfterCommit` | The write committed; one or more after-commit callbacks failed. The two cases need opposite responses — see [Hooks](../queries/hooks.md#aftercommit-for-side-effects) |
 | `sqlb.ErrConstraint` | The class of every write a database constraint refused. `errors.As` into `*sqlb.ConstraintError` for the kind and, with a classifier registered, the name |
 
-See [ADR-0011](/sqlb/project/architecture/#actionable-errors) for why rejections carry data
+See [ADR-0011](../architecture.md#actionable-errors) for why rejections carry data
 rather than prose.

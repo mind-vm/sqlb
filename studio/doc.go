@@ -35,5 +35,5 @@
 // example_trace_test.go, and point whatever it exports at Uptrace, Jaeger,
 // or a Grafana dashboard.
 //
-// [the parent module's architecture doc]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-manifest-describes-what-cannot-be-guessed
+// [the parent module's architecture doc]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-manifest-describes-what-cannot-be-guessed
 package studio

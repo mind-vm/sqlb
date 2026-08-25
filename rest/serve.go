@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // ServeConfig configures [Serve].
@@ -38,7 +38,7 @@ type ServeConfig struct {
 	// establishing one. Without it, wrapping means assigning [Server.Handler]
 	// from inside mount and relying on Serve reading the field afterwards —
 	// correct, but load-bearing on an ordering nothing states
-	// ([#301](https://github.com/jryannel/sqlb/issues/301)).
+	// ([#301](https://github.com/mind-vm/sqlb/issues/301)).
 	//
 	// Compose more than one middleware with a single function:
 	//
@@ -57,7 +57,7 @@ type ServeConfig struct {
 	// wiring one in would make it a dependency of every application that
 	// calls Serve, including the ones that migrate as a separate deploy
 	// step and want nothing running at boot. See
-	// [github.com/jryannel/sqlb/example/tasks2/migrations] for a goose one.
+	// [github.com/mind-vm/sqlb/example/tasks2/migrations] for a goose one.
 	Migrate func(ctx context.Context, pool *pgxpool.Pool) error
 
 	// ShutdownTimeout bounds how long Serve waits for in-flight requests to
@@ -93,7 +93,7 @@ type ServeConfig struct {
 // attach a hook registry — [sqlb.DB.WithHooks], which lives on *sqlb.DB and
 // not on Executor. Handing out the interface made every real mount open with
 // a type assertion to recover what the caller already held
-// ([#277](https://github.com/jryannel/sqlb/issues/277)). Passing db straight
+// ([#277](https://github.com/mind-vm/sqlb/issues/277)). Passing db straight
 // on to a Register func still works: *sqlb.DB satisfies Executor.
 func Serve(ctx context.Context, cfg ServeConfig, mount func(*Server, *sqlb.DB) error) error {
 	if cfg.DSN == "" {

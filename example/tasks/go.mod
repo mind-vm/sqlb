@@ -1,14 +1,14 @@
-module github.com/jryannel/sqlb/example/tasks
+module github.com/mind-vm/sqlb/example/tasks
 
 go 1.25.7
 
-replace github.com/jryannel/sqlb => ../../
+replace github.com/mind-vm/sqlb => ../../
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.0
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/jryannel/sqlb v0.0.0-00010101000000-000000000000
+	github.com/mind-vm/sqlb v0.0.0-00010101000000-000000000000
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

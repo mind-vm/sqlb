@@ -32,13 +32,13 @@
 // expression: schema.Computed is a property of the table, so a value only one
 // query wants is still a RawSel.
 //
-// [ADR-0041]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#computed-fields
+// [ADR-0041]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#computed-fields
 package computed
 
 import (
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Schema is the DDL the techniques below assume. It is written out rather than

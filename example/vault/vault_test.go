@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/vault"
-	_ "github.com/jryannel/sqlb/example/vault/vaultschema"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/vault"
+	_ "github.com/mind-vm/sqlb/example/vault/vaultschema"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // A database of its own per test, from sqlbtest: a DSN in, nothing started.

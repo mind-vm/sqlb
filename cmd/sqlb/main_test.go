@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // The subject of the end-to-end tests is this repository's own blog example.
@@ -94,7 +94,7 @@ func TestPackageWithoutAProjectIsRefusedByName(t *testing.T) {
 	if code == 0 {
 		t.Fatalf("a package with no %s was accepted:\n%s", codegen.ProjectFunc, out)
 	}
-	for _, want := range []string{codegen.ProjectFunc, "github.com/jryannel/sqlb/schema"} {
+	for _, want := range []string{codegen.ProjectFunc, "github.com/mind-vm/sqlb/schema"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the error did not mention %q, and someone hitting it has no other "+
 				"clue what to write:\n%s", want, out)

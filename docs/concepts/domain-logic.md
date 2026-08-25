@@ -134,7 +134,7 @@ Four gaps, all deliberate and all documented where they bite:
   That argument does not transfer to an audit log or a metric, where the
   per-model registration carries no per-model decision, so this gap is smaller
   than "we decided against it" and larger than "nobody asked"
-  ([#161](https://github.com/jryannel/sqlb/issues/161)). Until it closes, write
+  ([#161](https://github.com/mind-vm/sqlb/issues/161)). Until it closes, write
   the loop over an explicit list and let a test assert the list covers every
   exposed table — a failing check beats a remembered convention, which is the
   same answer this codebase gives everywhere else.

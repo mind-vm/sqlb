@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/outbox"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/outbox"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // The durable half of the change feed, against a real Postgres, which is the

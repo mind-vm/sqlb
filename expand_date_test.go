@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // The shape from #84: an expansion target carrying a date column. A date and a

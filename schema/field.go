@@ -533,8 +533,8 @@ type ComputedExpr struct{ sql string }
 // subquery in the RETURNING of every insert, so the table could not be written
 // at all without `projects` present, and the module's own isolation boot test
 // failed on its seed with `relation "projects" does not exist`
-// ([#167](https://github.com/jryannel/sqlb/issues/167)). Since
-// [#164](https://github.com/jryannel/sqlb/issues/164) a write evaluates only the
+// ([#167](https://github.com/mind-vm/sqlb/issues/167)). Since
+// [#164](https://github.com/mind-vm/sqlb/issues/164) a write evaluates only the
 // computed columns it asked for, which shrinks that footprint — but the read
 // path still carries the coupling to every mount that selects the column, so the
 // rule stands.
@@ -544,7 +544,7 @@ type ComputedExpr struct{ sql string }
 // the dependency ExternalRef's free-text target exists to avoid — which is why
 // it is written here rather than enforced.
 //
-// [ADR-0024]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#no-annotation-slot
+// [ADR-0024]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#no-annotation-slot
 func FromSQL(sql string) ComputedExpr { return ComputedExpr{sql: sql} }
 
 // Needs names the binds this column's expression takes, in the order its `?`
@@ -689,7 +689,7 @@ func ExternalRef(relation, target string) *Field {
 // not give this schema the target's columns, so `?expand` has nothing to build
 // a join from.
 //
-// [ADR-0015]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#module-isolation
+// [ADR-0015]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#module-isolation
 func (f *Field) Enforced() *Field {
 	if f.d.Ref != nil {
 		f.d.Ref.Enforced = true
@@ -785,8 +785,8 @@ func Timestamps() Group {
 // statement, not turn it into an UPDATE. A table that means deletes to be soft
 // should leave OpDelete out of its Expose and route the endpoint itself.
 //
-// [ADR-0008]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#hooks-as-domain-seam
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0008]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#hooks-as-domain-seam
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 func SoftDelete() Group {
 	f := Timestamp("deleted_at").Nullable().ReadOnly()
 	f.d.SoftDelete = true
@@ -1117,7 +1117,7 @@ func (f *Field) ReadOnly() *Field {
 // a BEFORE UPDATE trigger, which is the layer that sees the old row and the new
 // one at once.
 //
-// [domain logic]: https://github.com/jryannel/sqlb/blob/main/docs/concepts/domain-logic.md
+// [domain logic]: https://github.com/mind-vm/sqlb/blob/main/docs/concepts/domain-logic.md
 func (f *Field) Immutable() *Field {
 	f.d.Immutable = true
 	return f
@@ -1246,7 +1246,7 @@ func (f *Field) LookupKey() *Field {
 // leave the child unexposed and reach its rows through the parent's endpoint,
 // which is where the confinement already holds (#158).
 //
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 func (f *Field) Scoped() *Field {
 	f.d.Scoped = true
 	return f

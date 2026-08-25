@@ -14,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/vault"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/vault"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 func newVaultServer(t *testing.T, db *sqlb.DB) http.Handler {

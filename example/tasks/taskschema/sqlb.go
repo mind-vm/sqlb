@@ -1,6 +1,6 @@
 package taskschema
 
-//go:generate go run github.com/jryannel/sqlb/cmd/sqlb generate .
+//go:generate go run github.com/mind-vm/sqlb/cmd/sqlb generate .
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // shadowDSNEnv names the scratch database `sqlb migrate` replays the history

@@ -138,7 +138,7 @@ Named in advance, so the break is a documented plan rather than a surprise.
   reading the expression cannot satisfy — a correlated subquery that matches
   nothing is `NULL`, and the failure was a 500 at scan time on rows a fixture is
   unlikely to contain, from a declaration `generate` and the drift gate were
-  both happy with ([#147](https://github.com/jryannel/sqlb/issues/147)). The
+  both happy with ([#147](https://github.com/mind-vm/sqlb/issues/147)). The
   mechanical edit is `NotNull()` on every computed column whose expression
   genuinely cannot produce a `NULL`; leaving it off is the safe direction, since
   a pointer scans a non-null value fine. Stored columns are untouched, as is the
@@ -154,7 +154,7 @@ Named in advance, so the break is a documented plan rather than a surprise.
   self-referencing foreign key as an `ExternalRef`, so the registry describing a
   live database claimed an index that database did not have, and every migration
   after the first proposed `DROP INDEX` for something nothing ever created
-  ([#259](https://github.com/jryannel/sqlb/issues/259)).
+  ([#259](https://github.com/mind-vm/sqlb/issues/259)).
 
   The mechanical edit is `.Indexed()` on every `ExternalRef` that was relying on
   the implication. **Check before applying the first migration generated after
@@ -167,7 +167,7 @@ Named in advance, so the break is a documented plan rather than a surprise.
   a 400.** It used to compile to an equality against midnight and match almost
   nothing, returning 200 with an empty page — a "what's on this day" view that
   shipped and answered nothing
-  ([#241](https://github.com/jryannel/sqlb/issues/241)). The refusal names the
+  ([#241](https://github.com/mind-vm/sqlb/issues/241)). The refusal names the
   two ways to say what was meant, and the new `day` operator is the first of
   them: `?starts_at=day.2026-09-01` matches that whole calendar day, as a
   half-open range an index can serve.
@@ -247,7 +247,7 @@ Named in advance, so the break is a documented plan rather than a surprise.
   the seam's own headline use, since `WithHooks` and `WithTx` live on `*sqlb.DB`
   and not on `Executor` — opened with a type assertion to recover what the
   caller of the callback held one frame up
-  ([#277](https://github.com/jryannel/sqlb/issues/277)).
+  ([#277](https://github.com/mind-vm/sqlb/issues/277)).
 
   The mechanical edit is deleting that assertion, and nothing else: `*sqlb.DB`
   satisfies `Executor`, so a mount that only passes `db` on to a generated
@@ -286,7 +286,7 @@ been.
   reasons the read half did and one more: a create whose subquery counts rows
   the same transaction has not written yet returns a value that is *always*
   wrong, so the second read the clause existed to delete had to come back
-  anyway ([#164](https://github.com/jryannel/sqlb/issues/164)).
+  anyway ([#164](https://github.com/mind-vm/sqlb/issues/164)).
 - **The generated Go client is its own package.** `cli.New` takes a
   `*client.Client` from the emitted `client` package. Regenerate, then the edit
   is in the four-line main. It broke because a program wanting the typed encoder

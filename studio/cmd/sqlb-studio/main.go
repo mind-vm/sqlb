@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/jryannel/sqlb/studio"
+	"github.com/mind-vm/sqlb/studio"
 )
 
 func main() {

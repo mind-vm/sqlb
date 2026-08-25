@@ -2677,7 +2677,7 @@ whether the declaration's shape is right.
 
 That revisit trigger fired on 2026-08-14: a quiz-grading action
 (`Lesson.submit`, evidence from a real port, tracked by
-[#196](https://github.com/jryannel/sqlb/issues/196)) grades a
+[#196](https://github.com/mind-vm/sqlb/issues/196)) grades a
 `QuizAttempt` and wants to answer `{passed, score}` in the same round
 trip, and it can't — `do` always returns the mutated row, never a
 computed report beside it. The door opens, but only as far as the write
@@ -2695,8 +2695,8 @@ compiling and keeps answering exactly what it answers now. Four things were left
 unsettled for the second and third action that actually reached for it,
 and [a verb may declare what it answers with](#a-verb-may-declare-what-it-answers-with)
 answers all four, on the evidence of
-[#312](https://github.com/jryannel/sqlb/issues/312) and
-[#310](https://github.com/jryannel/sqlb/issues/310): `Out` **is** declared
+[#312](https://github.com/mind-vm/sqlb/issues/312) and
+[#310](https://github.com/mind-vm/sqlb/issues/310): `Out` **is** declared
 in the field vocabulary, for the reason a body is — a shape sqlb cannot
 see is a client method typed `unknown`; `Writes` **does** still persist
 from the mutated `*T`, so the envelope is unchanged and only the response
@@ -2710,7 +2710,7 @@ default to `row[T]`, because Go has no default type parameter. The
 compatibility it was there to buy is bought instead by leaving `Action`
 alone and adding `ActionReturning` beside it — every action declared
 today keeps compiling because its registration is the one it always was.
-[#218](https://github.com/jryannel/sqlb/issues/218) tracked the
+[#218](https://github.com/mind-vm/sqlb/issues/218) tracked the
 implementation.
 
 ### The container is an adapter
@@ -3798,7 +3798,7 @@ declared side, using the `AddField` form `example/catalog` documents, asked for
 no such index. `migrate.Diff` resolved the disagreement the only way it could:
 `DROP INDEX CONCURRENTLY` for an index nothing had created, on every run, and
 applying it failed with `42704`
-([#259](https://github.com/jryannel/sqlb/issues/259)). Hand-correcting the
+([#259](https://github.com/mind-vm/sqlb/issues/259)). Hand-correcting the
 migration did not help — the phantom was regenerated from the same inference
 the next time anything else in the schema changed.
 
@@ -3845,7 +3845,7 @@ changed nothing still threw away the type information for the whole module.
 Schema authoring is a loop of small edits and a regenerate after each, and most
 of those regenerates touch one file out of eight. The report was a consumer
 project whose editor spent its time re-indexing
-([#269](https://github.com/jryannel/sqlb/issues/269)).
+([#269](https://github.com/mind-vm/sqlb/issues/269)).
 
 So a file whose rendered bytes match what is already on disk is not written at
 all, and one that differs is replaced by a rename rather than truncated and
@@ -3963,7 +3963,7 @@ A create body is derived from the columns, and the request that creates a thing
 with a secret in it carries one thing that is not a column: the plaintext. The
 column stores a digest. Before this there was nowhere to put the property, and
 the two available shapes each lied to somebody
-([#309](https://github.com/jryannel/sqlb/issues/309)).
+([#309](https://github.com/mind-vm/sqlb/issues/309)).
 
 Marking the digest column `WriteOnly` puts it in the body under its own name,
 so the client sends a plaintext PIN in a property called `pin_hash` — and
@@ -4024,9 +4024,9 @@ on, and a collection action answers 204. Both are right for the verb that
 
 Neither is right for the verb whose answer is the point. Grading a quiz returns
 a score; a score is not a Lesson, and 204 is not a score. An audit of a
-nine-vertical application ([#312](https://github.com/jryannel/sqlb/issues/312))
+nine-vertical application ([#312](https://github.com/mind-vm/sqlb/issues/312))
 put one operation in that shape after its own correction, and
-[#310](https://github.com/jryannel/sqlb/issues/310) is the collection half of
+[#310](https://github.com/mind-vm/sqlb/issues/310) is the collection half of
 it — a verb that created a row and could only answer 204, leaving the client to
 re-list and guess which row was new. Both stayed hand-written, and a
 hand-written route takes the OpenAPI operation and four clients with it.

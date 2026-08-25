@@ -104,6 +104,6 @@ compile" to "was ignored" ([ADR-0024](../architecture.md#no-annotation-slot)).
 ## Read next
 
 - [Quickstart §2](../start/quickstart.md) — running the generator
-- [Codegen reference](https://jryannel.github.io/sqlb/reference/codegen/) —
+- [Codegen reference](../reference/codegen.md) —
   every option and its default
 - [ADR-0010](../architecture.md#codegen-is-optional) — the decision record

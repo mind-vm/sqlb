@@ -328,7 +328,7 @@ command says so before showing any diff. Then it reports no changes, which is
 the claim — the checked-in history still builds what `schema.go` declares.
 
 That it says nothing about `done_tasks_have_a_completion_time` is the fix for
-[#24](https://github.com/jryannel/sqlb/issues/24). Postgres stores a `Check` as
+[#24](https://github.com/mind-vm/sqlb/issues/24). Postgres stores a `Check` as
 a parse tree and hands back its own spelling, so a declared check and an
 introspected one never matched as strings and every run proposed dropping and
 re-adding it. The declared expression is now put through the same normalisation

@@ -30,7 +30,7 @@ reached, distinct from the credential being rejected). Nothing about
   `principal.go`, which `Middleware[T]` calls directly (`WithPrincipal`, no
   import needed).
 - Tests live in `package sqlb_test` (external test package), matching
-  `db_test.go`'s convention — `import "github.com/jryannel/sqlb"`.
+  `db_test.go`'s convention — `import "github.com/mind-vm/sqlb"`.
 - Error responses are RFC 9457 `application/problem+json`, matching the
   shape `example/tasks/auth/middleware.go` and `rest.Problem` both already
   use: `{"title", "status", "detail"}`. The underlying `Verify` error is
@@ -69,7 +69,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 func TestBearerToken(t *testing.T) {
@@ -184,7 +184,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 ```
 

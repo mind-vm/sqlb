@@ -63,15 +63,15 @@ Four kinds of page, and knowing which you want saves reading the wrong one:
   Five pages, one idea each, no API detail.
 - **[How-to](../howto/README.md)** — recipes, indexed by the task you arrived
   with rather than the surface that owns it.
-- **[Reference](https://jryannel.github.io/sqlb/reference/)** — exactly what each
+- **[Reference](../reference/README.md)** — exactly what each
   thing accepts, as tables rather than prose, plus a
-  [glossary](https://jryannel.github.io/sqlb/reference/glossary/) of the
+  [glossary](../reference/glossary.md) of the
   vocabulary these pages use.
 
 Between the concepts and the reference sit the seven surface sections in the
 table above, one per thing derived from the declaration. The API reference is
 none of these: it is the Go doc comments on
-[pkg.go.dev](https://pkg.go.dev/github.com/jryannel/sqlb), where the compiled
+[pkg.go.dev](https://pkg.go.dev/github.com/mind-vm/sqlb), where the compiled
 `Example` functions are attached to the symbols they document.
 
 ## What to read

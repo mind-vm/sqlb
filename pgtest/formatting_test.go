@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/migrate"
+	"github.com/mind-vm/sqlb/migrate"
 )
 
 // What a diff says to the caller who did not normalise.

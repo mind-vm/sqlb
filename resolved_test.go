@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 var errNoTenant = errors.New("no tenant in context")

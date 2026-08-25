@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/example/blog"
-	"github.com/jryannel/sqlb/example/withsqlc"
-	"github.com/jryannel/sqlb/example/withsqlc/sqlcgen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/example/blog"
+	"github.com/mind-vm/sqlb/example/withsqlc"
+	"github.com/mind-vm/sqlb/example/withsqlc/sqlcgen"
+	"github.com/mind-vm/sqlb/schema"
 
 	// Imported for its side effects: declaring a table registers it.
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
 )
 
 // The claim docs/refactoring-from-sqlc.md rests on: the four stages are four

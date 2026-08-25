@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // frame is one SSE block: the fields up to a blank line.

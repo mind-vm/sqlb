@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/tasks"
-	"github.com/jryannel/sqlb/example/tasks/app"
-	"github.com/jryannel/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/tasks"
+	"github.com/mind-vm/sqlb/example/tasks/app"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
 )
 
 // The comment hooks register an AfterCommit callback, and the promise attached

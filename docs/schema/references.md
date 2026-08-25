@@ -81,7 +81,7 @@ strength of its own shape. That rule was invisible to a registry read back out
 of a database, which is how a self-referencing key came to be imported as an
 `ExternalRef`, acquire an index the database did not have, and make every
 subsequent migration propose dropping it
-([#259](https://github.com/jryannel/sqlb/issues/259)). `schema.Lint` reports the
+([#259](https://github.com/mind-vm/sqlb/issues/259)). `schema.Lint` reports the
 missing index instead, under `unindexed-ref`.
 
 The two modules stay independently deployable and independently migratable, and

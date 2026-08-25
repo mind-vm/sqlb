@@ -7,7 +7,7 @@
 // both be called Post.
 package blogschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Org is a tenant. Everything else hangs off it.
 var Org = schema.Table("orgs",

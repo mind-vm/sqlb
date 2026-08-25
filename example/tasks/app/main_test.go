@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/jryannel/sqlb/example/tasks/migrations"
+	"github.com/mind-vm/sqlb/example/tasks/migrations"
 )
 
 // The tests run against a real Postgres, for the reason pgtest exists: a suite

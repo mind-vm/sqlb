@@ -3,7 +3,7 @@ package blog
 import (
 	"context"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Hand-written domain rules, in a file the generator does not touch.

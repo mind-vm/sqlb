@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
 )
 
 // mustQuery parses a URL query string or fails the test.

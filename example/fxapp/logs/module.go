@@ -17,7 +17,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
-	"github.com/jryannel/sqlb/example/fxapp/config"
+	"github.com/mind-vm/sqlb/example/fxapp/config"
 )
 
 var Module = fx.Module("logs",

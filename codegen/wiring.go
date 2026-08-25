@@ -34,7 +34,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // WiringSet configures one contributed fx value-group provider.
@@ -256,7 +256,7 @@ func renderWiring(opts Options) ([]byte, error) {
 	}
 	if hasOperations {
 		imports["github.com/danielgtaylor/huma/v2"] = true
-		imports["github.com/jryannel/sqlb"] = true
+		imports["github.com/mind-vm/sqlb"] = true
 		imports[op.importPath] = true
 	}
 

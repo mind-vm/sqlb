@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // initialisms are rendered upper-case in Go identifiers, following the

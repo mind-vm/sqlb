@@ -19,10 +19,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/tasks"
-	"github.com/jryannel/sqlb/example/tasks/auth"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/tasks"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // Config is what New needs.

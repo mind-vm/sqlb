@@ -1390,5 +1390,5 @@ More, with the evidence for each:
 | [REST](../rest/README.md) · [Filtering](../rest/filtering.md) · [Pagination](../rest/pagination.md) · [Expand](../rest/expand.md) · [Actions](../rest/actions.md) · [Auth](../rest/auth.md) · [Events](../rest/events.md) · [Rejections](../rest/errors.md) | the HTTP surface |
 | [Migrations](../migrations/README.md) · [TypeScript](../typescript/README.md) · [Dart](../dart/README.md) · [CLI](../cli/README.md) | everything downstream |
 | [Architecture](../architecture.md) and its [Decisions](../architecture.md#decisions) | why the seams are where they are |
-| [API reference](https://pkg.go.dev/github.com/jryannel/sqlb) | the Go doc comments, which are the real reference |
+| [API reference](https://pkg.go.dev/github.com/mind-vm/sqlb) | the Go doc comments, which are the real reference |
 | [`skills/`](../../skills/README.md) | agent skills — authoring, queries, adoption, and the generated per-project one |

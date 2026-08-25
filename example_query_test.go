@@ -3,7 +3,7 @@ package sqlb_test
 import (
 	"fmt"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // Article is the model these examples query. The `db` tags name the columns and

@@ -3,8 +3,8 @@ package recipes_test
 import (
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/recipes"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/recipes"
 )
 
 // Status is a named string type, which is how an enum column reaches Go.

@@ -46,11 +46,11 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/introspect"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/shadow"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/introspect"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/shadow"
 )
 
 // runCheck is the driver's `check` verb: report stale generated files, and —

@@ -30,7 +30,7 @@ var (
 // writes join a unit of work the application already opened, rather than
 // opening a second transaction against the same pool.
 //
-// [ADR-0040]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
+// [ADR-0040]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-driver-is-a-dependency
 type Executor interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)

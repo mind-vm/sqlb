@@ -1,22 +1,12 @@
----
-title: "library — a finite resource"
-description: A public lending library with no authentication at all, where the interesting rule is that the copies on the shelf must never drift from the loans that are open.
-sidebar:
-  label: library
-  order: 4
----
+# library — a finite resource
 
-:::note[Where the source is]
-This example lives outside the sqlb repository and is not published yet, so
-there is nothing to link to. The code quoted below is real; the paths are given
-so they can be found once it is.
-:::
+> **Where the source is.** This example lives outside the sqlb repository and is not published yet, so there is nothing to link to. The code quoted below is real; the paths are given so they can be found once it is.
 
 A bookstore library anyone can borrow from. Four tables, a catalogue you can
 search, a registry of who has what, and one hard invariant: the number of copies
 on the shelf must never drift from the loans that are actually open.
 
-[tasks](/sqlb/examples/tasks/) is about a boundary between tenants; this is the
+[tasks](tasks.md) is about a boundary between tenants; this is the
 mirror image — there is **no authentication at all**, and the interesting rules
 are about a finite resource instead.
 
@@ -125,7 +115,7 @@ it needed one: `borrowers` would stop being publicly listable and "my loans"
 would come from a token rather than a form field; the return endpoint would
 check who is returning; and `POST /api/books` would need a librarian role, which
 is a `BeforeCreate` hook reading claims out of the context — the same shape as
-[tasks](/sqlb/examples/tasks/).
+[tasks](tasks.md).
 
 Nothing is publicly destructible today, which is the compensating control: the
 only delete is the soft withdrawal above, loans are
@@ -134,9 +124,9 @@ references means the registry cannot be erased by removing what it points at.
 
 ## Next
 
-- [exchange](/sqlb/examples/exchange/) — the same question asked of money, which
+- [exchange](exchange.md) — the same question asked of money, which
   is harder in three ways
-- [library on sqlc + chi](/sqlb/examples/library-sqlc-chi/) — the same brief,
+- [library on sqlc + chi](library-sqlc-chi.md) — the same brief,
   built the other way round
-- [Where domain logic goes](/sqlb/concepts/domain-logic/) — the four places a
+- [Where domain logic goes](../concepts/domain-logic.md) — the four places a
   rule can live

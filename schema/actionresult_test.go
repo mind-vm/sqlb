@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // A verb's declared result (#312): the same vocabulary as its body, travelling

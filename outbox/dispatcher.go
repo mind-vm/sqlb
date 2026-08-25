@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // ErrDispatcherClosed reports a subscription to a Dispatcher that has been
@@ -46,7 +46,7 @@ type DispatcherOptions struct {
 	// [DispatcherOptions.OnError] for why that is reported rather than silently
 	// absorbed.
 	//
-	// [ADR-0019]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#pgbouncer-in-the-path
+	// [ADR-0019]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#pgbouncer-in-the-path
 	Poll time.Duration
 
 	// Buffer is how many events may queue for one subscriber before the
@@ -57,7 +57,7 @@ type DispatcherOptions struct {
 	// forever, and a dropped connection is a client that reconnects, is replayed
 	// from the table, and converges.
 	//
-	// [ADR-0045]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#the-stream-is-a-seam
+	// [ADR-0045]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-stream-is-a-seam
 	Buffer int
 
 	// Batch is how many rows one tail query reads. Defaults to 512.
@@ -124,7 +124,7 @@ func (o *DispatcherOptions) applyDefaults() error {
 // broken to nobody. [Dispatcher.Run] probes for exactly that at startup and
 // reports it through [Options.OnError].
 //
-// [ADR-0019]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#pgbouncer-in-the-path
+// [ADR-0019]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#pgbouncer-in-the-path
 type Dispatcher struct {
 	pool *pgxpool.Pool
 	opts DispatcherOptions
@@ -572,7 +572,7 @@ func (d *Dispatcher) listenOnce(ctx context.Context) error {
 // It reports rather than fails. A dispatcher on a pooled connection is correct
 // and slow, which is worth a loud complaint and is not worth refusing to serve.
 //
-// [ADR-0019]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#pgbouncer-in-the-path
+// [ADR-0019]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#pgbouncer-in-the-path
 // What it observes is the notification counter, which the LISTEN loop
 // increments — a direct reading rather than an inference from whether the tail
 // loop happened to wake. An earlier version guessed, from the depth of the wake

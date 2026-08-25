@@ -1,16 +1,6 @@
----
-title: "exchange — money, both ways"
-description: A stock exchange with prices that move on a clock, where the invariant is two-sided, the commitment outlives the request, and the price is not an input.
-sidebar:
-  label: exchange
-  order: 5
----
+# exchange — money, both ways
 
-:::note[Where the source is]
-This example lives outside the sqlb repository and is not published yet, so
-there is nothing to link to. The code quoted below is real; the paths are given
-so they can be found once it is.
-:::
+> **Where the source is.** This example lives outside the sqlb repository and is not published yet, so there is nothing to link to. The code quoted below is real; the paths are given so they can be found once it is.
 
 Fictional companies, prices that wander on a clock, and anybody may trade. One
 schema declaration produces the tables, the models, the REST API and its OpenAPI
@@ -22,7 +12,7 @@ anyone is watching.
 
 ## What it is arguing
 
-[library](/sqlb/examples/library/) is about a resource that must not be
+[library](library.md) is about a resource that must not be
 over-committed. This is the same question asked of money, which is harder in
 three ways:
 
@@ -154,7 +144,7 @@ OpenAPI document — is generated from the schema and appears as a single
 ## Not built, deliberately
 
 No authentication: a trader is a row, and any caller may act as any of them.
-[tasks](/sqlb/examples/tasks/) is the one with a JWT and a tenant boundary, and
+[tasks](tasks.md) is the one with a JWT and a tenant boundary, and
 duplicating it here would bury what this example is about. **Do not put this on
 the internet.**
 
@@ -174,6 +164,6 @@ trade.
 
 ## Next
 
-- [Hooks](/sqlb/queries/hooks/) — `AfterCreate`, transactions, and lock ordering
-- [Where domain logic goes](/sqlb/concepts/domain-logic/) — the four places a
+- [Hooks](../queries/hooks.md) — `AfterCreate`, transactions, and lock ordering
+- [Where domain logic goes](../concepts/domain-logic.md) — the four places a
   rule can live

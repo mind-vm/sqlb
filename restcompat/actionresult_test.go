@@ -3,8 +3,8 @@ package restcompat_test
 import (
 	"testing"
 
-	"github.com/jryannel/sqlb/restcompat"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/restcompat"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // What a verb answers with is part of its contract (#312), and the reader side

@@ -98,5 +98,5 @@ methods across seven interfaces, bought to gain one implementation and a test
 fake `sqlbtest` already provides, is not.
 
 See [docs/schema/libraries.md](../../docs/schema/libraries.md) for the prose
-version, and [#281](https://github.com/jryannel/sqlb/issues/281) for the port
+version, and [#281](https://github.com/mind-vm/sqlb/issues/281) for the port
 that produced it.

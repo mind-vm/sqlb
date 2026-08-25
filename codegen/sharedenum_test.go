@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // sharedStatusRegistry is two tables that declare the identical value set —

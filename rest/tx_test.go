@@ -11,8 +11,8 @@ import (
 	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // The gap this closes: nothing in rest opened a transaction, so every generated

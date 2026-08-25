@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // ClaimJob is the queue row the issue's worked example claims: a batch

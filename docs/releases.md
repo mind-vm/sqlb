@@ -16,13 +16,13 @@ to be true before that promise becomes permanent.
 
 ## v0.17.1
 
-2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.17.1)
+2026-08-23 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.17.1)
 
 One fix to the generated Dart client, and the gate that should have caught it.
 Regenerate to pick it up; no API change and nothing else moves.
 
 **`ChangeFeed`'s private field is named for what it holds**
-([#299](https://github.com/jryannel/sqlb/pull/299), reported by a consumer).
+([#299](https://github.com/mind-vm/sqlb/pull/299), reported by a consumer).
 v0.16.0's change-feed subscriber emitted a constructor that Dart 3.12 reports
 and 3.11 does not:
 
@@ -69,13 +69,13 @@ issues found".
 
 ## v0.17.0
 
-2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.17.0)
+2026-08-23 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.17.0)
 
 One change, and it is to what the linter *says* rather than to what it catches.
 No API change, and nothing to regenerate.
 
 **`unindexed-filter` and `unindexed-sort` read the table's scope before they
-speak** ([#296](https://github.com/jryannel/sqlb/issues/296), found reviewing a
+speak** ([#296](https://github.com/mind-vm/sqlb/issues/296), found reviewing a
 real multi-tenant port on v0.16.0). On a table whose reads are confined, both
 halves of the diagnostic were wrong, and the fix was the worse half:
 
@@ -119,14 +119,14 @@ index does not compose with a scope column the way a btree does.
 
 ## v0.16.0
 
-2026-08-23 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.16.0)
+2026-08-23 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.16.0)
 
 No breaks. Two new packages' worth of surface — a scratch database for tests and
 a generated change-feed subscriber — and, from a single consumer port, a check
 for each of the three mistakes that port made and shipped.
 
 The theme of the second half is worth stating because it decided what got built.
-[#293](https://github.com/jryannel/sqlb/issues/293) tabulated every authoring
+[#293](https://github.com/mind-vm/sqlb/issues/293) tabulated every authoring
 mistake made porting a nine-table application onto `v0.15.1` against whether a
 mechanism caught it, and the split was total: **everything with a check cost
 minutes, everything without one shipped.** The generated `sqlb-schema` skill was
@@ -145,7 +145,7 @@ Every suite wanting a real Postgres wrote the same eighty lines — read a DSN,
 open an admin connection, derive a legal name, drop, create, connect, apply the
 schema, drop again. Nine copies were in this repository alone, and two of them
 carried comments explaining that the fix would not be worth it
-([#292](https://github.com/jryannel/sqlb/pull/292)).
+([#292](https://github.com/mind-vm/sqlb/pull/292)).
 
 `sqlbtest.Fresh` creates a database per test on a server the caller names,
 applies each option in order, and drops it afterwards; `FreshDSN` is the same for
@@ -163,7 +163,7 @@ when it cannot reach a database reports coverage it does not have.
 
 The feed shipped its client half as raw material: `keysByTable` in TypeScript,
 `TableName` in Dart, and the listener left to whoever consumed it
-([#285](https://github.com/jryannel/sqlb/pull/285)). `example/tasks`' own board
+([#285](https://github.com/mind-vm/sqlb/pull/285)). `example/tasks`' own board
 was the evidence — an index into a lookup table with a cast to make it compile,
 an undefined check, the query keys by hand, and no case at all for an event whose
 key is empty, which is what an unattributable delete looks like on this wire.
@@ -182,7 +182,7 @@ said otherwise or said nothing. They now say what it is and how to subscribe.
 function closing over one dependency. Writing one still cost a named struct plus
 a `Verify` method that did nothing but call through.
 `VerifierFunc[T]` is the `http.HandlerFunc` shape for it
-([#279](https://github.com/jryannel/sqlb/issues/279)). The interface stays: a
+([#279](https://github.com/mind-vm/sqlb/issues/279)). The interface stays: a
 verifier with real state — a JWKS refresher with a background goroutine — is
 better as a named type, and the interface is what lets both spellings mount.
 
@@ -209,7 +209,7 @@ unclassified-error line now names `huma.Error403Forbidden`. Nothing reaches the
 response: it is advice for whoever wrote the hook, not for whoever provoked it.
 
 **A client directory with one `../` too few**
-([#290](https://github.com/jryannel/sqlb/issues/290)). `TSDir` resolves against
+([#290](https://github.com/mind-vm/sqlb/issues/290)). `TSDir` resolves against
 `Dir` rather than the module root, so one level short wrote a complete, correct
 TypeScript client into `server/web/src/api`, where nothing imported it while the
 real frontend went on building against the client it already had. `tsc` stayed
@@ -228,7 +228,7 @@ on the next build.
 ### Two things an adopter could not find
 
 `sqlbtest` was undiscoverable from the front door
-([#287](https://github.com/jryannel/sqlb/issues/287)): `sqlb init` emitted six
+([#287](https://github.com/mind-vm/sqlb/issues/287)): `sqlb init` emitted six
 files, none of them a test, and the emitted `sqlb.md` did not contain the word.
 A consumer wrote an entire tenant boundary and its whole suite against a real
 Postgres without learning the package existed. `init` now emits a passing
@@ -241,7 +241,7 @@ freshly initialised, freshly generated project, because it names symbols on both
 sides and a rename would break every project created afterwards.
 
 The static skills were undiscoverable for the same reason
-([#291](https://github.com/jryannel/sqlb/issues/291)). The generated
+([#291](https://github.com/mind-vm/sqlb/issues/291)). The generated
 `sqlb-schema` skill is the only sqlb artefact guaranteed to be in a consumer's
 repository and in front of an agent from the first turn, and it named the others
 zero times — so an agent held this project's capability lists with no pointer to
@@ -254,7 +254,7 @@ The nested-query guard told the reader to resolve the inner query with
 `Resolved(ctx, db)`. That needs an `Executor`, and a `BeforeQuery` hook is handed
 the query and nothing else — so at the one place the guard is most likely to
 fire, inside a scoping rule, the message read as actionable and was not
-([#288](https://github.com/jryannel/sqlb/issues/288)).
+([#288](https://github.com/mind-vm/sqlb/issues/288)).
 
 `Resolved` already walked the statement's subqueries after running the hooks;
 walking before as well makes anything new provably a hook's, at no cost to a
@@ -268,7 +268,7 @@ the rule on the other model. `Update` and `Delete` get the same split.
 `WithoutScope` cannot release `BeforeCreate`, so every create goes through a hook
 wanting the request's claims — including the creates with no request behind them:
 a fixture, a seed, an import, a job
-([#289](https://github.com/jryannel/sqlb/issues/289)). The rule is right, and
+([#289](https://github.com/mind-vm/sqlb/issues/289)). The rule is right, and
 sharper than the existing comment gave: a released *read* fails visibly, a
 released *stamp* does not, and the row is still wrong tomorrow.
 
@@ -282,9 +282,9 @@ creates rows with claims present.
 
 `rest.Serve` handed `mount` an `Executor` rather than the `*sqlb.DB` it had
 built, so every mount function opened with a type assertion
-([#277](https://github.com/jryannel/sqlb/issues/277)). A `TransientError`
+([#277](https://github.com/mind-vm/sqlb/issues/277)). A `TransientError`
 returned by pointer read as a rejected credential rather than a provider outage
-([#278](https://github.com/jryannel/sqlb/issues/278)).
+([#278](https://github.com/mind-vm/sqlb/issues/278)).
 
 ### Gates and documentation
 
@@ -296,12 +296,12 @@ fourteen. A map with wrong numbers is worse than one with none, because it is th
 document a reader has no reason to doubt.
 
 New pages for the auth seam and the second stage it does not cover
-([#280](https://github.com/jryannel/sqlb/issues/280)), for how a library ships
-tables ([#281](https://github.com/jryannel/sqlb/issues/281)), and for the
+([#280](https://github.com/mind-vm/sqlb/issues/280)), for how a library ships
+tables ([#281](https://github.com/mind-vm/sqlb/issues/281)), and for the
 boundary a hand-written CLI endpoint sits behind
-([#257](https://github.com/jryannel/sqlb/issues/257)). `WithoutScope` gained the
+([#257](https://github.com/mind-vm/sqlb/issues/257)). `WithoutScope` gained the
 worked example it went unfound for
-([#276](https://github.com/jryannel/sqlb/issues/276)).
+([#276](https://github.com/mind-vm/sqlb/issues/276)).
 
 `example/attachments` is presigned direct-to-S3 uploads, and it exists to answer
 whether sqlb should grow a Django-style `FileField`. It should not: the database
@@ -315,7 +315,7 @@ byte for byte against `aws-sdk-go-v2` rather than trusted.
 
 ## v0.15.1
 
-2026-08-19 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.15.1)
+2026-08-19 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.15.1)
 
 Five fixes, four of them reported against v0.15.0 and one a gate correction
 found by review. No API change.
@@ -323,7 +323,7 @@ found by review. No API change.
 `sqlb check`'s advisory output defaulted to every note it had ever printed,
 so a fourteen-table schema produced 102 lines with the one line it was run
 for at the bottom of them
-([#267](https://github.com/jryannel/sqlb/issues/267)). `-lint` now takes a
+([#267](https://github.com/mind-vm/sqlb/issues/267)). `-lint` now takes a
 floor — `off`, `summary` (the new default), `warn` or `all` — and `runCheck`
 records each failure rather than printing a verdict wherever it happens to
 find one, closing with a single line naming what failed or `sqlb: check
@@ -332,7 +332,7 @@ passed` as the last line every time.
 `sqlb migrate` proposed a clean, correct-looking `DROP INDEX CONCURRENTLY`
 for an index sqlb never built, byte-identical to a drop the author intended
 and to the phantom v0.14 used to emit
-([#268](https://github.com/jryannel/sqlb/issues/268), upgrade from v0.14).
+([#268](https://github.com/mind-vm/sqlb/issues/268), upgrade from v0.14).
 `migrate` and `check -database` now annotate a drop with why: no
 header-bearing migration ever created the index, or its shape still matches
 what the old inference would have produced.
@@ -340,13 +340,13 @@ what the old inference would have produced.
 `Hooks`' doc comment said only that a hook's error "reaches the caller
 unwrapped," which reads as the caller seeing that error — what the caller
 actually sees, absent a status, is a 500 with a sentence
-([#255](https://github.com/jryannel/sqlb/issues/255)). The doc comment now
+([#255](https://github.com/mind-vm/sqlb/issues/255)). The doc comment now
 states the rule and points at `example/tasks/app/errors.go` for the pattern.
 
 The generated Go client had one seam for a header the schema cannot
 derive — replacing `Transport`, which reimplements all of `Do` — and a
 custom `Client.HTTP` silently dropped `--timeout` with it
-([#254](https://github.com/jryannel/sqlb/issues/254)). `Request` gained a
+([#254](https://github.com/mind-vm/sqlb/issues/254)). `Request` gained a
 `Header` field, applied caller-wins after the derived headers, and `Do` now
 wraps the context with `Client.Timeout` directly regardless of what HTTP
 client is in play.
@@ -354,7 +354,7 @@ client is in play.
 `sqlb generate` wrote every rendered file unconditionally, so a no-op
 regenerate still touched `models_gen.go` and forced gopls to throw away and
 rebuild the whole module's type index
-([#269](https://github.com/jryannel/sqlb/issues/269)). `generate` now skips
+([#269](https://github.com/mind-vm/sqlb/issues/269)). `generate` now skips
 a file whose rendered bytes already match disk, and replaces one that does
 change via temp-file + rename, so a language server reading on the event
 never observes a syntactically broken half-write.
@@ -370,7 +370,7 @@ repeat.
 
 ## v0.15.0
 
-2026-08-18 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.15.0)
+2026-08-18 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.15.0)
 
 Three deliberate breaks, more than any tag before it has carried at once. Each
 is a shape that was wrong before the surface it sits on was frozen, and each is
@@ -387,7 +387,7 @@ column compiled to an equality against midnight in the session's time zone. A
 stored timestamp is almost never exactly midnight, so the request a caller
 writes for "what is on this day" returned `200` and an empty page — a booking
 calendar's front screen, shipping and answering nothing, with no error to notice
-([#241](https://github.com/jryannel/sqlb/issues/241)). Both halves are fixed,
+([#241](https://github.com/mind-vm/sqlb/issues/241)). Both halves are fixed,
 because either alone leaves the trap open: `?starts_at=day.2026-09-01` compiles
 to `starts_at >= $1::date AND starts_at < $2::date + 1`, a half-open range an
 index on the column can serve, and the old spelling is now a refusal naming both
@@ -407,7 +407,7 @@ description names the operator and the refusal, and the TypeScript client offers
 self-referencing reference declared the way `example/catalog` documents;
 applying it failed with `42704` and hand-correcting the file did not help,
 because the next unrelated change regenerated the same phantom
-([#259](https://github.com/jryannel/sqlb/issues/259), found building an
+([#259](https://github.com/mind-vm/sqlb/issues/259), found building an
 application on `v0.14.0`). The chain ran through an implication: `ExternalRef`
 implied a single-column btree, so a registry read back out of a live database
 claimed an index that database did not have, while the declared side asked for
@@ -460,7 +460,7 @@ manifest, a REST resource, three clients and a skill, and nothing that makes a
 schema-owning module a *unit* in a host's `uber-go/fx` graph — though two of the
 three things a module contributes there are already fully determined by the
 declaration. Measured in a real 38-module consumer
-([#171](https://github.com/jryannel/sqlb/issues/171)): 78 byte-identical
+([#171](https://github.com/mind-vm/sqlb/issues/171)): 78 byte-identical
 migration providers, 183 operation-set literals, 209 `fx.Module(...)`
 declarations. `codegen.Options` grows `WiringMigrations` and `WiringOperations`,
 each a `WiringSet{Type, Group, Name, EmbedDir}` naming the host's own types as
@@ -479,7 +479,7 @@ is `WITH claimed AS (SELECT ... FOR UPDATE SKIP LOCKED) UPDATE ... FROM claimed
 ... RETURNING ...`. sqlb had both halves and no way to join them, so the only
 spelling was two statements inside an explicit transaction — and a caller who
 forgot `WithTx` silently reintroduced the double-claim race `SKIP LOCKED` exists
-to prevent ([#174](https://github.com/jryannel/sqlb/issues/174)).
+to prevent ([#174](https://github.com/mind-vm/sqlb/issues/174)).
 `Update[T].From(name, query)` renders the CTE form. `query` is the existing
 `Subquery` interface, so it shares the statement's compiler and bind numbering,
 and it gets the same resolution discipline: an unresolved query over a hooked
@@ -491,53 +491,53 @@ model is refused rather than compiled with its scope missing.
   entry point — `(on_hand - reserved) >= $1` — where `RawPred` was the only way
   in, and a rename in a raw string is a runtime break in exactly the statement
   most likely to be under contention
-  ([#221](https://github.com/jryannel/sqlb/pull/221)).
+  ([#221](https://github.com/mind-vm/sqlb/pull/221)).
 - **`Field.SharedAs(name)`** makes two columns declaring the same enum one Go
   type instead of two nominally incompatible ones. Opt-in on purpose: matching
   value sets today is not evidence of shared meaning, and `Registry.Validate`
   refuses two declarations under one name whose values or order disagree
-  ([#197](https://github.com/jryannel/sqlb/issues/197)).
+  ([#197](https://github.com/mind-vm/sqlb/issues/197)).
 - **`sqlb check` reads back the header it writes.** A generated migration
   somebody has hand-edited to add a `CREATE TRIGGER` was invisible to both
   existing gates. `check` now fails on a header-bearing file containing DDL
   sqlb's own emitters never write, no database needed. A file with no header is
-  not sqlb's to police ([#178](https://github.com/jryannel/sqlb/issues/178)).
+  not sqlb's to police ([#178](https://github.com/mind-vm/sqlb/issues/178)).
 - **A generated client that would not compile is a generator error.** Two tables
   can want the same name — `board_columns` singularises onto what `boards` calls
   its column type — and the failure used to arrive from `tsc` as two lines
   naming neither table. Both the TypeScript and the Dart emitter now read back
   what they are about to write and refuse a duplicate declaration, naming the
   identifier, both tables and what each contributed
-  ([#261](https://github.com/jryannel/sqlb/issues/261)).
+  ([#261](https://github.com/mind-vm/sqlb/issues/261)).
 - **`schema.Lint` is wired into `check`.** Twelve advisory rules existed and
   nothing called them. Page-size fields with no `OpList` are dead config and now
   say so; a required `Text` column with no default is an info-level note before
   it is a `422`; `unindexed-ref` carries the advice the dropped index inference
-  used to ([#201](https://github.com/jryannel/sqlb/issues/201),
-  [#223](https://github.com/jryannel/sqlb/pull/223)).
+  used to ([#201](https://github.com/mind-vm/sqlb/issues/201),
+  [#223](https://github.com/mind-vm/sqlb/pull/223)).
 - **A write's generated response type stops lying.** `v0.11.0` made a
   create/update omit a `Needs`-carrying computed column from its JSON response;
   the clients were never told, so `post.myAcknowledged` typechecked as `boolean`
-  while being `undefined` ([#188](https://github.com/jryannel/sqlb/issues/188)).
+  while being `undefined` ([#188](https://github.com/mind-vm/sqlb/issues/188)).
 - **The seq-scan diagnostic gates on cost, not rows.** A scan's `Plan Rows` is
   what its filter *kept*, so the rule got quieter exactly as the query became
   the textbook missing-index case
-  ([#176](https://github.com/jryannel/sqlb/issues/176)).
+  ([#176](https://github.com/mind-vm/sqlb/issues/176)).
 - **The typed facade names what `Hidden` omitted, and the word that brings one
   back.** A consumer building an `api_tokens` table concluded the facade could
   not express the query that table exists for and went to `sqlb.F(...)`, meeting
-  `LookupKey` afterwards ([#256](https://github.com/jryannel/sqlb/issues/256)).
+  `LookupKey` afterwards ([#256](https://github.com/mind-vm/sqlb/issues/256)).
 - **`sqlb init` writes `sqlb.md`**, so a scaffolded project's next steps, command
   cheat-sheet, capability vocabulary and REST query grammar survive the terminal
-  that printed them ([#244](https://github.com/jryannel/sqlb/issues/244)); and
+  that printed them ([#244](https://github.com/mind-vm/sqlb/issues/244)); and
   `generate` nudges for a second `go mod tidy` when its output grew an import
-  ([#204](https://github.com/jryannel/sqlb/issues/204)). A template's own
+  ([#204](https://github.com/mind-vm/sqlb/issues/204)). A template's own
   `//go:generate` line is no longer a directive at this repository's root
-  ([#200](https://github.com/jryannel/sqlb/issues/200)).
+  ([#200](https://github.com/mind-vm/sqlb/issues/200)).
 - **studio mounts on someone else's mux.** `NewServer(m, apiBase, basePath)` —
   every link, asset and redirect used to be root-absolute, so `StripPrefix`
   loaded the index page once and 404'd everything on it
-  ([#225](https://github.com/jryannel/sqlb/pull/225)).
+  ([#225](https://github.com/mind-vm/sqlb/pull/225)).
 
 ### Docs
 
@@ -564,11 +564,11 @@ had no user-facing page; a webhook endpoint is not a table and so is not a
 resource; [comparisons](comparisons.md) answers the Supabase and PocketBase row
 an evaluator asks for first. And `skills/sqlb-authoring` is the writing-direction
 sibling of the generated skill — what the DSL can express at all, rather than
-what one project's schema exposes ([#203](https://github.com/jryannel/sqlb/issues/203)).
+what one project's schema exposes ([#203](https://github.com/mind-vm/sqlb/issues/203)).
 
 ## v0.14.0
 
-2026-08-14 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.14.0)
+2026-08-14 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.14.0)
 
 No breaking changes. Three pieces of work, all additive.
 
@@ -586,7 +586,7 @@ resource's REST path carries its notes with it instead of archiving them
 under a new key. And a route mounted by hand with `huma.Register` — the one
 with no `Describe()` to fall back on, and so the one that most needed a
 written note — now gets a section too, via `Project.HandwrittenOps`. Closes
-[#211](https://github.com/jryannel/sqlb/issues/211).
+[#211](https://github.com/mind-vm/sqlb/issues/211).
 
 **studio's README now says what it doesn't do, not just what it does.**
 A real-consumer review of `v0.13.0`'s studio confirmed the built scope works —
@@ -612,7 +612,7 @@ sanctioned answer — takes its place on `/admin/*`.
 
 ## v0.13.1
 
-2026-08-14 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.13.1)
+2026-08-14 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.13.1)
 
 One bug, found the same day `v0.13.0` shipped it: the `CREATE EXTENSION`
 statement `migrate.Diff` generates had no trailing semicolon. goose splits a
@@ -621,7 +621,7 @@ with whatever the file printed next rather than failing loudly — a real port
 had to hand-edit the generated file before it would apply.
 
 Predates `v0.13.0`'s own `btree_gist` detection
-([#194](https://github.com/jryannel/sqlb/issues/194)): the `vector` extension
+([#194](https://github.com/mind-vm/sqlb/issues/194)): the `vector` extension
 change had the identical gap, undetected because both tests asserting on it
 used `strings.Contains`, which a missing trailing character is invisible to.
 Both are now exact-equality checks, confirmed to fail without the fix before
@@ -633,7 +633,7 @@ migration on `sqlb migrate`; nothing else in a generated file changes.
 
 ## v0.13.0
 
-2026-08-14 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.13.0)
+2026-08-14 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.13.0)
 
 Two separate pieces of work, not one shape. A first real external port —
 sqlbcoach, `dcoach` ported onto `v0.12.0` — found four gaps and confirmed one
@@ -727,7 +727,7 @@ than it did is the one repair worse than the gap.
 **No new lint rule for the `CRUD`-without-`OpList` mistake**, though
 `schema.Lint()` — unwired from the CLI entirely — was already positioned to
 catch it earlier and advisory-style; filed as
-[#201](https://github.com/jryannel/sqlb/issues/201), not built here.
+[#201](https://github.com/mind-vm/sqlb/issues/201), not built here.
 
 ### What to expect on upgrade
 
@@ -741,14 +741,14 @@ catch it earlier and advisory-style; filed as
 - Nothing else in this tag changes behavior for a schema that does not
   reach for `WriteOnly`, `AddExclude`, `sqlb docs`, or `studio`.
 
-Three issues from the same port: [#193](https://github.com/jryannel/sqlb/issues/193),
-[#194](https://github.com/jryannel/sqlb/issues/194),
-[#195](https://github.com/jryannel/sqlb/issues/195). `sqlb docs` and
+Three issues from the same port: [#193](https://github.com/mind-vm/sqlb/issues/193),
+[#194](https://github.com/mind-vm/sqlb/issues/194),
+[#195](https://github.com/mind-vm/sqlb/issues/195). `sqlb docs` and
 `studio` are new. ADR-0057 revised in place; ADR-0053 revised in place.
 
 ## v0.12.0
 
-2026-08-14 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.12.0)
+2026-08-14 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.12.0)
 
 Three separate pieces of work, not one shape. The change feed's durable half
 got built. Four gaps a comparison against bun found got closed. And a read got
@@ -857,7 +857,7 @@ working CRUD API from an empty directory in five commands.
 
 ## v0.11.0
 
-2026-08-09 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.11.0)
+2026-08-09 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.11.0)
 
 The last tag named two things it would not do, and this one does both. A
 tenant-keyed singleton was *"a release of its own, not the ninth item on a
@@ -893,7 +893,7 @@ table unwritable unless that module's tables were present, and failed the
 module's own isolation boot test.
 
 The mechanical edit is `WithComputed(names…)` on the statement, or `Computed` on
-the resource. It is [#147](https://github.com/jryannel/sqlb/issues/147)'s
+the resource. It is [#147](https://github.com/mind-vm/sqlb/issues/147)'s
 direction and the same argument: the failure of the new default is a missing
 field that the first test which looks catches, where the failure of the old one
 is a cost nothing reports and a value that can be silently wrong. A column
@@ -1199,21 +1199,21 @@ where the whole registry is known. And nothing changed in the hand-written
 - Nothing about hook registration changed. Named scopes are opt-in and an
   unnamed registration cannot be released.
 
-Ten issues: [#158](https://github.com/jryannel/sqlb/issues/158),
-[#159](https://github.com/jryannel/sqlb/issues/159),
-[#160](https://github.com/jryannel/sqlb/issues/160),
-[#161](https://github.com/jryannel/sqlb/issues/161),
-[#163](https://github.com/jryannel/sqlb/issues/163),
-[#164](https://github.com/jryannel/sqlb/issues/164),
-[#165](https://github.com/jryannel/sqlb/issues/165),
-[#166](https://github.com/jryannel/sqlb/issues/166),
-[#167](https://github.com/jryannel/sqlb/issues/167),
-[#177](https://github.com/jryannel/sqlb/issues/177). ADR-0052, ADR-0053 and
+Ten issues: [#158](https://github.com/mind-vm/sqlb/issues/158),
+[#159](https://github.com/mind-vm/sqlb/issues/159),
+[#160](https://github.com/mind-vm/sqlb/issues/160),
+[#161](https://github.com/mind-vm/sqlb/issues/161),
+[#163](https://github.com/mind-vm/sqlb/issues/163),
+[#164](https://github.com/mind-vm/sqlb/issues/164),
+[#165](https://github.com/mind-vm/sqlb/issues/165),
+[#166](https://github.com/mind-vm/sqlb/issues/166),
+[#167](https://github.com/mind-vm/sqlb/issues/167),
+[#177](https://github.com/mind-vm/sqlb/issues/177). ADR-0052, ADR-0053 and
 ADR-0054 are new; 0028, 0030, 0036, 0039, 0040, 0041 and 0044 carry revisions.
 
 ## v0.10.0
 
-2026-08-05 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.10.0)
+2026-08-05 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.10.0)
 
 The release where the reports started rhyming. Twelve issues, every one of them
 from somebody putting sqlb on a real schema — a sixteen-registry adoption, a
@@ -1442,23 +1442,23 @@ engine is trusted, which is the right design and was not what the sentence said.
   deep offset paging. It did not before, against a README saying it refuses what
   the API refused.
 
-Twelve issues: [#142](https://github.com/jryannel/sqlb/issues/142),
-[#143](https://github.com/jryannel/sqlb/issues/143),
-[#144](https://github.com/jryannel/sqlb/issues/144),
-[#146](https://github.com/jryannel/sqlb/issues/146),
-[#147](https://github.com/jryannel/sqlb/issues/147),
-[#148](https://github.com/jryannel/sqlb/issues/148),
-[#149](https://github.com/jryannel/sqlb/issues/149),
-[#150](https://github.com/jryannel/sqlb/issues/150),
-[#151](https://github.com/jryannel/sqlb/issues/151),
-[#153](https://github.com/jryannel/sqlb/issues/153),
-[#154](https://github.com/jryannel/sqlb/issues/154),
-[#155](https://github.com/jryannel/sqlb/issues/155). Two new records,
+Twelve issues: [#142](https://github.com/mind-vm/sqlb/issues/142),
+[#143](https://github.com/mind-vm/sqlb/issues/143),
+[#144](https://github.com/mind-vm/sqlb/issues/144),
+[#146](https://github.com/mind-vm/sqlb/issues/146),
+[#147](https://github.com/mind-vm/sqlb/issues/147),
+[#148](https://github.com/mind-vm/sqlb/issues/148),
+[#149](https://github.com/mind-vm/sqlb/issues/149),
+[#150](https://github.com/mind-vm/sqlb/issues/150),
+[#151](https://github.com/mind-vm/sqlb/issues/151),
+[#153](https://github.com/mind-vm/sqlb/issues/153),
+[#154](https://github.com/mind-vm/sqlb/issues/154),
+[#155](https://github.com/mind-vm/sqlb/issues/155). Two new records,
 ADR-0050 and ADR-0051, and one revised, ADR-0045.
 
 ## v0.9.0
 
-2026-08-03 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.9.0)
+2026-08-03 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.9.0)
 
 The release that measured the agent-facing claim rather than asserting it. Two
 hand-written skills and one generated, gated the way every other emitted file
@@ -1625,7 +1625,7 @@ reduces to a document with a pointer.
 
 ## v0.8.0
 
-2026-08-02 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.8.0)
+2026-08-02 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.8.0)
 
 The release that stopped refusing tables. Every version before this one was
 argued from the library outward. This one was argued inward, from two corpora
@@ -1777,7 +1777,7 @@ check.
 
 ## v0.7.0
 
-2026-08-01 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.7.0)
+2026-08-01 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.7.0)
 
 One break, and it is the one this library most needed to make before anyone
 depended on it: **there is no default hook registry**
@@ -1837,7 +1837,7 @@ the handle's registry has no hook for it
 
 ## v0.6.0
 
-2026-08-01 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.6.0)
+2026-08-01 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.6.0)
 
 The release an issue tracker wrote. Twenty issues were filed against the request
 path on 31 July from an external review and an adoption port; this closes the
@@ -1959,7 +1959,7 @@ What landed, beyond the breaks:
 What it cost. `FromGo` is **cut** rather than pending:
 [ADR-0041](architecture.md#computed-fields) wrote the condition — "if the first two
 applications express everything in SQL" — and both did, so the record says so
-and closes [#17](https://github.com/jryannel/sqlb/issues/17) with the evidence
+and closes [#17](https://github.com/mind-vm/sqlb/issues/17) with the evidence
 rather than leaving a fourth tier in the tracker. The change feed is correct on
 one replica and loses a publication if the process dies between `COMMIT` and the
 fan-out; both are stated where a reader meets them rather than in a footnote.
@@ -1968,7 +1968,7 @@ on purpose: nothing round-trips one, so casting it would have been a guess.
 
 ## v0.5.0
 
-2026-07-31 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.5.0)
+2026-07-31 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.5.0)
 
 Three things the adoption review ranked, built: a computed column, a declared
 action, and the exit. Between them they answer the two objections that were not
@@ -2109,7 +2109,7 @@ a substring assertion naming the mistake in advance.
 
 ## v0.4.0
 
-2026-07-30 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.4.0)
+2026-07-30 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.4.0)
 
 The release [ADR-0040](architecture.md#the-driver-is-a-dependency) was announced for.
 `v0.3.0` said the driver question had been decided and that nothing of it was
@@ -2186,7 +2186,7 @@ and what it cost, in both directions.
 
 ## v0.3.0
 
-2026-07-30 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.3.0)
+2026-07-30 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.3.0)
 
 No API change. What this release carries is a decision, the seam that makes it
 buildable, and the test coverage that was holding it up.
@@ -2219,7 +2219,7 @@ day — huma stays the default HTTP path, in the same module.
 
 ## v0.2.0
 
-2026-07-30 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.2.0)
+2026-07-30 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.2.0)
 
 The first release with a transaction handle, and the first that a consuming
 application can depend on without a local `replace`.
@@ -2233,7 +2233,7 @@ Cut for the studio-apps port, which could not compile against `v0.1.0`.
 
 ## v0.1.0
 
-2026-07-27 · [tag](https://github.com/jryannel/sqlb/releases/tag/v0.1.0)
+2026-07-27 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.1.0)
 
 The first tagged release.
 

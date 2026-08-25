@@ -12,10 +12,10 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/jryannel/sqlb/example/fxapp"
-	"github.com/jryannel/sqlb/example/fxapp/access"
-	"github.com/jryannel/sqlb/example/fxapp/spaces"
-	"github.com/jryannel/sqlb/example/fxapp/store"
+	"github.com/mind-vm/sqlb/example/fxapp"
+	"github.com/mind-vm/sqlb/example/fxapp/access"
+	"github.com/mind-vm/sqlb/example/fxapp/spaces"
+	"github.com/mind-vm/sqlb/example/fxapp/store"
 )
 
 // Two spaces and their keys. Long enough to satisfy the length the access

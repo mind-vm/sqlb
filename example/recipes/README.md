@@ -11,7 +11,7 @@ running the code rather than by typing it.
 
 ```bash
 go test ./example/recipes            # no Docker, no Postgres, ~0.3s
-go doc github.com/jryannel/sqlb/example/recipes
+go doc github.com/mind-vm/sqlb/example/recipes
 ```
 
 **None of it can drift.** Every recipe is a Go example function, so the printed

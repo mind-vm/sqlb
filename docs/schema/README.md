@@ -8,7 +8,7 @@ reflection over a database at startup.
 ```go
 package blogschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 var Post = schema.Table("posts",
     schema.UUIDv7("id").PrimaryKey(),
@@ -45,7 +45,7 @@ One constructor per Postgres type, each taking the column name: the text types
 Each maps to exactly one SQL type and one Go type. **The list — every
 constructor, the SQL type it emits, the Go type codegen produces, and the filter
 operators it admits — is the [column type
-reference](https://jryannel.github.io/sqlb/reference/column-types/).** This page
+reference](../reference/column-types.md).** This page
 is about which one to reach for and what the declaration then costs; that page
 is the enumeration, and a check keeps it level with the source.
 
@@ -183,7 +183,7 @@ the `count(*)`, the `EXISTS`, and the comparison already guarded against its own
 nulls. The default runs the other way because that is the direction that fails
 safely: a pointer scans a non-null value fine, and the reverse is a 500 saying
 `cannot scan NULL into *string`, on rows a fixture is unlikely to contain
-([#147](https://github.com/jryannel/sqlb/issues/147)).
+([#147](https://github.com/mind-vm/sqlb/issues/147)).
 
 **A subquery is projection-only unless you say otherwise.** Writing
 `Filterable()` on one is the acknowledgement that a subquery in a `WHERE` runs
@@ -201,7 +201,7 @@ schema.Computed("participant_names", schema.TypeText,
 A chat is named in the UI by whoever is in it — a direct message has no `name`
 at all — so fanning out over the chat's own columns finds nothing for exactly
 the rows a search is for, and answers 200 while doing it
-([#93](https://github.com/jryannel/sqlb/issues/93)).
+([#93](https://github.com/mind-vm/sqlb/issues/93)).
 
 **Reading one is opt-in, because the model is shared.** A computed column is
 declared on the model and usually wanted by one screen, so nothing projects it
@@ -223,7 +223,7 @@ sqlb.Query[Project]().Where(sqlb.F("id").Eq(id)).One(ctx, db)
 
 which is asking whether a row exists. Worse, a column declaring `Needs` made
 that query *fail* — it wanted a `viewer` bind the caller had no business
-supplying ([#92](https://github.com/jryannel/sqlb/issues/92)).
+supplying ([#92](https://github.com/mind-vm/sqlb/issues/92)).
 
 For a resource the opt-in is a boundary rather than a projection setting: a
 computed column a resource does not select is not filterable, sortable or
@@ -270,7 +270,7 @@ response carries it without a second read — but only the ones the caller asked
 for, with `WithComputed` on the statement or `Computed` on the resource. That is
 the same opt-in a read takes, and it is opt-in for the same reasons plus one: an
 aggregate evaluated by a create counts the rows that create has not written yet
-([#164](https://github.com/jryannel/sqlb/issues/164)). A parameterised one can
+([#164](https://github.com/mind-vm/sqlb/issues/164)). A parameterised one can
 never be read back — a write has no viewer to bind — so it is absent from the
 statement *and* from the write's response, and arrives on the next read.
 
@@ -374,7 +374,7 @@ schema.Ref("author", Author).Filterable().Indexed()
 
 Nothing implies one. A reference used to carry an index because it is a
 reference, and that rule broke the migration differ
-([#259](https://github.com/jryannel/sqlb/issues/259)); `schema.Lint`'s
+([#259](https://github.com/mind-vm/sqlb/issues/259)); `schema.Lint`'s
 `unindexed-ref` gives the advice now, and the declaration does the DDL.
 Everything with a method, an order, a predicate or a second column is
 table-level:
@@ -526,7 +526,7 @@ its clause would have passed the drift gate on its way to breaking every write.
 rule that came out of it: where a layer below the declaration can say something
 the declaration cannot, the gap is reported rather than left to be found.
 
-[#154]: https://github.com/jryannel/sqlb/issues/154
+[#154]: https://github.com/mind-vm/sqlb/issues/154
 
 `AddIndex` takes a fully specified `Index` for what the shorthands do not cover
 — GIN indexes, partial indexes via `Where`, and per-column sort order via
@@ -696,7 +696,7 @@ sqlb: check passed
 `-lint` takes `off`, `summary` (the default), `warn` or `all`. The floor is
 there because a fourteen-table schema produced 102 advisory lines and buried the
 verdict under them
-([#267](https://github.com/jryannel/sqlb/issues/267)); a project that has read
+([#267](https://github.com/mind-vm/sqlb/issues/267)); a project that has read
 its `info` notes once keeps the `warn` ones with `-lint=warn` and stops
 re-reading the rest. Whatever level you pick, the last line of `check` is its
 verdict.

@@ -135,7 +135,7 @@ it arrived from.
 Date columns are where that took work. Postgres serialises a `date` as
 `"2026-07-01"`, and the Go field for it is a `time.Time`, which parses strictly
 as RFC 3339 — so an expansion over a date column used to fail the decode
-outright ([#84](https://github.com/jryannel/sqlb/issues/84)). The value is cast
+outright ([#84](https://github.com/mind-vm/sqlb/issues/84)). The value is cast
 to UTC midnight on the way out, so it arrives in the same RFC 3339 form a direct
 read produces and both generated clients already document receiving.
 

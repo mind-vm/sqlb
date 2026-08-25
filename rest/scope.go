@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jryannel/sqlb"
+	"github.com/mind-vm/sqlb"
 )
 
 // The obligation check.
@@ -32,8 +32,8 @@ import (
 // in order to guess at its intent. One bit, honestly described, is worth more
 // than a check that can be fooled in a way nobody expects.
 //
-// [ADR-0008]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#hooks-as-domain-seam
-// [ADR-0030]: https://github.com/jryannel/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
+// [ADR-0008]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#hooks-as-domain-seam
+// [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
 
 // release applies Options.Unscoped to the handle this resource will serve from.
 //

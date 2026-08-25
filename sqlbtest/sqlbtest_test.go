@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // Note is the model these tests read and write. It is deliberately ordinary:

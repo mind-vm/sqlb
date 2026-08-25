@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 func ejectReadme(opts EjectOptions, tables []*schema.TableDef) string {

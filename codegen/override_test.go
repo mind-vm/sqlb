@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // overrideSchema is the shape the boundary tests need: a uuid key, a uuid
@@ -175,7 +175,7 @@ func TestOverriddenComputedColumnStillImportsSqlb(t *testing.T) {
 	for _, want := range []string{
 		"IsOverdue pgtype.Bool", // the override did apply
 		"func (Project) ComputedColumns() []sqlb.Computed {",
-		`"github.com/jryannel/sqlb"`,
+		`"github.com/mind-vm/sqlb"`,
 		`"github.com/jackc/pgx/v5/pgtype"`,
 	} {
 		if !contains(models, want) {

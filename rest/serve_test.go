@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // Serve's guard clauses need no database, so they are the part of it this

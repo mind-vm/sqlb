@@ -14,11 +14,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/blog"
-	_ "github.com/jryannel/sqlb/example/blog/blogschema"
-	"github.com/jryannel/sqlb/internal/pgfake"
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/blog"
+	_ "github.com/mind-vm/sqlb/example/blog/blogschema"
+	"github.com/mind-vm/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 // This is the assembled server, and the point of the whole exercise:

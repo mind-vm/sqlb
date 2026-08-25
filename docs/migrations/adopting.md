@@ -131,7 +131,7 @@ identically, so every registry-level check passed while the rebuilt database
 called the constraint something else and the next diff proposed dropping it.
 
 A constraint's deferrability was the same shape and was found the same way
-([#154](https://github.com/jryannel/sqlb/issues/154)): the declaration could not
+([#154](https://github.com/mind-vm/sqlb/issues/154)): the declaration could not
 say it, the introspector did not read it, and the differ had no field to compare
 — so a hand-written `DEFERRABLE INITIALLY DEFERRED` survived every gate by being
 invisible to all of them, and a migration that recreated the constraint without
@@ -173,7 +173,7 @@ declaring all of it at once:
 schema.ExternalRef("org", "organizations.id").Enforced().Filterable()
 ```
 
-The target is a name, not a resolution. See [`Enforced`](https://pkg.go.dev/github.com/jryannel/sqlb/schema#Field.Enforced)
+The target is a name, not a resolution. See [`Enforced`](https://pkg.go.dev/github.com/mind-vm/sqlb/schema#Field.Enforced)
 for what it gives up — everything [ADR-0015](../architecture.md#module-isolation)
 bought by refusing the constraint, which is the right trade only when both tables
 live in one database.

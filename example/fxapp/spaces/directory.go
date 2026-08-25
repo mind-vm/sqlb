@@ -8,10 +8,10 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/fxapp/access"
-	"github.com/jryannel/sqlb/example/fxapp/fxkit"
-	"github.com/jryannel/sqlb/example/fxapp/store"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/fxapp/access"
+	"github.com/mind-vm/sqlb/example/fxapp/fxkit"
+	"github.com/mind-vm/sqlb/example/fxapp/store"
 )
 
 // Directory maps a verified slug to the space id the hooks put in a WHERE

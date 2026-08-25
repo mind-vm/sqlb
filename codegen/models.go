@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // renderModels emits one struct per table, plus a named string type for each
@@ -37,7 +37,7 @@ func renderModels(opts Options) ([]byte, error) {
 			// Go type and not the fact that it is computed, so the method is
 			// emitted either way and needs the import either way.
 			if f.Desc().Computed() {
-				imports["github.com/jryannel/sqlb"] = true
+				imports["github.com/mind-vm/sqlb"] = true
 			}
 			// The default mapping decides which stdlib import a column needs;
 			// an overridden column brings its own, above.
@@ -60,12 +60,12 @@ func renderModels(opts Options) ([]byte, error) {
 				// and the first that is a *column*. An embedding needs the
 				// codec that moves it in binary, so the model cannot be
 				// importable without sqlb the way the rest of them are.
-				imports["github.com/jryannel/sqlb"] = true
+				imports["github.com/mind-vm/sqlb"] = true
 			}
 			// A computed column's expression is carried by a method returning
 			// sqlb.Computed, for the reason renderComputed gives.
 			if f.Desc().Computed() {
-				imports["github.com/jryannel/sqlb"] = true
+				imports["github.com/mind-vm/sqlb"] = true
 			}
 		}
 		// An expanded collection lands in a sqlb.Collection. Models are
@@ -74,7 +74,7 @@ func renderModels(opts Options) ([]byte, error) {
 		// a bare pointer instead, so it does not need the import.
 		for _, inv := range opts.Registry.Inverses(t) {
 			if inv.Expandable && !inv.OneToOne {
-				imports["github.com/jryannel/sqlb"] = true
+				imports["github.com/mind-vm/sqlb"] = true
 			}
 		}
 	}

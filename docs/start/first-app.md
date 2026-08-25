@@ -190,7 +190,7 @@ The generated handlers know nothing about it. That is the argument.
   and a runnable server. It is tested against a real Postgres, so its claims
   about locking, triggers and constraints are checked rather than asserted. It
   also documents the two places it had to work around sqlb rather than use it.
-- [Examples](https://jryannel.github.io/sqlb/examples/) — the gallery, including
+- [Examples](../examples/README.md) — the gallery, including
   a lending library, a stock exchange, and the same domain built twice on sqlc
   for comparison.
 - [Concepts](../concepts/README.md) — why any of this is shaped the way it is.

@@ -30,8 +30,8 @@ decision, which this plan is the first real evidence for.
 ## Global Constraints
 
 - `example/auth-workos/` is its own Go module: `module
-  github.com/jryannel/sqlb/example/auth-workos`, `go 1.25.7`, `replace
-  github.com/jryannel/sqlb => ../../` — copy `example/tasks/go.mod`'s shape
+  github.com/mind-vm/sqlb/example/auth-workos`, `go 1.25.7`, `replace
+  github.com/mind-vm/sqlb => ../../` — copy `example/tasks/go.mod`'s shape
   exactly.
 - Package name is `authworkos` (the directory is `auth-workos`; Go package
   names need not match directory names, and this matches the design spec's
@@ -75,11 +75,11 @@ decision, which this plan is the first real evidence for.
 mkdir -p example/auth-workos
 cd example/auth-workos
 cat > go.mod <<'EOF'
-module github.com/jryannel/sqlb/example/auth-workos
+module github.com/mind-vm/sqlb/example/auth-workos
 
 go 1.25.7
 
-replace github.com/jryannel/sqlb => ../../
+replace github.com/mind-vm/sqlb => ../../
 EOF
 ```
 
@@ -327,7 +327,7 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jryannel/sqlb/example/auth-workos"
+	"github.com/mind-vm/sqlb/example/auth-workos"
 )
 ```
 
@@ -748,7 +748,7 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jryannel/sqlb/example/auth-workos"
+	"github.com/mind-vm/sqlb/example/auth-workos"
 )
 ```
 
@@ -811,7 +811,7 @@ git commit -m "test(auth-workos): a startup failure is where WorkOS-unreachable 
 - [ ] **Step 1: Write the failing test**
 
 Add `"net/http"` and `"net/http/httptest"` (already present from Task 4)
-plus `"github.com/jryannel/sqlb"` to the import block. Replace it with:
+plus `"github.com/mind-vm/sqlb"` to the import block. Replace it with:
 
 ```go
 import (
@@ -826,8 +826,8 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/auth-workos"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/auth-workos"
 )
 ```
 

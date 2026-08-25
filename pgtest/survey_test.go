@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // `sqlb survey` end to end, which is the only place its Phase C runs at all.

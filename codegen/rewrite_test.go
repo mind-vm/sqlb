@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/codegen"
+	"github.com/mind-vm/sqlb/codegen"
 )
 
 // mtimes reports the modification time of every file under dir, keyed by the

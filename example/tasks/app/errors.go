@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jryannel/sqlb/example/tasks/auth"
+	"github.com/mind-vm/sqlb/example/tasks/auth"
 )
 
 // Errors from hooks travel a long way: a hook returns one, sqlb passes it back

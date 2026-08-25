@@ -42,7 +42,7 @@ equivalent of TanStack Query to bind to.
 | `client.gen.dart` | Row views, request bodies, the typed filter vocabulary, one function per exposed operation, `TableName` and `TableChange` — plus a second row view per table that has a `Needs` column, for what `create`/`update` return, since a write cannot answer with the same shape a read can. Imports the runtime, and exports it. |
 
 The split is what Dart's nominal typing forces
-([#110](https://github.com/jryannel/sqlb/issues/110)). Two clients each
+([#110](https://github.com/mind-vm/sqlb/issues/110)). Two clients each
 declaring their own `Page` declare two *unrelated* classes, so no shared pager
 widget could accept both and the application could not give both one
 `Transport`. Two clients exporting one library offer one `Page`.
@@ -272,7 +272,7 @@ calls its column enum.
 
 `sqlb generate` refuses that rather than writing a file the compiler rejects,
 naming the identifier, both tables, and what each contributed
-([#261](https://github.com/jryannel/sqlb/issues/261)). The fix is to rename one
+([#261](https://github.com/mind-vm/sqlb/issues/261)). The fix is to rename one
 of the tables — the generated names follow. Before this check the generator
 reported success and the analyser reported a duplicate top-level declaration,
 naming neither table.

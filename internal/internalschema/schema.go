@@ -24,11 +24,11 @@
 // referring to a type nobody emitted.)
 package internalschema
 
-//go:generate go run github.com/jryannel/sqlb/cmd/sqlb generate .
+//go:generate go run github.com/mind-vm/sqlb/cmd/sqlb generate .
 
 import (
-	"github.com/jryannel/sqlb/codegen"
-	"github.com/jryannel/sqlb/schema"
+	"github.com/mind-vm/sqlb/codegen"
+	"github.com/mind-vm/sqlb/schema"
 )
 
 // Widget is deliberately dull. The subject of the test is the import path this

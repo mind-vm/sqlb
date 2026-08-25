@@ -26,7 +26,7 @@
 // table it is pointing at already has one.
 package catalogschema
 
-import "github.com/jryannel/sqlb/schema"
+import "github.com/mind-vm/sqlb/schema"
 
 // Category is a node in the tree. Its parent is declared below, once the
 // table exists to point back at.

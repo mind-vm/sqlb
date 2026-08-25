@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb/sqlbtest"
 )
 
 // These tests measure the claims ADR-0019 makes from documentation rather than

@@ -1,14 +1,8 @@
----
-title: Capability reference
-description: Every capability method, exactly what it permits or forbids, the struct tag it becomes, and the combinations that are validation errors.
-sidebar:
-  label: Capabilities
-  order: 3
----
+# Capability reference
 
 Checked against `schema/field.go`. The model is
-[Capabilities](/sqlb/concepts/capabilities/) in Concepts; the guide page is
-[Capabilities](/sqlb/schema/capabilities/) in Schema.
+[Capabilities](../concepts/capabilities.md) in Concepts; the guide page is
+[Capabilities](../schema/capabilities.md) in Schema.
 
 **Everything is closed by default.** A column that does not declare a capability
 cannot be reached through it — not by a filter, not by a sort, not by a
@@ -95,7 +89,7 @@ schema.Text("secret").Hidden()               // → sqlb:"hidden"
 ```
 
 The same metadata can be supplied at runtime for structs you did not generate;
-see [Using your own structs](/sqlb/start/structs-first/).
+see [Using your own structs](../start/structs-first.md).
 
 ## Combinations that are errors
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb/rest"
+	"github.com/mind-vm/sqlb/rest"
 )
 
 func change(table, key string, op rest.Change) rest.Event {

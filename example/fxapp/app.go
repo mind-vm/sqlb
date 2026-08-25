@@ -18,10 +18,10 @@ package fxapp
 import (
 	"go.uber.org/fx"
 
-	"github.com/jryannel/sqlb/example/fxapp/access"
-	"github.com/jryannel/sqlb/example/fxapp/notes"
-	"github.com/jryannel/sqlb/example/fxapp/spaces"
-	"github.com/jryannel/sqlb/example/fxapp/store"
+	"github.com/mind-vm/sqlb/example/fxapp/access"
+	"github.com/mind-vm/sqlb/example/fxapp/notes"
+	"github.com/mind-vm/sqlb/example/fxapp/spaces"
+	"github.com/mind-vm/sqlb/example/fxapp/store"
 )
 
 // Modules is the whole application.

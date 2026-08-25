@@ -18,17 +18,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/example/outbox"
-	"github.com/jryannel/sqlb/migrate"
-	"github.com/jryannel/sqlb/schema"
-	"github.com/jryannel/sqlb/sqlbtest"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/example/outbox"
+	"github.com/mind-vm/sqlb/migrate"
+	"github.com/mind-vm/sqlb/schema"
+	"github.com/mind-vm/sqlb/sqlbtest"
 
 	// Imported for its side effect: declaring Event registers it in
 	// schema.DefaultRegistry(), which outboxDB below diffs against an empty
 	// registry to get the DDL — the same baseline-migration path
 	// example/rooms and example/tasks/cmd/migrate/main.go use.
-	_ "github.com/jryannel/sqlb/example/outbox/outboxschema"
+	_ "github.com/mind-vm/sqlb/example/outbox/outboxschema"
 )
 
 // outboxDB migrates a fresh database from the declared schema and returns a

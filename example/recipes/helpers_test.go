@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jryannel/sqlb"
-	"github.com/jryannel/sqlb/filter"
-	"github.com/jryannel/sqlb/internal/pgfake"
+	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/filter"
+	"github.com/mind-vm/sqlb/internal/pgfake"
 )
 
 // The support code the recipes share. Nothing here is part of sqlb's API;
