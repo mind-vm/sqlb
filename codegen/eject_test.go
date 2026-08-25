@@ -304,3 +304,76 @@ func TestEjectUnderVerbatimNamesAColumnOnce(t *testing.T) {
 		t.Errorf("the default's body decoder moved:\n%s", files["handlers.go"])
 	}
 }
+
+// The ordinary shapes of the exit have to compile.
+//
+// codegen runs format.Source over every emitted file, which parses without
+// type-checking, so an import nothing uses is valid Go *source* and reaches the
+// adopter's first build intact. handlers.go and store.go each declared a fixed
+// import set at the top of their emitter while the uses of four of those
+// packages were conditions scattered through the templates below, and a schema
+// that met none of them emitted a `fmt` nothing used.
+//
+// The exit was already compiled here — by TestEjectedSingletonCompiles, whose
+// helper this borrows — but only in shapes that could not show it. A singleton
+// cannot be addressed without a Confine hook, so every one of those fixtures
+// carries an obligation and so emits the fmt.Errorf that refuses it; and
+// `example/blog`, the one committed exit, has a `posts` table that is both
+// Scoped and SoftDelete. The case that was broken is the plain one: an exposed
+// table declaring neither.
+//
+// This test names nothing. It ejects each shape and lets the compiler decide.
+// The cases are the conditions the import set used to predict, one apiece.
+func TestEjectedGoCompiles(t *testing.T) {
+	plain := func() *schema.Registry {
+		// No Scoped, no SoftDelete: nothing needs a hook, so nothing calls
+		// fmt.Errorf. This is the case that did not compile.
+		r := schema.NewRegistry()
+		r.Table("articles",
+			schema.UUIDv7("id").PrimaryKey(),
+			schema.Text("title").Searchable().Sortable(),
+			schema.Timestamp("created_at").Filterable().Sortable(),
+		).Expose(schema.REST{Path: "/articles", Ops: schema.CRUD | schema.OpList})
+		return r
+	}
+	listOnly := func() *schema.Registry {
+		// No by-id read, so no errors.Is; no body, so no encoding/json.
+		r := schema.NewRegistry()
+		r.Table("events",
+			schema.UUIDv7("id").PrimaryKey(),
+			schema.Text("kind").Filterable(),
+		).Expose(schema.REST{Path: "/events", Ops: schema.OpList})
+		return r
+	}
+	noKey := func() *schema.Registry {
+		// No primary key and nothing exposed: store.go gets a list and a count
+		// and neither a Get nor an Update, which is what used to name pgx and
+		// errors there. No handlers.go at all.
+		r := schema.NewRegistry()
+		r.Table("samples", schema.Text("label"), schema.Float("value"))
+		return r
+	}
+	prose := func() *schema.Registry {
+		// A comment that names a package is prose, not a use — and these files
+		// are more comment than code, so it is worth one case of its own. A
+		// column comment reaches models.go verbatim, and reading the emitted
+		// *text* for "time." rather than its tokens imports a package this
+		// schema has no timestamp to need.
+		r := schema.NewRegistry()
+		r.Table("notes",
+			schema.UUIDv7("id").PrimaryKey(),
+			schema.Text("body").Comment("free text; the API used to carry a time.Time here"),
+		)
+		return r
+	}
+	camel := func() *schema.Registry { return wireFixture(schema.Camel) }
+
+	ejectCompiles(t, map[string]*schema.Registry{
+		"plain":    plain(),
+		"listonly": listOnly(),
+		"nokey":    noKey(),
+		"prose":    prose(),
+		"camel":    camel(),
+		"obliged":  ejectFixture(),
+	})
+}

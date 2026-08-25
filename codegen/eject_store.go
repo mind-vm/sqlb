@@ -94,19 +94,7 @@ func parenthesised(expr string) string {
 // ejectStore emits the column descriptors, the projections, the scanners and
 // the statements.
 func ejectStore(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
-	// The statements name no Go type of their own: every value they bind
-	// arrives as `any` from a parsed request or a decoded body, and everything
-	// they read back lands in a struct models.go already declared. So the
-	// imports here are fixed, which is why there is no scan for them.
-	imports := map[string]bool{
-		"context":                 true,
-		"errors":                  true,
-		"fmt":                     true,
-		"strings":                 true,
-		"github.com/jackc/pgx/v5": true,
-	}
-
-	b := ejectHeader(opts.pkg(), sortedSet(imports))
+	b := new(bytes.Buffer)
 	fmt.Fprintln(b, `
 // The statements. Each one is written out: the SQL is a string you can read,
 // paste into psql, and change. What varies per request — the WHERE, the ORDER
@@ -131,7 +119,7 @@ func ejectStore(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 		ejectUpdate(b, t, typeName, lower)
 		ejectDelete(b, t, typeName, lower)
 	}
-	return gofmt("store.go", b.Bytes())
+	return ejectFile("store.go", opts.pkg(), b)
 }
 
 // ejectColumnTable emits what a request is allowed to name.
