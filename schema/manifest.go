@@ -221,6 +221,13 @@ type RESTManifest struct {
 	// boundary, which is exactly the join this schema will not perform.
 	Expandable []string `json:"expandable,omitempty"`
 
+	// CreateInput names the create body's properties that are not columns —
+	// what the request carries beyond the row (#309). A reader that had only the
+	// column list would conclude the body is the columns, which for a resource
+	// declaring one of these is exactly wrong: the property is usually the
+	// required one, since it is the reason the create needs a hook at all.
+	CreateInput []BodyProperty `json:"createInput,omitempty"`
+
 	// Actions are the domain verbs the table declares. Without them an agent
 	// reading this document sees a CRUD-only API and concludes that completing
 	// a task means PATCHing its status — which is the transition the verb
@@ -242,7 +249,7 @@ type ActionManifest struct {
 	// Body names the request body's properties. An action that declares none
 	// carries no body at all, which is not the same as one whose properties
 	// happen to be optional.
-	Body []ActionProperty `json:"body,omitempty"`
+	Body []BodyProperty `json:"body,omitempty"`
 	// Writes names the columns the envelope persists after the verb returns.
 	// It is not the blast radius: it is one row of this table, and a verb may
 	// write anything else through the transaction it holds.
@@ -254,13 +261,24 @@ type ActionManifest struct {
 	Touches []string `json:"touches,omitempty"`
 }
 
-// ActionProperty is one property of an action's request body.
-type ActionProperty struct {
+// BodyProperty is one declared property of a request body — an action's, or
+// the non-column half of a create's.
+//
+// It was ActionProperty until a create body could carry one too (#309); the
+// alias below keeps the old spelling compiling, since a manifest type is
+// something a consumer reads with.
+type BodyProperty struct {
 	Name     string   `json:"name"`
 	Type     string   `json:"type"`
 	Nullable bool     `json:"nullable,omitempty"`
 	Enum     []string `json:"enum,omitempty"`
 }
+
+// ActionProperty is the former name of [BodyProperty].
+//
+// Deprecated: use BodyProperty. A create body declares these too now, so the
+// type is no longer about actions.
+type ActionProperty = BodyProperty
 
 // OperatorDoc documents one filter operator.
 type OperatorDoc struct {
@@ -497,6 +515,7 @@ func (t *TableDef) restManifest(inverses []InverseRelation, wire WireCase) *REST
 			rm.Expandable = append(rm.Expandable, inv.Name)
 		}
 	}
+	rm.CreateInput = bodyProperties(t.rest.CreateInput)
 	for _, a := range t.actions {
 		rm.Actions = append(rm.Actions, a.manifest(t.rest.Path))
 	}
@@ -514,16 +533,24 @@ func (a Action) manifest(resourcePath string) ActionManifest {
 		Writes:  a.Writes,
 		Touches: a.Touches,
 	}
-	for _, f := range a.Body {
+	am.Body = bodyProperties(a.Body)
+	return am
+}
+
+// bodyProperties documents a declared request body, whichever declaration it
+// came from.
+func bodyProperties(body []*Field) []BodyProperty {
+	var out []BodyProperty
+	for _, f := range body {
 		d := f.Desc()
-		am.Body = append(am.Body, ActionProperty{
+		out = append(out, BodyProperty{
 			Name:     d.Name,
 			Type:     string(d.Type),
 			Nullable: d.Nullable,
 			Enum:     d.EnumValues,
 		})
 	}
-	return am
+	return out
 }
 
 // examples renders a few requests that are valid against this resource. A

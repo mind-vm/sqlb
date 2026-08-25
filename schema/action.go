@@ -1,6 +1,9 @@
 package schema
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // An action is a domain verb the table exposes: POST /tasks/{id}/complete.
 //
@@ -135,31 +138,6 @@ type Action struct {
 	Description string
 }
 
-// Body builds an action's request body from field declarations.
-//
-//	Body: schema.Body(
-//	    schema.Text("note").Nullable(),
-//	    schema.Timestamp("completed_at"),
-//	)
-//
-// The vocabulary is the column vocabulary, deliberately: it is the one the
-// emitters already know how to turn into a TypeScript type, a Dart class, a CLI
-// flag and an OpenAPI schema. Only what describes a *value* applies here —
-// name, type, nullability, enum values, default and comment. The capabilities
-// that describe a column's place in a table (Filterable, PrimaryKey, Ref,
-// Computed, and the rest) have no meaning in a request body and are refused by
-// Validate rather than ignored.
-func Body(specs ...FieldSpec) []*Field {
-	var out []*Field
-	for _, s := range specs {
-		if s == nil {
-			continue
-		}
-		out = append(out, s.fields()...)
-	}
-	return out
-}
-
 // AddAction declares a domain verb on the table and returns the table, so
 // that declarations chain the way Expose and AddIndex already do.
 //
@@ -242,7 +220,7 @@ func (r *Registry) validateActions(t *TableDef, report func(string, string, stri
 			}
 		}
 
-		r.validateActionBody(t, a, report)
+		r.validateBody(t, fmt.Sprintf("action %q", a.Name), a.Body, report)
 		r.validateActionWrites(t, a, report)
 		r.validateActionTouches(t, a, report)
 	}
@@ -308,46 +286,6 @@ func (r *Registry) validateActionTouches(t *TableDef, a Action, report func(stri
 			continue
 		}
 		seen[name] = true
-	}
-}
-
-// validateActionBody refuses the claims a request body cannot make.
-func (r *Registry) validateActionBody(t *TableDef, a Action, report func(string, string, string, ...any)) {
-	seen := make(map[string]bool, len(a.Body))
-	for _, f := range a.Body {
-		d := f.Desc()
-		if !isIdent(d.Name) {
-			report(t.name, d.Name, "action %q: body property name is not a valid identifier", a.Name)
-		}
-		if seen[d.Name] {
-			report(t.name, d.Name, "action %q: body property declared twice", a.Name)
-		}
-		seen[d.Name] = true
-
-		// A body property is a value, not a column. Every capability below
-		// describes a column's place in a table, and silently ignoring one
-		// would leave a declaration that reads as though it did something.
-		for _, c := range []struct {
-			claimed bool
-			what    string
-		}{
-			{d.PrimaryKey, "PrimaryKey"},
-			{d.Unique, "Unique"},
-			{d.Filterable, "Filterable"},
-			{d.Sortable, "Sortable"},
-			{d.Searchable, "Searchable"},
-			{d.ReadOnly, "ReadOnly"},
-			{d.Immutable, "Immutable"},
-			{d.Hidden, "Hidden"},
-			{d.WriteOnly, "WriteOnly"},
-			{d.Scoped, "Scoped"},
-			{d.Ref != nil, "Ref"},
-			{d.Computed(), "Computed"},
-		} {
-			if c.claimed {
-				report(t.name, d.Name, "action %q: body property claims %s, which describes a column rather than a request body", a.Name, c.what)
-			}
-		}
 	}
 }
 

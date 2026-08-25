@@ -310,6 +310,11 @@ func expandFacts(t *schema.TableDef) []string {
 // column with no default and no NULL to fall back on is required, everything
 // else settable is optional. Read-only, hidden and the primary key never
 // reach the body at all (see codegen's own bodyFields).
+//
+// The declared inputs that are not columns are split the same way and listed
+// beside them, because the body is what this row of the document is about and a
+// property missing from it is the one a caller will leave out (#309). They are
+// marked, since "not a column" is the fact about them a reader needs.
 func createFacts(t *schema.TableDef) []string {
 	var required, optional []string
 	for _, f := range t.Fields() {
@@ -321,6 +326,15 @@ func createFacts(t *schema.TableDef) []string {
 			optional = append(optional, d.Name)
 		} else {
 			required = append(required, d.Name)
+		}
+	}
+	for _, f := range createInput(t) {
+		d := f.Desc()
+		name := d.Name + " (input, not a column)"
+		if optionalOnCreate(d) {
+			optional = append(optional, name)
+		} else {
+			required = append(required, name)
 		}
 	}
 	var out []string

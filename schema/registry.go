@@ -491,6 +491,7 @@ func (r *Registry) Validate() error {
 			// forever. Every other disagreement between a schema and its
 			// behaviour in this package is loud; this one silently did the
 			// opposite of what the table declares.
+			r.validateCreateInput(t, report)
 			if seen["deleted_at"] && t.rest.Ops.Has(OpDelete) {
 				report(t.name, "deleted_at",
 					"declares a soft delete but exposes OpDelete, which hard-deletes the row; "+
