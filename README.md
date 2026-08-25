@@ -12,6 +12,7 @@ Nothing downstream is written by hand, so nothing drifts out of step.
 
 **[Documentation](https://jryannel.github.io/sqlb/)** ·
 [Quickstart](https://jryannel.github.io/sqlb/start/quickstart/) ·
+[Cheatsheet](docs/cheatsheet/README.md) ·
 [API reference](https://pkg.go.dev/github.com/jryannel/sqlb) ·
 [Decision records](https://jryannel.github.io/sqlb/project/architecture/#decisions)
 
@@ -173,6 +174,7 @@ Not built yet, in the order they matter: an MCP server over the manifest.
 |---|---|
 | [Start here](https://jryannel.github.io/sqlb/start/) | Overview, quickstart, a worked first app, structs-first adoption |
 | [Concepts](https://jryannel.github.io/sqlb/concepts/) | The five ideas the rest of it rests on |
+| [Cheatsheet](docs/cheatsheet/README.md) | Every surface on one page — schema DSL, builder, mutations, hooks, filter grammar, migrations, codegen, CLI. A lookup table, and the file to hand a coding agent ([on the site](https://jryannel.github.io/sqlb/cheatsheet/)) |
 | [Schema](https://jryannel.github.io/sqlb/schema/) · [Queries](https://jryannel.github.io/sqlb/queries/) · [REST](https://jryannel.github.io/sqlb/rest/) · [TypeScript](https://jryannel.github.io/sqlb/typescript/) · [Dart](https://jryannel.github.io/sqlb/dart/) · [CLI](https://jryannel.github.io/sqlb/cli/) · [Migrations](https://jryannel.github.io/sqlb/migrations/) | One section per surface |
 | [Examples](https://jryannel.github.io/sqlb/examples/) | Six worked applications, and what each one proves |
 | [Reference](https://jryannel.github.io/sqlb/reference/) | Filter operators, column types, capabilities, codegen options, CLI, rejections |

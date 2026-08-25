@@ -615,7 +615,7 @@ cd "$MISE_PROJECT_ROOT/example/fxapp" && go run github.com/jryannel/sqlb/cmd/sql
 '''
 
 [tasks.impact-check]
-description = "Fail if a schema edit has changed the generated REST contract in a way that breaks a deployed client — a renamed or un-exposed column, a dropped operation, a narrowed type (docs/architecture.md, \"A schema edit is an api edit\"). Diffs each example's schema against its committed restcontract.json baseline. Distinct from generate-check: that catches drift in the code sqlb writes, this catches drift in the API that code serves, and the two can disagree — a clean RENAME migration is a wire break. Re-record a baseline with `sqlb impact -write` when the change is intended. -error, not a bare run, because in a gate the point is to fail."
+description = "Fail if a schema edit has changed the generated REST contract in a way that breaks a deployed client — a renamed or un-exposed column, a dropped operation, a narrowed type, or a withdrawn declared route: an AddAction verb or an AddQuery read, each of which is a URL a generated client has a method for and none of which a per-column walk visits (docs/architecture.md, \"A schema edit is an api edit\"). Diffs each example's schema against its committed restcontract.json baseline. Distinct from generate-check: that catches drift in the code sqlb writes, this catches drift in the API that code serves, and the two can disagree — a clean RENAME migration is a wire break. Re-record a baseline with `sqlb impact -write` when the change is intended. -error, not a bare run, because in a gate the point is to fail."
 run = '''
 set -e
 go run ./cmd/sqlb impact -error ./example/blog/blogschema
@@ -629,6 +629,11 @@ go run ./cmd/sqlb impact -error ./example/evolve/evolveschema
 # own; the root module's package list cannot reach its schema.
 cd "$MISE_PROJECT_ROOT/example/tasks" && go run github.com/jryannel/sqlb/cmd/sqlb impact -error ./taskschema
 cd "$MISE_PROJECT_ROOT/example/fxapp" && go run github.com/jryannel/sqlb/cmd/sqlb impact -error ./noteschema
+# example/tasks2 is the only schema in the repository that declares a query, so
+# it is the only place this gate covers that half of the contract at all. It had
+# no baseline until queries were captured, which is the shape of the gap: the
+# one example with the feature was the one example the gate did not run on.
+cd "$MISE_PROJECT_ROOT/example/tasks2" && go run github.com/jryannel/sqlb/cmd/sqlb impact -error ./tasks2schema
 '''
 
 [tasks.eject-check]

@@ -2293,6 +2293,22 @@ are ever found to have drifted on a shared kind of change, which would
 mean their shared core should be one function both call rather than two
 that happen to agree.
 
+The walk enumerated above is per resource and per column, and it has since
+had to grow a third kind of entry: a *declared route*. A verb declared with
+`AddAction` and a read declared with `AddQuery` are URLs a generated client
+has a named method for, and neither is a column, an operation of the fixed
+CRUD set, or anything a per-column walk visits — so each arrived invisible
+to this check and had to be added as its own facet, actions first and
+queries afterward. The gap the second one left is the instructive half,
+because it is the failure mode this decision already names: between the
+release that added `AddQuery` and the one that captured it, adding,
+removing or repathing a declared read was a contract change `-error` could
+not see, while the report it printed looked complete. That is "fires
+sometimes" arriving by omission rather than by misclassification, and the
+lesson is that the facet list is not closed — a new *kind* of generated
+route is a new facet, and shipping one without it makes the check quieter
+rather than wrong, which is the harder failure to notice.
+
 ### The driver is a dependency
 
 The engine depended on the standard library alone, unwritten and
