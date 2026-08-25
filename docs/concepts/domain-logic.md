@@ -87,7 +87,7 @@ a library that believes it owns −1 copies.
 | Hook | Receives | Use for |
 |---|---|---|
 | `BeforeQuery` | `*Builder[T]` — the query itself | Scoping every read. The load-bearing one |
-| `BeforeCreate` | `*T` | Normalising, deriving, stamping an owner |
+| `BeforeCreate` | `*T`, and any [declared create input](../rest/README.md#a-body-that-carries-more-than-the-row) through the context | Normalising, deriving, stamping an owner, hashing a secret the request carried |
 | `AfterCreate` | `*T`, defaults populated | Validation, and turning an insert into a transition |
 | `BeforeUpdate` | `*Update[T]` | Forcing a column, narrowing affected rows |
 | `BeforeDelete` | `*Delete[T]` | Narrowing, or refusing |

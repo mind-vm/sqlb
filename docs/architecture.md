@@ -3912,3 +3912,61 @@ resource rather than fixed; or if the stream acquires an authorization
 obligation the way tenant scoping has one, since the opener seam is where a
 token would have to be threaded and it is currently a callback rather than
 something a mount can check.
+
+### A create body may carry what the row does not
+
+A create body is derived from the columns, and the request that creates a thing
+with a secret in it carries one thing that is not a column: the plaintext. The
+column stores a digest. Before this there was nowhere to put the property, and
+the two available shapes each lied to somebody
+([#309](https://github.com/jryannel/sqlb/issues/309)).
+
+Marking the digest column `WriteOnly` puts it in the body under its own name,
+so the client sends a plaintext PIN in a property called `pin_hash` — and
+[the wire is the column name](#the-wire-is-the-column-name) means there is no
+per-field override to rename it, deliberately. Renaming the column to `pin`
+fixes the wire and moves the lie into the DDL, where a `VARCHAR(255)` called
+`pin` holds a bcrypt digest and every reader of the schema concludes it is
+plaintext. A collection action can declare an honest body and answers 204, so
+the client does not get the row it created. The honest option left was to
+hand-write the create, and with it the DTO, the route, the OpenAPI operation
+and all four clients — which is exactly the door
+[hooks as domain seam](#hooks-as-domain-seam) exists to close, arguing that a
+generated create *is* the placement for the rule.
+
+So `schema.REST.CreateInput` declares those properties, in the field
+vocabulary [a declared action's body](#declared-actions) already uses.
+The body is still the columns; this is the part of it that is not.
+
+**The value reaches the hook through the context**, as `sqlb.CreateInputFrom`,
+which is [the principal seam](#a-verifier-composes-with-the-principal-seam) applied a
+second time
+and for the same reason: `BeforeCreate` is handed the row and the context and
+nothing else, and that is what lets one registration cover every insert of the
+model. Widening the hook signature was the alternative and it is the one that
+does not compose — the input's type is per-resource and `Hooks[T]` is generic
+over the model, so a typed second parameter cannot be spelled, and an untyped
+one would hand every existing hook a `map[string]any` it never asked for. The
+cost is that a hook has to fail closed when nothing was supplied, which the
+doc comment says in the imperative: every insert runs the hook, including one
+from a job that never saw a request, and treating the absence as "nothing to
+do" writes the row with an empty digest in the column that authenticates.
+
+**A property is spelled as declared**, not through `WireCase`. The case is a
+declared function of a *column* name, and this is not a column — an action's
+body has always worked this way, and the two disagreeing would be a second rule
+for one vocabulary. What the schema does refuse is a property whose name is a
+column's, in either spelling, since the two share one JSON object and the
+generated body would carry both under one tag.
+
+**The exit carries it too.** An ejected package has no hooks, so the seam is a
+function field — `Derive`, beside the `Confine` and `Assign` that
+[declared scope is required](#declared-scope-is-required) already put there —
+and `Register` refuses a nil one rather than serving a create that silently
+drops the property. That is the same shape [the exit is generated](#the-exit-is-generated)
+uses everywhere: keep the property, drop the machinery.
+
+Revisit if the same argument arrives for a patch body. It has not: the cases
+collected so far — a password at signup, an invite's token, a list of ids
+resolved into rows of another table — are all creates, and a second declaration
+before there is a second case would be a vocabulary invented for symmetry.

@@ -251,6 +251,7 @@ func diffResource(o, n resource, add func(Break)) {
 		diffField(n.path, o.fields[name], nv, add)
 	}
 
+	diffBodyProps(n.path, FacetCreate, "", o.createInput, n.createInput, add)
 	diffActions(n.path, o.actions, n.actions, add)
 }
 
@@ -570,6 +571,15 @@ type ResourceSnap struct {
 	// existed has none, which reads correctly: every verb in the new schema is
 	// an addition.
 	Actions []ActionSnap `json:"actions,omitempty"`
+	// CreateInput is the create body's declared properties that are not columns
+	// (#309). They are part of the contract for the reason the columns are: a
+	// deployed client sends this body, and adding a required property to it
+	// fails every request that client already makes.
+	//
+	// Recorded under its own key rather than as more fields, because it is not
+	// a column and nothing else about the field list is true of it — it is not
+	// in a response, not filterable, and not something a rename could reach.
+	CreateInput []BodyPropSnap `json:"create_input,omitempty"`
 }
 
 // FieldSnap is one column's contract-relevant shape. Storage-only properties —
@@ -638,6 +648,9 @@ func Capture(r *schema.Registry) Snapshot {
 			if rest.Ops.Has(c.op) {
 				res.Ops = append(res.Ops, c.name)
 			}
+		}
+		if rest.Ops.Has(schema.OpCreate) {
+			res.CreateInput = captureBodyProps(rest.CreateInput)
 		}
 		for _, f := range t.Fields() {
 			d := f.Desc()
@@ -718,6 +731,9 @@ type resource struct {
 	// separate comparison form: the snapshot shape is already exactly what the
 	// diff reads.
 	actions map[string]ActionSnap
+	// createInput is the create body's non-column half, in declaration order —
+	// the snapshot's own shape, for the reason actions keeps it.
+	createInput []BodyPropSnap
 }
 
 // fieldView is the contract-relevant view of one column. It carries only what
@@ -802,6 +818,7 @@ func index(s Snapshot) map[string]resource {
 		for _, as := range rs.Actions {
 			res.actions[as.Name] = as
 		}
+		res.createInput = rs.CreateInput
 		out[rs.Path] = res
 	}
 	return out

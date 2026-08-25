@@ -83,6 +83,27 @@ type CreateBody[T any] interface {
 	Row() (*T, error)
 }
 
+// CreateInput is the optional half of [CreateBody]: a create body carrying
+// properties that are not columns reports them here.
+//
+// A body type implementing it is type-asserted for, the way every optional
+// interface in this project is, so nothing changes for the bodies that do not.
+// Codegen implements it on the body of a resource whose schema.REST declares
+// CreateInput; a hand-written body implements it to reach the same seam without
+// the DSL.
+//
+// What the handler does with the value is put it in the context, where
+// [sqlb.CreateInputFrom] hands it to the BeforeCreate hook — which is where a
+// plaintext PIN becomes a bcrypt digest, or a list of company ids becomes rows
+// of another table. It never reaches the row: Row builds that, and a property
+// that is not a column has no field on it to reach (#309).
+type CreateInput interface {
+	// Input returns the declared non-column properties, as whatever type the
+	// body chose to carry them in. A generated body returns the generated
+	// Create<Model>Input struct.
+	Input() any
+}
+
 // UpdateBody is what a PATCH body must be able to do: report which columns the
 // request actually named.
 //

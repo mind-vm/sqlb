@@ -497,6 +497,14 @@ func tsBodyTypes(b *bytes.Buffer, t *schema.TableDef, typeName string, wire sche
 			tsDoc(b, "  ", d.Comment)
 			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(wire.WireName(d.Name)), tsOptional(optionalOnCreate(d)), tsType(typeName, d))
 		}
+		// The declared inputs that are not columns, spelled as declared: a
+		// property is not a column, so there is no column name for the wire case
+		// to be a function of (#309). Same rule an action's body follows.
+		for _, f := range createInput(t) {
+			d := f.Desc()
+			tsDoc(b, "  ", d.Comment)
+			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(d.Name), tsOptional(optionalOnCreate(d)), tsType(typeName, d))
+		}
 		fmt.Fprintln(b, "}")
 	}
 

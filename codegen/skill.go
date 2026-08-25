@@ -318,6 +318,18 @@ func skillResource(b *strings.Builder, t schema.TableManifest) {
 			"it costs the same at any depth.\n\n", r.MaxOffset)
 	}
 
+	// A property that is not a column is invisible from everywhere else in this
+	// document: it is absent from the column table, from the filter vocabulary
+	// and from every response. So a caller assembling a POST out of the columns
+	// assembles a body the server refuses, and this is the only line that says
+	// otherwise (#309).
+	if len(r.CreateInput) > 0 {
+		fmt.Fprintf(b, "**`POST %s` carries more than the columns.** %s "+
+			"Not a column, not stored as sent, and absent from every response — the server "+
+			"derives what it stores from it. A create body assembled from the column table "+
+			"alone is refused.\n\n", r.Path, skillCreateInput(r.CreateInput))
+	}
+
 	skillEnums(b, t)
 
 	if len(r.Actions) > 0 {
@@ -352,6 +364,39 @@ func skillResource(b *strings.Builder, t schema.TableManifest) {
 		}
 		b.WriteString("\n")
 	}
+}
+
+// skillCreateInput names the declared non-column properties of a create body,
+// with the fact a caller needs about each: its type, and whether the request
+// may leave it out.
+func skillCreateInput(props []schema.BodyProperty) string {
+	parts := make([]string, 0, len(props))
+	for _, p := range props {
+		required := ", required"
+		if p.Nullable {
+			required = ", optional"
+		}
+		values := ""
+		if len(p.Enum) > 0 {
+			values = fmt.Sprintf(", one of %s", joinCode(p.Enum, " "))
+		}
+		parts = append(parts, fmt.Sprintf("`%s` (%s%s%s)", p.Name, p.Type, values, required))
+	}
+	return "It also takes " + joinWords(parts) + "."
+}
+
+// joinWords renders a list the way a sentence does: commas, and an "and"
+// before the last.
+func joinWords(parts []string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	case 2:
+		return parts[0] + " and " + parts[1]
+	}
+	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
 }
 
 // skillEnums names the values a constrained column accepts.

@@ -302,6 +302,55 @@ whole difficulty of PATCH, so the body reports its change set explicitly. An
 empty change set is a 400 rather than a no-op update, because it almost always
 means the client sent the wrong shape. Immutable columns are absent entirely.
 
+### A body that carries more than the row
+
+Some creates take something that is not a column. A signup carries a password
+and the table stores a digest; an invite carries a token that is hashed and
+never persisted; a broadcast carries the ids of the companies it goes to, which
+become rows of another table. `REST.CreateInput` declares those properties:
+
+```go
+Children.Expose(schema.REST{
+    Ops: schema.OpCreate | schema.Reads,
+    CreateInput: schema.Body(
+        schema.Varchar("pin", 4).Comment("Four digits. Hashed on the way in; never stored as sent."),
+    ),
+})
+```
+
+The body is still the columns; this is the part of it that is not one. It is
+declared in the same vocabulary an [action's body](actions.md) uses, so it
+reaches the OpenAPI document, both generated clients and the CLI — and it
+reaches the hook, which is where the derivation belongs:
+
+```go
+sqlb.On[Child](reg).BeforeCreate(func(ctx context.Context, c *models.Child) error {
+    in, ok := sqlb.CreateInputFrom[models.CreateChildInput](ctx)
+    if !ok {
+        return errors.New("children: a child is created with a PIN")
+    }
+    hash, err := bcrypt.GenerateFromPassword([]byte(in.Pin), bcrypt.DefaultCost)
+    if err != nil {
+        return err
+    }
+    c.PinHash = string(hash)
+    return nil
+})
+```
+
+Three things about that `!ok`. It is not defensive: `BeforeCreate` runs for
+**every** insert of the model, including one from a seeding command or a
+background job that never saw a request, and only a request carries a body. It
+must fail closed — a hook that shrugs writes the row with an empty digest in the
+column that authenticates. And a caller outside the REST path that wants the
+same derivation supplies the input itself, with `sqlb.WithCreateInput`.
+
+The property is an input and nothing else: `Row()` does not write it, no
+response carries it, and no read can name it. It is spelled on the wire exactly
+as declared — `WireCase` is a function of a *column* name, and this is not a
+column — and the schema refuses a property that takes a column's name in either
+spelling, since the two would be one key in one JSON object.
+
 ## Writes run in a transaction
 
 `rest.Resource` wraps every generated create, update and delete in one, which is

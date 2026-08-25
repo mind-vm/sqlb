@@ -63,7 +63,13 @@ var User = schema.Table("users",
 	// the first workspace and hashes the password. Generated CRUD would let a
 	// caller write password_hash directly — except that it cannot, because the
 	// column is Hidden, which would instead produce an account nobody can log
-	// in to. Either way the create belongs in a hand-written handler.
+	// in to.
+	//
+	// Half of that is now expressible: schema.REST's CreateInput would declare
+	// a `password` property that is not a column, and a BeforeCreate hook would
+	// hash it into password_hash (#309). What still keeps this one hand-written
+	// is the other half — registering also makes the first workspace and its
+	// membership, and the response is a session rather than a row.
 	Expose(schema.REST{Ops: schema.OpRead | schema.OpList, MaxPageSize: 100})
 
 // Profile is a user's extended profile, split into a table of its own rather

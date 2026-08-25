@@ -137,13 +137,20 @@ func actionBodyType(d *schema.FieldDesc) string {
 // coincidence rather than a declaration.
 func actionBodyImports(imports map[string]bool, defs []actionDef) {
 	for _, d := range defs {
-		for _, f := range d.action.Body {
-			switch goType := f.Desc().GoType(); {
-			case strings.Contains(goType, "time.Time"):
-				imports["time"] = true
-			case strings.Contains(goType, "json.RawMessage"):
-				imports["encoding/json"] = true
-			}
+		bodyPropImports(imports, d.action.Body)
+	}
+}
+
+// bodyPropImports records the packages one declared body names — an action's,
+// or the non-column half of a create's. Both are the same vocabulary and the
+// same rule about overrides, so both count their imports here.
+func bodyPropImports(imports map[string]bool, body []*schema.Field) {
+	for _, f := range body {
+		switch goType := f.Desc().GoType(); {
+		case strings.Contains(goType, "time.Time"):
+			imports["time"] = true
+		case strings.Contains(goType, "json.RawMessage"):
+			imports["encoding/json"] = true
 		}
 	}
 }
