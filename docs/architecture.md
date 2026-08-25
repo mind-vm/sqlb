@@ -2664,8 +2664,11 @@ for it: whether `Out` needs a declaration in the field vocabulary the way
 a body does, or stays outside the schema's reach at the cost of the
 TypeScript client typing it `unknown`; whether `Writes` still persists
 from the mutated `*T` when `do` also returns a separate `Out`, or the two
-become one value; and whether a widened action is still one surface next
-to CRUD or the first crack in that boundary.
+become one value; whether the widening reaches `sqlb.json`,
+`restcompat` and the TypeScript, Dart and CLI emitters the way a
+declared body and write set already do, or ships Go-only first as
+`Query`'s own `Out` still does; and whether a widened action is still
+one surface next to CRUD or the first crack in that boundary.
 [#218](https://github.com/jryannel/sqlb/issues/218) tracks the
 implementation.
 
