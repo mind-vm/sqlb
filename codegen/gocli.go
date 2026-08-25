@@ -709,7 +709,7 @@ func cliWriteCommand(b *bytes.Buffer, r cliResource, kind bodyKind) {
 		// the two write different SQL. This is the command-line form of the
 		// presence map the generated patch body keeps for the same reason.
 		fmt.Fprintf(b, "\t\t\tif err := setNullFields(body, setNull, %s); err != nil {\n\t\t\t\treturn err\n\t\t\t}\n",
-			goSliceLiteral(nullable))
+			cliNullableLiteral(nullable, r.wire))
 	}
 	if kind == forUpdate {
 		fmt.Fprintln(b, "\t\t\tif len(body) == 0 {")
@@ -925,6 +925,18 @@ func cliBodyAssignment(b *bytes.Buffer, d *schema.FieldDesc, wire schema.WireCas
 		fmt.Fprintf(b, "\t\t\t\tbody[%q] = %s\n", wire.WireName(d.Name), v)
 	}
 	fmt.Fprintln(b, "\t\t\t}")
+}
+
+// cliNullableLiteral is the nullable columns as setNullFields wants them: the
+// flag's spelling, which a documented command line does not lose when the
+// schema declares a WireCase, beside the body's, which is the only one the
+// server will accept.
+func cliNullableLiteral(columns []string, wire schema.WireCase) string {
+	pairs := make([]string, len(columns))
+	for i, c := range columns {
+		pairs[i] = fmt.Sprintf("{%q, %q}", c, wire.WireName(c))
+	}
+	return "[]nullableColumn{" + strings.Join(pairs, ", ") + "}"
 }
 
 // cliNullableNames is the columns a patch may set to null.
