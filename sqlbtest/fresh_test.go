@@ -7,7 +7,9 @@ package sqlbtest
 
 import (
 	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -76,24 +78,111 @@ func TestTheDSNIsRedactedBeforeItIsReported(t *testing.T) {
 // truncate it, and different every time — the last because `go test ./...` runs
 // package binaries concurrently, and two packages with a TestCreate each would
 // otherwise fight over one database.
+//
+// Ten thousand calls rather than two, because two is a coin flip. The generator
+// this replaced derived its suffix from the clock, and two calls differed on
+// most runs and not on others; a guard that fails one run in ten is noise. On a
+// host whose clock advances in microseconds this loop produced seven thousand
+// duplicates.
 func TestTheDatabaseNameIsLegalAndUnique(t *testing.T) {
-	first := databaseName(t)
-	second := databaseName(t)
-
-	if first == second {
-		t.Errorf("two calls produced %q twice; concurrent packages would collide", first)
-	}
-	for _, name := range []string{first, second} {
+	const calls = 10000
+	seen := make(map[string]bool, calls)
+	for range calls {
+		name := databaseName(t)
+		if seen[name] {
+			t.Fatalf("%q came back twice in %d calls; concurrent packages would collide", name, calls)
+		}
+		seen[name] = true
 		if len(name) > 63 {
-			t.Errorf("%q is longer than Postgres keeps (63 bytes)", name)
+			t.Fatalf("%q is longer than Postgres keeps (63 bytes)", name)
 		}
 		if name != strings.ToLower(name) {
-			t.Errorf("%q is not lower case, so it would need quoting to be found again", name)
+			t.Fatalf("%q is not lower case, so it would need quoting to be found again", name)
 		}
 		if strings.ContainsAny(name, `"' /\`+"`") {
-			t.Errorf("%q carries something that has no business in an identifier", name)
+			t.Fatalf("%q carries something that has no business in an identifier", name)
 		}
 	}
+}
+
+// The loop above catches a clock too coarse to separate two calls, but only on
+// a host whose clock is coarse; this one holds on every host, because it says
+// what the suffix is made of rather than how often it happens to repeat.
+//
+// Consecutive names differ by exactly one, in a counter this package
+// increments — the tag beside it identifies the process and does not move. The
+// generator this replaced put `time.Now().UnixNano() % 1e9` there, where the
+// difference between two calls is an elapsed-nanosecond count: arbitrary on a
+// fine clock, zero on a coarse one, and one only by accident.
+func TestTheDatabaseNameCountsRatherThanReadsAClock(t *testing.T) {
+	firstTag, firstSeq := splitName(t, databaseName(t))
+	secondTag, secondSeq := splitName(t, databaseName(t))
+
+	if firstTag != secondTag {
+		t.Errorf("the process tag moved between two calls (%q then %q); it identifies the process, not the call", firstTag, secondTag)
+	}
+	if secondSeq-firstSeq != 1 {
+		t.Errorf("the counter went %d to %d; a suffix that jumps is a clock reading, and a clock can repeat", firstSeq, secondSeq)
+	}
+}
+
+// Two packages are two processes, and two processes have to disagree without
+// coordinating. The tag is the only part that can carry that, so it is the only
+// part this asserts about — a counter that starts at one in both processes is
+// exactly the situation the tag exists for.
+func TestTwoProcessesGetDifferentTags(t *testing.T) {
+	// newProcessTag is what runs once at start-up; calling it twice stands in
+	// for the second process.
+	first, second := newProcessTag(), newProcessTag()
+	if first == second {
+		t.Errorf("two processes would both be %q, so both would build the same database", first)
+	}
+}
+
+// The counter is read and incremented from whatever goroutine calls Fresh, and
+// t.Parallel means that is several at once. Run under -race, which the gate
+// does.
+func TestConcurrentCallersGetDistinctNames(t *testing.T) {
+	const goroutines, each = 16, 500
+
+	names := make(chan string, goroutines*each)
+	var wg sync.WaitGroup
+	for range goroutines {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range each {
+				names <- databaseName(t)
+			}
+		}()
+	}
+	wg.Wait()
+	close(names)
+
+	seen := make(map[string]bool, goroutines*each)
+	for name := range names {
+		if seen[name] {
+			t.Fatalf("%q came back twice across %d goroutines", name, goroutines)
+		}
+		seen[name] = true
+	}
+}
+
+// splitName returns the process tag and the counter off the end of a generated
+// name, failing the test when the shape is not the one the guards above are
+// written against.
+func splitName(t *testing.T, name string) (tag string, seq uint64) {
+	t.Helper()
+	parts := strings.Split(name, "_")
+	if len(parts) < 3 {
+		t.Fatalf("%q has no _<tag>_<counter> on the end", name)
+	}
+	tag = parts[len(parts)-2]
+	seq, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
+	if err != nil {
+		t.Fatalf("%q does not end in a counter: %v", name, err)
+	}
+	return tag, seq
 }
 
 // A long subtest name is the case the truncation exists for: two of them
