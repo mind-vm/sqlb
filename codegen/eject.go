@@ -45,9 +45,12 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/scanner"
+	"go/token"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/jryannel/sqlb/migrate"
@@ -238,19 +241,7 @@ func ejectDDL(opts EjectOptions) ([]byte, error) {
 // `json` tags stay, because they are the wire format the clients already speak.
 // The `sqlb` tags go, because there is nothing left to read them.
 func ejectModels(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
-	imports := map[string]bool{}
-	for _, t := range tables {
-		for _, f := range t.Fields() {
-			switch ejectGoType(f.Desc()) {
-			case "time.Time", "*time.Time", "[]time.Time":
-				imports["time"] = true
-			case "json.RawMessage", "*json.RawMessage":
-				imports["encoding/json"] = true
-			}
-		}
-	}
-
-	b := ejectHeader(opts.pkg(), sortedSet(imports))
+	b := new(bytes.Buffer)
 	fmt.Fprintln(b, `
 // The rows. These are the structs the generated models were, with the sqlb tags
 // removed: nothing reads them any more. Relations are gone with them — ?expand
@@ -279,7 +270,7 @@ func ejectModels(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 		}
 		fmt.Fprintln(b, "}")
 	}
-	return gofmt("models.go", b.Bytes())
+	return ejectFile("models.go", opts.pkg(), b)
 }
 
 // ejectGoType is the Go type a column takes in the ejected models.
@@ -299,6 +290,85 @@ func ejectGoType(d *schema.FieldDesc) string {
 		return "string"
 	}
 	return d.GoType()
+}
+
+// ejectFile assembles one emitted Go file: the body, and then a header whose
+// import block names the packages the body turned out to use.
+//
+// The order is what makes it correct. An import set decided before the body is
+// written is a set of predictions, and the condition that puts a package in one
+// of these files is never the condition that is convenient to state up front —
+// `fmt` reaches handlers.go only through the obligation refusals, `errors` only
+// through the by-id reads, `encoding/json` only through the request bodies, and
+// `pgx` reaches store.go only through a table that has a primary key to look a
+// row up by. Each of those was restated at the top of its emitter and kept in
+// step by hand, until it was not: a schema whose exposed tables declared
+// neither Scoped nor SoftDelete emitted a `fmt` that nothing used, which is an
+// exit that does not compile. Asking the finished text closes that off for
+// every package at once, including the next one a handler grows a use of.
+func ejectFile(name, pkg string, body *bytes.Buffer) ([]byte, error) {
+	b := ejectHeader(pkg, ejectImports(body.String()))
+	b.Write(body.Bytes())
+	return gofmt(name, b.Bytes())
+}
+
+// ejectImportable maps an import path to the identifier a use of it begins
+// with, for every package the emitters can reach for.
+//
+// Written out rather than taken from the last element of the path, because two
+// of these do not agree with it: encoding/json is json, and pgx/v5 is pgx. A
+// package missing from this map is simply never imported, which is why adding
+// one is part of using it.
+var ejectImportable = map[string]string{
+	"context":                 "context",
+	"encoding/json":           "json",
+	"errors":                  "errors",
+	"fmt":                     "fmt",
+	"net/http":                "http",
+	"strings":                 "strings",
+	"time":                    "time",
+	"github.com/jackc/pgx/v5": "pgx",
+}
+
+// ejectImports are the packages an emitted body names, sorted.
+//
+// Over tokens rather than over the text, because a package named in a comment
+// is prose and not a use — and these files are more comment than code, with a
+// schema's own comments copied into them verbatim. A column commented "the API
+// used to carry a time.Time here" would import time by a substring search, and
+// put the unused import back by another route; TestEjectedGoCompiles keeps a
+// case for exactly that. go/scanner is lexical, so it needs no import block to
+// run on the fragment it is about to write one for, and it drops the comments
+// before this sees them.
+func ejectImports(src string) []string {
+	used := map[string]bool{}
+	var sc scanner.Scanner
+	fset := token.NewFileSet()
+	sc.Init(fset.AddFile("", fset.Base(), len(src)), []byte(src), nil, 0)
+	prev := ""
+	for {
+		_, tok, lit := sc.Scan()
+		if tok == token.EOF {
+			break
+		}
+		if tok == token.PERIOD && prev != "" {
+			used[prev] = true
+		}
+		if tok == token.IDENT {
+			prev = lit
+		} else {
+			prev = ""
+		}
+	}
+
+	out := make([]string, 0, len(ejectImportable))
+	for path, qualifier := range ejectImportable {
+		if used[qualifier] {
+			out = append(out, path)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ejectHeader is the file banner. It says the file was generated *and* that

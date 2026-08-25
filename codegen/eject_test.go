@@ -253,3 +253,152 @@ func TestEjectRefusesAnInvalidPackageName(t *testing.T) {
 		t.Errorf("want a refusal naming the option to set, got %v", err)
 	}
 }
+
+// The exit's read surface is spelled the way the clients speak, not the way
+// Postgres does.
+//
+// The column table is the one place both names live, and everything downstream
+// of it picks one: ?createdAt is what a request says, "created_at" is what the
+// WHERE and the ORDER BY say, and a rejection lists the spellings that would
+// have been accepted rather than the database's. Before this, the exit answered
+// `?createdAt=eq.x` with a 400 whose allowed list named `created_at` — a
+// grammar no generated client here has ever sent.
+func TestEjectReadSurfaceSpellsTheWire(t *testing.T) {
+	files := eject(t, wireFixture(schema.Camel))
+	store, support := files["store.go"], files["support.go"]
+
+	// Both names, on the one row that has two.
+	if !contains(store, `{Name: "created_at", Wire: "createdAt", Filterable: true, Sortable: true, Searchable: false, Parse: ParseTime}`) {
+		t.Errorf("the column table does not carry both spellings:\n%s", store)
+	}
+	// And only one where they agree: a Wire beside an identical Name is noise
+	// in a file meant to be read, and Column.wire falls back to Name.
+	if contains(store, `Wire: "title"`) {
+		t.Errorf("a column whose two names are the same emitted both:\n%s", store)
+	}
+
+	// The request side matches and reports by wire.
+	for _, want := range []string{
+		"func findColumn(cols []Column, wire string) (Column, bool) {",
+		"if c.wire() == wire {",
+		`wireNames(cols, func(c Column) bool { return c.Filterable })`,
+		`wireNames(cols, func(c Column) bool { return c.Sortable })`,
+		`badRequest("query."+col.wire()`,
+	} {
+		if !contains(support, want) {
+			t.Errorf("support.go does not match or report by wire, missing %q", want)
+		}
+	}
+	// And the SQL side is still built from the column.
+	for _, want := range []string{
+		`Condition{Column: col.Name, Op: OpEq, Value: v}`,
+		`Order{Column: col.Name, Desc: desc}`,
+		// ?search fans out into predicates nobody is shown, so it stays on the
+		// column names.
+		`searchable := columnNames(cols, func(c Column) bool { return c.Searchable })`,
+		`for _, name := range searchable {`,
+		// A path segment is not a query-string key, so the primary key is
+		// looked up by the name the schema emitted.
+		"func findByColumn(cols []Column, name string) (Column, bool) {",
+		"col, ok := findByColumn(cols, pk)",
+	} {
+		if !contains(support, want) {
+			t.Errorf("support.go stopped building SQL from the column name, missing %q", want)
+		}
+	}
+
+	// The write half is TestEjectBodyDecoderSpellsTheWire's, and the two are
+	// halves of one claim: an exit that matched ?createdAt but not
+	// {"createdAt": …} would accept two grammars at once. Asserted there rather
+	// than again here, so the decoder's shape is described in one place.
+
+	// The README documents the grammar, so it has to say which spelling it is.
+	if !strings.Contains(files["README.md"], "column table carries both names") {
+		t.Errorf("the README does not say which spelling a request uses:\n%s", files["README.md"])
+	}
+}
+
+// Verbatim is the default, and it emits one name because there is only one.
+func TestEjectUnderVerbatimNamesAColumnOnce(t *testing.T) {
+	files := eject(t, wireFixture(schema.Verbatim))
+
+	if !contains(files["store.go"], `{Name: "created_at", Filterable: true`) {
+		t.Errorf("the default gained a second spelling:\n%s", files["store.go"])
+	}
+	if strings.Contains(files["store.go"], "Wire:") {
+		t.Error("Verbatim emitted a Wire field, which by definition says nothing")
+	}
+}
+
+// The ordinary shapes of the exit have to compile.
+//
+// codegen runs format.Source over every emitted file, which parses without
+// type-checking, so an import nothing uses is valid Go *source* and reaches the
+// adopter's first build intact. handlers.go and store.go each declared a fixed
+// import set at the top of their emitter while the uses of four of those
+// packages were conditions scattered through the templates below, and a schema
+// that met none of them emitted a `fmt` nothing used.
+//
+// The exit was already compiled here — by TestEjectedSingletonCompiles, whose
+// helper this borrows — but only in shapes that could not show it. A singleton
+// cannot be addressed without a Confine hook, so every one of those fixtures
+// carries an obligation and so emits the fmt.Errorf that refuses it; and
+// `example/blog`, the one committed exit, has a `posts` table that is both
+// Scoped and SoftDelete. The case that was broken is the plain one: an exposed
+// table declaring neither.
+//
+// This test names nothing. It ejects each shape and lets the compiler decide.
+// The cases are the conditions the import set used to predict, one apiece.
+func TestEjectedGoCompiles(t *testing.T) {
+	plain := func() *schema.Registry {
+		// No Scoped, no SoftDelete: nothing needs a hook, so nothing calls
+		// fmt.Errorf. This is the case that did not compile.
+		r := schema.NewRegistry()
+		r.Table("articles",
+			schema.UUIDv7("id").PrimaryKey(),
+			schema.Text("title").Searchable().Sortable(),
+			schema.Timestamp("created_at").Filterable().Sortable(),
+		).Expose(schema.REST{Path: "/articles", Ops: schema.CRUD | schema.OpList})
+		return r
+	}
+	listOnly := func() *schema.Registry {
+		// No by-id read, so no errors.Is; no body, so no encoding/json.
+		r := schema.NewRegistry()
+		r.Table("events",
+			schema.UUIDv7("id").PrimaryKey(),
+			schema.Text("kind").Filterable(),
+		).Expose(schema.REST{Path: "/events", Ops: schema.OpList})
+		return r
+	}
+	noKey := func() *schema.Registry {
+		// No primary key and nothing exposed: store.go gets a list and a count
+		// and neither a Get nor an Update, which is what used to name pgx and
+		// errors there. No handlers.go at all.
+		r := schema.NewRegistry()
+		r.Table("samples", schema.Text("label"), schema.Float("value"))
+		return r
+	}
+	prose := func() *schema.Registry {
+		// A comment that names a package is prose, not a use — and these files
+		// are more comment than code, so it is worth one case of its own. A
+		// column comment reaches models.go verbatim, and reading the emitted
+		// *text* for "time." rather than its tokens imports a package this
+		// schema has no timestamp to need.
+		r := schema.NewRegistry()
+		r.Table("notes",
+			schema.UUIDv7("id").PrimaryKey(),
+			schema.Text("body").Comment("free text; the API used to carry a time.Time here"),
+		)
+		return r
+	}
+	camel := func() *schema.Registry { return wireFixture(schema.Camel) }
+
+	ejectCompiles(t, map[string]*schema.Registry{
+		"plain":    plain(),
+		"listonly": listOnly(),
+		"nokey":    noKey(),
+		"prose":    prose(),
+		"camel":    camel(),
+		"obliged":  ejectFixture(),
+	})
+}

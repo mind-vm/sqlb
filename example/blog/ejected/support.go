@@ -59,8 +59,20 @@ var (
 // Column is what a request may name, and for what. The capabilities are the
 // ones the schema declared: a column that never opted into filtering is not
 // filterable here either, and the rejection says which columns are.
+//
+// It carries two spellings because a request and a statement do not have to
+// agree on one. The schema's WireCase decides how a column is named on the
+// wire, and under a declared case those two names differ — so a request says
+// ?createdAt=gte.… while the SQL still has to say "created_at". Matching a
+// parameter, listing what would have been accepted and naming a rejected one
+// are Wire's jobs; everything that reaches Postgres is built from Name.
 type Column struct {
-	Name       string
+	// Name is the column, and is the only spelling that reaches SQL.
+	Name string
+	// Wire is how a request spells it: the query-string key, a ?sort term, the
+	// name in a rejection's allowed list. Empty when the schema left the two
+	// the same, which is the default — see wire.
+	Wire       string
 	Filterable bool
 	Sortable   bool
 	Searchable bool
@@ -68,7 +80,30 @@ type Column struct {
 	Parse func(string) (any, error)
 }
 
-func findColumn(cols []Column, name string) (Column, bool) {
+// wire is the spelling a request uses. Reading it through a method rather than
+// the field is what lets the table above omit Wire for a column whose two names
+// are the same, which under the default WireCase is every column.
+func (c Column) wire() string {
+	if c.Wire != "" {
+		return c.Wire
+	}
+	return c.Name
+}
+
+// findColumn looks a column up by the name a request used.
+func findColumn(cols []Column, wire string) (Column, bool) {
+	for _, c := range cols {
+		if c.wire() == wire {
+			return c, true
+		}
+	}
+	return Column{}, false
+}
+
+// findByColumn looks a column up by its database name, which is what the
+// schema hands this file for a primary key — a path segment is not a
+// query-string key and has no wire spelling of its own.
+func findByColumn(cols []Column, name string) (Column, bool) {
 	for _, c := range cols {
 		if c.Name == name {
 			return c, true
@@ -77,6 +112,20 @@ func findColumn(cols []Column, name string) (Column, bool) {
 	return Column{}, false
 }
 
+// wireNames are the spellings a rejection lists, which are the spellings the
+// request that was rejected could have used.
+func wireNames(cols []Column, pick func(Column) bool) []string {
+	var out []string
+	for _, c := range cols {
+		if pick(c) {
+			out = append(out, c.wire())
+		}
+	}
+	return out
+}
+
+// columnNames are the database names, and are for building SQL rather than for
+// showing anyone.
 func columnNames(cols []Column, pick func(Column) bool) []string {
 	var out []string
 	for _, c := range cols {
@@ -416,7 +465,7 @@ func ParseList(values url.Values, cols []Column, lim Limits) (ListRequest, error
 		col, known := findColumn(cols, name)
 		if !known || !col.Filterable {
 			return out, badRequest("query."+name, "unknown or unfilterable column",
-				columnNames(cols, func(c Column) bool { return c.Filterable }))
+				wireNames(cols, func(c Column) bool { return c.Filterable }))
 		}
 		for _, value := range raw {
 			cond, err := parseCondition(col, value)
@@ -431,6 +480,8 @@ func ParseList(values url.Values, cols []Column, lim Limits) (ListRequest, error
 	}
 
 	if term := values.Get("search"); term != "" {
+		// Column names rather than wire names: this list is fanned out into a
+		// disjunction of predicates, and nothing here is shown to the caller.
 		searchable := columnNames(cols, func(c Column) bool { return c.Searchable })
 		if len(searchable) == 0 {
 			return out, badRequest("query.search", "no column here is searchable", nil)
@@ -463,7 +514,7 @@ func ParseList(values url.Values, cols []Column, lim Limits) (ListRequest, error
 			col, known := findColumn(cols, name)
 			if !known || !col.Sortable {
 				return out, badRequest("query.sort", "unknown or unsortable column "+name,
-					columnNames(cols, func(c Column) bool { return c.Sortable }))
+					wireNames(cols, func(c Column) bool { return c.Sortable }))
 			}
 			out.Query.Order = append(out.Query.Order, Order{Column: col.Name, Desc: desc})
 		}
@@ -519,6 +570,11 @@ func ParseList(values url.Values, cols []Column, lim Limits) (ListRequest, error
 }
 
 // parseCondition reads one `op.value` — or a bare value, which is equality.
+//
+// Every Condition it builds is addressed by col.Name and every rejection it
+// writes is located at col.wire(), which is the whole of the split: the
+// predicate goes to Postgres and the error goes back to whoever sent the
+// parameter.
 func parseCondition(col Column, raw string) (Condition, error) {
 	name, value, hasOp := strings.Cut(raw, ".")
 	spec, known := operators[name]
@@ -538,7 +594,7 @@ func parseCondition(col Column, raw string) (Condition, error) {
 		}
 		v, err := col.Parse(raw)
 		if err != nil {
-			return Condition{}, badRequest("query."+col.Name, err.Error(), nil)
+			return Condition{}, badRequest("query."+col.wire(), err.Error(), nil)
 		}
 		return Condition{Column: col.Name, Op: OpEq, Value: v}, nil
 	}
@@ -549,24 +605,24 @@ func parseCondition(col Column, raw string) (Condition, error) {
 	case 2:
 		lo, hi, ok := strings.Cut(value, ",")
 		if !ok {
-			return Condition{}, badRequest("query."+col.Name, "between takes two values separated by a comma", nil)
+			return Condition{}, badRequest("query."+col.wire(), "between takes two values separated by a comma", nil)
 		}
 		if err := withinLength(col, lo, hi); err != nil {
 			return Condition{}, err
 		}
 		loV, err := col.Parse(lo)
 		if err != nil {
-			return Condition{}, badRequest("query."+col.Name, err.Error(), nil)
+			return Condition{}, badRequest("query."+col.wire(), err.Error(), nil)
 		}
 		hiV, err := col.Parse(hi)
 		if err != nil {
-			return Condition{}, badRequest("query."+col.Name, err.Error(), nil)
+			return Condition{}, badRequest("query."+col.wire(), err.Error(), nil)
 		}
 		return Condition{Column: col.Name, Op: spec.sql, Value: loV, Value2: hiV}, nil
 	case -1:
 		parts := strings.Split(value, ",")
 		if len(parts) > maxListValues {
-			return Condition{}, badRequest("query."+col.Name,
+			return Condition{}, badRequest("query."+col.wire(),
 				fmt.Sprintf("operator %q was given %d values, the limit is %d", name, len(parts), maxListValues), nil)
 		}
 		if err := withinLength(col, parts...); err != nil {
@@ -576,7 +632,7 @@ func parseCondition(col Column, raw string) (Condition, error) {
 		for _, part := range parts {
 			v, err := col.Parse(part)
 			if err != nil {
-				return Condition{}, badRequest("query."+col.Name, err.Error(), nil)
+				return Condition{}, badRequest("query."+col.wire(), err.Error(), nil)
 			}
 			vals = append(vals, v)
 		}
@@ -593,7 +649,7 @@ func parseCondition(col Column, raw string) (Condition, error) {
 		}
 		v, err := col.Parse(value)
 		if err != nil {
-			return Condition{}, badRequest("query."+col.Name, err.Error(), nil)
+			return Condition{}, badRequest("query."+col.wire(), err.Error(), nil)
 		}
 		return Condition{Column: col.Name, Op: spec.sql, Value: v}, nil
 	}
@@ -606,7 +662,7 @@ func parseCondition(col Column, raw string) (Condition, error) {
 func withinLength(col Column, values ...string) error {
 	for _, v := range values {
 		if len(v) > maxValueLength {
-			return badRequest("query."+col.Name,
+			return badRequest("query."+col.wire(),
 				fmt.Sprintf("value is %d bytes, the limit is %d", len(v), maxValueLength), nil)
 		}
 	}
@@ -619,9 +675,11 @@ func escapeLike(s string) string {
 	return r.Replace(s)
 }
 
-// parseID reads the {id} path segment with the primary key's own parser.
+// parseID reads the {id} path segment with the primary key's own parser. The
+// key is named by its column, because the handler was emitted from the schema
+// rather than parsed out of a query string.
 func parseID(raw string, cols []Column, pk string) (any, error) {
-	col, ok := findColumn(cols, pk)
+	col, ok := findByColumn(cols, pk)
 	if !ok {
 		return raw, nil
 	}

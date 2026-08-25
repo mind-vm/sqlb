@@ -22,23 +22,7 @@ import (
 
 // ejectHandlers emits the request bodies, the handlers and Register.
 func ejectHandlers(opts EjectOptions, exposed []*schema.TableDef) ([]byte, error) {
-	imports := map[string]bool{
-		"encoding/json": true,
-		"errors":        true,
-		"fmt":           true,
-		"net/http":      true,
-	}
-	for _, t := range exposed {
-		for _, kind := range []bodyKind{forCreate, forUpdate} {
-			for _, f := range bodyFields(t, kind) {
-				if strings.Contains(ejectGoType(f.Desc()), "time.Time") {
-					imports["time"] = true
-				}
-			}
-		}
-	}
-
-	b := ejectHeader(opts.pkg(), sortedSet(imports))
+	b := new(bytes.Buffer)
 	fmt.Fprintln(b, `
 // The endpoints. Every handler is a function you can read top to bottom: parse,
 // confine, run one statement, write JSON.`)
@@ -49,7 +33,7 @@ func ejectHandlers(opts EjectOptions, exposed []*schema.TableDef) ([]byte, error
 	for _, t := range exposed {
 		ejectResource(b, t, wire)
 	}
-	return gofmt("handlers.go", b.Bytes())
+	return ejectFile("handlers.go", opts.pkg(), b)
 }
 
 // resourceName is the Go name a resource is known by in Options.
