@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "resources": [
+    {
+      "path": "/lists",
+      "ops": [
+        "create",
+        "read",
+        "update",
+        "delete",
+        "list"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "has_default": true,
+          "read_only": true,
+          "filterable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "filterable": true,
+          "sortable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "has_default": true,
+          "read_only": true,
+          "sortable": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "has_default": true,
+          "read_only": true,
+          "sortable": true
+        }
+      ]
+    },
+    {
+      "path": "/tasks",
+      "ops": [
+        "create",
+        "read",
+        "update",
+        "delete",
+        "list"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "has_default": true,
+          "read_only": true,
+          "filterable": true
+        },
+        {
+          "name": "list_id",
+          "rel": "list",
+          "type": "uuid",
+          "filterable": true
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "filterable": true,
+          "sortable": true
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "enum": [
+            "todo",
+            "done"
+          ],
+          "has_default": true,
+          "filterable": true,
+          "sortable": true
+        },
+        {
+          "name": "due_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "filterable": true,
+          "sortable": true
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "read_only": true,
+          "filterable": true,
+          "sortable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "has_default": true,
+          "read_only": true,
+          "sortable": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "has_default": true,
+          "read_only": true,
+          "sortable": true
+        }
+      ],
+      "actions": [
+        {
+          "name": "clear-completed",
+          "path": "/tasks/clear-completed",
+          "body": [
+            {
+              "name": "list_id",
+              "type": "uuid",
+              "nullable": true
+            }
+          ]
+        },
+        {
+          "name": "complete",
+          "path": "/tasks/{id}/complete",
+          "body": [
+            {
+              "name": "note",
+              "type": "text",
+              "nullable": true
+            }
+          ],
+          "writes": [
+            "status",
+            "completed_at"
+          ]
+        }
+      ],
+      "queries": [
+        {
+          "name": "overdue",
+          "path": "/tasks/overdue",
+          "params": [
+            {
+              "name": "as_of",
+              "type": "timestamptz"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
