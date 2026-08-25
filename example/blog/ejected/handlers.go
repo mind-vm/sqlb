@@ -109,7 +109,7 @@ func decodeAuthorCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["org_id"] = *v
 		case "email":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -118,7 +118,7 @@ func decodeAuthorCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["email"] = *v
 		case "name":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -127,14 +127,14 @@ func decodeAuthorCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["name"] = *v
 		default:
 			return nil, badRequest("body."+name, "unknown property", allowed)
 		}
 	}
-	for _, name := range []string{"org_id", "email", "name"} {
-		if _, ok := out[name]; !ok {
-			return nil, badRequest("body."+name, "this property is required", allowed)
+	for _, want := range []struct{ column, wire string }{{"org_id", "org_id"}, {"email", "email"}, {"name", "name"}} {
+		if _, ok := out[want.column]; !ok {
+			return nil, badRequest("body."+want.wire, "this property is required", allowed)
 		}
 	}
 	return out, nil
@@ -160,7 +160,7 @@ func decodeAuthorPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["org_id"] = *v
 		case "email":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -169,7 +169,7 @@ func decodeAuthorPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["email"] = *v
 		case "name":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -178,7 +178,7 @@ func decodeAuthorPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["name"] = *v
 		default:
 			return nil, badRequest("body."+name, "unknown property", allowed)
 		}
@@ -454,7 +454,7 @@ func decodePostCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["org_id"] = *v
 		case "author_id":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -463,7 +463,7 @@ func decodePostCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["author_id"] = *v
 		case "title":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -472,7 +472,7 @@ func decodePostCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["title"] = *v
 		case "body":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -481,7 +481,7 @@ func decodePostCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["body"] = *v
 		case "status":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -490,20 +490,20 @@ func decodePostCreate(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["status"] = *v
 		case "published_at":
 			var v *time.Time
 			if err := json.Unmarshal(msg, &v); err != nil {
 				return nil, badRequest("body."+name, err.Error(), nil)
 			}
-			out[name] = v
+			out["published_at"] = v
 		default:
 			return nil, badRequest("body."+name, "unknown property", allowed)
 		}
 	}
-	for _, name := range []string{"org_id", "author_id", "title", "body"} {
-		if _, ok := out[name]; !ok {
-			return nil, badRequest("body."+name, "this property is required", allowed)
+	for _, want := range []struct{ column, wire string }{{"org_id", "org_id"}, {"author_id", "author_id"}, {"title", "title"}, {"body", "body"}} {
+		if _, ok := out[want.column]; !ok {
+			return nil, badRequest("body."+want.wire, "this property is required", allowed)
 		}
 	}
 	return out, nil
@@ -529,7 +529,7 @@ func decodePostPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["org_id"] = *v
 		case "author_id":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -538,7 +538,7 @@ func decodePostPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["author_id"] = *v
 		case "title":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -547,7 +547,7 @@ func decodePostPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["title"] = *v
 		case "body":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -556,7 +556,7 @@ func decodePostPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["body"] = *v
 		case "status":
 			var v *string
 			if err := json.Unmarshal(msg, &v); err != nil {
@@ -565,13 +565,13 @@ func decodePostPatch(data []byte) (map[string]any, error) {
 			if v == nil {
 				return nil, badRequest("body."+name, "this column is not nullable", nil)
 			}
-			out[name] = *v
+			out["status"] = *v
 		case "published_at":
 			var v *time.Time
 			if err := json.Unmarshal(msg, &v); err != nil {
 				return nil, badRequest("body."+name, err.Error(), nil)
 			}
-			out[name] = v
+			out["published_at"] = v
 		default:
 			return nil, badRequest("body."+name, "unknown property", allowed)
 		}

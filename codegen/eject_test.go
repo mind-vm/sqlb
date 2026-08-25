@@ -216,3 +216,91 @@ func TestEjectRefusesAnInvalidPackageName(t *testing.T) {
 		t.Errorf("want a refusal naming the option to set, got %v", err)
 	}
 }
+
+// The exit's read surface is spelled the way the clients speak, not the way
+// Postgres does.
+//
+// The column table is the one place both names live, and everything downstream
+// of it picks one: ?createdAt is what a request says, "created_at" is what the
+// WHERE and the ORDER BY say, and a rejection lists the spellings that would
+// have been accepted rather than the database's. Before this, the exit answered
+// `?createdAt=eq.x` with a 400 whose allowed list named `created_at` — a
+// grammar no generated client here has ever sent.
+func TestEjectReadSurfaceSpellsTheWire(t *testing.T) {
+	files := eject(t, wireFixture(schema.Camel))
+	store, support := files["store.go"], files["support.go"]
+
+	// Both names, on the one row that has two.
+	if !contains(store, `{Name: "created_at", Wire: "createdAt", Filterable: true, Sortable: true, Searchable: false, Parse: ParseTime}`) {
+		t.Errorf("the column table does not carry both spellings:\n%s", store)
+	}
+	// And only one where they agree: a Wire beside an identical Name is noise
+	// in a file meant to be read, and Column.wire falls back to Name.
+	if contains(store, `Wire: "title"`) {
+		t.Errorf("a column whose two names are the same emitted both:\n%s", store)
+	}
+
+	// The request side matches and reports by wire.
+	for _, want := range []string{
+		"func findColumn(cols []Column, wire string) (Column, bool) {",
+		"if c.wire() == wire {",
+		`wireNames(cols, func(c Column) bool { return c.Filterable })`,
+		`wireNames(cols, func(c Column) bool { return c.Sortable })`,
+		`badRequest("query."+col.wire()`,
+	} {
+		if !contains(support, want) {
+			t.Errorf("support.go does not match or report by wire, missing %q", want)
+		}
+	}
+	// And the SQL side is still built from the column.
+	for _, want := range []string{
+		`Condition{Column: col.Name, Op: OpEq, Value: v}`,
+		`Order{Column: col.Name, Desc: desc}`,
+		// ?search fans out into predicates nobody is shown, so it stays on the
+		// column names.
+		`searchable := columnNames(cols, func(c Column) bool { return c.Searchable })`,
+		`for _, name := range searchable {`,
+		// A path segment is not a query-string key, so the primary key is
+		// looked up by the name the schema emitted.
+		"func findByColumn(cols []Column, name string) (Column, bool) {",
+		"col, ok := findByColumn(cols, pk)",
+	} {
+		if !contains(support, want) {
+			t.Errorf("support.go stopped building SQL from the column name, missing %q", want)
+		}
+	}
+
+	// The write half agrees, or the exit would accept two grammars at once.
+	handlers := files["handlers.go"]
+	for _, want := range []string{
+		`allowed := []string{"title", "createdAt"}`,
+		`case "createdAt":`,
+		`out["created_at"] = *v`,
+		`[]struct{ column, wire string }{{"title", "title"}, {"created_at", "createdAt"}}`,
+		`badRequest("body."+want.wire, "this property is required", allowed)`,
+	} {
+		if !contains(handlers, want) {
+			t.Errorf("the body decoder does not spell the wire, missing %q:\n%s", want, handlers)
+		}
+	}
+
+	// The README documents the grammar, so it has to say which spelling it is.
+	if !strings.Contains(files["README.md"], "column table carries both names") {
+		t.Errorf("the README does not say which spelling a request uses:\n%s", files["README.md"])
+	}
+}
+
+// Verbatim is the default, and it emits one name because there is only one.
+func TestEjectUnderVerbatimNamesAColumnOnce(t *testing.T) {
+	files := eject(t, wireFixture(schema.Verbatim))
+
+	if !contains(files["store.go"], `{Name: "created_at", Filterable: true`) {
+		t.Errorf("the default gained a second spelling:\n%s", files["store.go"])
+	}
+	if strings.Contains(files["store.go"], "Wire:") {
+		t.Error("Verbatim emitted a Wire field, which by definition says nothing")
+	}
+	if !contains(files["handlers.go"], `allowed := []string{"title", "created_at"}`) {
+		t.Errorf("the default's body decoder moved:\n%s", files["handlers.go"])
+	}
+}

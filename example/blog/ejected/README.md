@@ -47,6 +47,11 @@ current — and drop that gate on the day you stop.
   `?column=value` shorthand for equality.
 - **`?sort`**, **`?search`** and **`?page`/`?per_page`**, with the ceilings the
   schema declared.
+- **The wire spelling.** Whatever the schema's `WireCase` decided is what a
+  request says here, in the query string as well as in the body. `store.go`'s
+  column table carries both names — `Wire` is what a request may use, `Name`
+  is what the SQL is built from — and it is the only place the two are related,
+  because nothing on the request path computes a spelling.
 - **Capabilities as refusals.** A column that never declared `Filterable` cannot
   be filtered here either, and the rejection lists the ones that can be. That is
   a security property, not a convenience: a column left out of the grammar

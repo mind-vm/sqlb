@@ -123,7 +123,7 @@ func ejectStore(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 		fmt.Fprintf(b, "\n// %sSelect is the projection: every column, in declaration order.\n", lower)
 		fmt.Fprintf(b, "const %sSelect = %q\n", lower, selectList(t))
 
-		ejectColumnTable(b, t, lower)
+		ejectColumnTable(b, t, lower, opts.Registry.Wire())
 		ejectScanner(b, t, typeName, lower)
 		ejectList(b, t, typeName, lower)
 		ejectGet(b, t, typeName, lower)
@@ -141,7 +141,13 @@ func ejectStore(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 // rejection names the ones that are. That is the one piece of sqlb's behaviour
 // this file reproduces rather than drops, because it is a security property —
 // a column excluded from the filter grammar cannot be probed through it.
-func ejectColumnTable(b *bytes.Buffer, t *schema.TableDef, lower string) {
+//
+// Each entry carries both of the column's names when the schema's WireCase
+// makes them differ. Nothing on the request path may compute a spelling — the
+// exit does not import the schema package and there is nothing there to compute
+// it with — so the mapping is data, written here once and read by support.go
+// (ADR-0036's amendment, which the generated models already follow).
+func ejectColumnTable(b *bytes.Buffer, t *schema.TableDef, lower string, wire schema.WireCase) {
 	fmt.Fprintf(b, "\n// %sColumns is what a request may name, and for what.\n", lower)
 	fmt.Fprintf(b, "var %sColumns = []Column{\n", lower)
 	for _, f := range t.Fields() {
@@ -154,8 +160,16 @@ func ejectColumnTable(b *bytes.Buffer, t *schema.TableDef, lower string) {
 			// way.
 			continue
 		}
-		fmt.Fprintf(b, "\t{Name: %q, Filterable: %t, Sortable: %t, Searchable: %t, Parse: %s},\n",
-			d.Name, d.Filterable, d.Sortable, d.Searchable, ejectParser(d))
+		// Omitted when the two names are the same, which under the default
+		// WireCase is every column: Column.wire falls back to Name, and a
+		// `Wire: "title"` beside `Name: "title"` on every row is noise in a
+		// file meant to be read.
+		spelling := ""
+		if w := wire.WireName(d.Name); w != d.Name {
+			spelling = fmt.Sprintf("Wire: %q, ", w)
+		}
+		fmt.Fprintf(b, "\t{Name: %q, %sFilterable: %t, Sortable: %t, Searchable: %t, Parse: %s},\n",
+			d.Name, spelling, d.Filterable, d.Sortable, d.Searchable, ejectParser(d))
 	}
 	fmt.Fprintln(b, "}")
 }
