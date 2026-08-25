@@ -123,18 +123,49 @@ func cliActionLong(r cliResource, a schema.Action) string {
 	if a.Description != "" {
 		b.WriteString(a.Description + "\n\n")
 	}
+	// What the caller gets back, which is the one thing about a verb that
+	// --help has to be right about: a declared result replaces the default
+	// answer, so a reader told "the row as it now stands" would be looking for
+	// columns in an object that has none of them (#312).
+	answer := ""
+	if len(a.Returns) > 0 {
+		answer = "It answers with " + strings.Join(returnNames(a), ", ") + "."
+	}
 	if a.IsCollection() {
-		b.WriteString("A verb on the collection: it addresses no single row, and a successful call\nwrites nothing to print.")
+		b.WriteString("A verb on the collection: it addresses no single row")
+		if answer == "" {
+			b.WriteString(", and a successful call\nwrites nothing to print.")
+		} else {
+			b.WriteString(".\n" + answer)
+		}
 		writeCLIReach(&b, a)
 		return b.String()
 	}
-	b.WriteString("A verb on one row. The server fetches it, runs the transition, and answers\nwith the row as it now stands.")
-	if len(a.Writes) > 0 {
-		fmt.Fprintf(&b, "\n\nThe response row carries %s, and no other column the server changed on it.",
-			strings.Join(a.Writes, ", "))
+	b.WriteString("A verb on one row. The server fetches it and runs the transition.\n")
+	if answer == "" {
+		b.WriteString("It answers with the row as it now stands.")
+		if len(a.Writes) > 0 {
+			fmt.Fprintf(&b, "\n\nThe response row carries %s, and no other column the server changed on it.",
+				strings.Join(a.Writes, ", "))
+		}
+	} else {
+		b.WriteString(answer + " The row is written and not returned")
+		if len(a.Writes) > 0 {
+			fmt.Fprintf(&b, ";\nwhat is written to it is %s", strings.Join(a.Writes, ", "))
+		}
+		b.WriteString(".")
 	}
 	writeCLIReach(&b, a)
 	return b.String()
+}
+
+// returnNames is the declared result's properties, for a sentence.
+func returnNames(a schema.Action) []string {
+	out := make([]string, 0, len(a.Returns))
+	for _, f := range a.Returns {
+		out = append(out, f.Desc().Name)
+	}
+	return out
 }
 
 // writeCLIReach states what the verb writes beyond the row it answers with.

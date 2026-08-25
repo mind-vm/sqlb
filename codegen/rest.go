@@ -107,6 +107,7 @@ func renderREST(opts Options) ([]byte, error) {
 	}
 	for _, a := range acts {
 		renderActionInput(b, a)
+		renderActionResult(b, a)
 	}
 	if len(acts) > 0 {
 		renderActions(b, acts)

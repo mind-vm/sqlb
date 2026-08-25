@@ -457,6 +457,7 @@ func tsRowTypes(b *bytes.Buffer, reg *schema.Registry, t *schema.TableDef) {
 
 	tsBodyTypes(b, t, typeName, wire)
 	tsActionBodies(b, t, typeName)
+	tsActionResults(b, t, typeName)
 }
 
 // tsForwardRelations is the expandable references declared on t, keyed by the
@@ -503,7 +504,7 @@ func tsBodyTypes(b *bytes.Buffer, t *schema.TableDef, typeName string, wire sche
 		for _, f := range createInput(t) {
 			d := f.Desc()
 			tsDoc(b, "  ", d.Comment)
-			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(d.Name), tsOptional(optionalOnCreate(d)), tsType(typeName, d))
+			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(d.Name), tsOptional(optionalOnCreate(d)), tsDeclaredType(typeName, d))
 		}
 		fmt.Fprintln(b, "}")
 	}

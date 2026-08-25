@@ -336,16 +336,19 @@ func skillResource(b *strings.Builder, t schema.TableManifest) {
 		b.WriteString("**Declared actions.** Domain verbs this resource owns. " +
 			"Reaching the same outcome by PATCHing a column is the mistake these exist to " +
 			"prevent — the verb owns the transition.\n\n")
-		b.WriteString("| Verb | Route | Writes | Also writes |\n|---|---|---|---|\n")
+		b.WriteString("| Verb | Route | Answers | Writes | Also writes |\n|---|---|---|---|---|\n")
 		for _, a := range r.Actions {
-			fmt.Fprintf(b, "| `%s` | `%s %s` | %s | %s |\n",
-				a.Name, a.Method, a.Path,
+			fmt.Fprintf(b, "| `%s` | `%s %s` | %s | %s | %s |\n",
+				a.Name, a.Method, a.Path, skillActionAnswer(a),
 				orNone(joinCode(a.Writes, ", ")), orNone(joinCode(a.Touches, ", ")))
 		}
-		b.WriteString("\n*Writes* is the columns the envelope persists on the addressed row. " +
-			"*Also writes* is the tables the verb declares it reaches through its " +
-			"transaction — declared, not enforced, and *none* there means no claim was " +
-			"made rather than that none are written.\n\n")
+		b.WriteString("\n*Answers* is what comes back. A verb that declares a result answers with " +
+			"exactly those properties and not with the row — reading a column off that " +
+			"response is the mistake the column is missing from. *Writes* is the columns " +
+			"the envelope persists on the addressed row. *Also writes* is the tables the " +
+			"verb declares it reaches through its transaction — declared, not enforced, " +
+			"and *none* there means no claim was made rather than that none are " +
+			"written.\n\n")
 	}
 
 	if len(t.CollectedBy) > 0 {
@@ -364,6 +367,26 @@ func skillResource(b *strings.Builder, t schema.TableManifest) {
 		}
 		b.WriteString("\n")
 	}
+}
+
+// skillActionAnswer is what a verb's response carries: a declared result, the
+// row, or nothing at all.
+//
+// It is in the table rather than in prose because it is the one fact about a
+// verb that changes what a caller does *next* — an agent that expects the row
+// back and gets a score will go looking for the columns in it.
+func skillActionAnswer(a schema.ActionManifest) string {
+	if len(a.Returns) > 0 {
+		names := make([]string, 0, len(a.Returns))
+		for _, p := range a.Returns {
+			names = append(names, p.Name)
+		}
+		return joinCode(names, ", ")
+	}
+	if strings.Contains(a.Path, "{id}") {
+		return "the row"
+	}
+	return "204, no body"
 }
 
 // skillCreateInput names the declared non-column properties of a create body,

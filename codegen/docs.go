@@ -407,6 +407,9 @@ func actionFacts(a schema.Action) []string {
 	if len(a.Body) > 0 {
 		out = append(out, "Body: "+fieldSummary(a.Body))
 	}
+	if len(a.Returns) > 0 {
+		out = append(out, "Returns: "+fieldSummary(a.Returns))
+	}
 	if len(a.Writes) > 0 {
 		out = append(out, "Writes: "+strings.Join(a.Writes, ", "))
 	}

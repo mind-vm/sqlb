@@ -250,6 +250,11 @@ type ActionManifest struct {
 	// carries no body at all, which is not the same as one whose properties
 	// happen to be optional.
 	Body []BodyProperty `json:"body,omitempty"`
+	// Returns names the response body's properties, where the verb declares one
+	// (#312). Absent means the default answer: the row for an item action, and
+	// no body at all for a collection one — which a reader cannot tell from
+	// "undocumented" unless this key is present when it is a payload.
+	Returns []BodyProperty `json:"returns,omitempty"`
 	// Writes names the columns the envelope persists after the verb returns.
 	// It is not the blast radius: it is one row of this table, and a verb may
 	// write anything else through the transaction it holds.
@@ -534,6 +539,7 @@ func (a Action) manifest(resourcePath string) ActionManifest {
 		Touches: a.Touches,
 	}
 	am.Body = bodyProperties(a.Body)
+	am.Returns = bodyProperties(a.Returns)
 	return am
 }
 

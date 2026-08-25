@@ -38,6 +38,45 @@ func tsActionInput(t *schema.TableDef, a schema.Action) string {
 	return verb + TypeName(t) + "Input"
 }
 
+// tsActionResult is the response interface of a verb that declares one.
+func tsActionResult(t *schema.TableDef, a schema.Action) string {
+	verb := GoName(strings.ReplaceAll(a.Name, "-", "_"))
+	return verb + TypeName(t) + "Result"
+}
+
+// tsDeclaredType is the TypeScript type of a *declared* property — an action's
+// body, an action's result, or the non-column half of a create body.
+//
+// It differs from tsType in one place, and the difference is a compile error
+// rather than a nicety. An enum *column* is emitted as a named union beside its
+// resource, and tsType names that type; a declared property is not a column, so
+// there is no such type and the name is one nothing declares. The Go emitter
+// has always known this — renderActionInput types an enum property as a plain
+// string carrying Huma's enum tag, and says why — and the two client emitters
+// did not, so a schema with an enum in a declared body emitted a client that
+// did not compile.
+//
+// Inline rather than a generated union type per property: the value set is the
+// property's own, one use site, and a union written where it is used needs no
+// name and cannot collide with a column's.
+func tsDeclaredType(typeName string, d *schema.FieldDesc) string {
+	if d.Type != schema.TypeEnum || len(d.EnumValues) == 0 {
+		return tsType(typeName, d)
+	}
+	parts := make([]string, 0, len(d.EnumValues))
+	for _, v := range d.EnumValues {
+		parts = append(parts, tsString(v))
+	}
+	out := strings.Join(parts, " | ")
+	if d.Array {
+		out = "(" + out + ")[]"
+	}
+	if d.Nullable {
+		out += " | null"
+	}
+	return out
+}
+
 func lowerFirstRune(s string) string {
 	if s == "" {
 		return s
@@ -76,7 +115,27 @@ func tsActionBodies(b *bytes.Buffer, t *schema.TableDef, typeName string) {
 		for _, f := range a.Body {
 			d := f.Desc()
 			tsDoc(b, "  ", d.Comment)
-			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(d.Name), tsOptional(optionalOnCreate(d)), tsType(typeName, d))
+			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(d.Name), tsOptional(optionalOnCreate(d)), tsDeclaredType(typeName, d))
+		}
+		fmt.Fprintln(b, "}")
+	}
+}
+
+// tsActionResults emits one interface per verb that declares a result.
+//
+// A verb that declares none gets none: its function returns the row or void,
+// both of which are types the client already has (#312).
+func tsActionResults(b *bytes.Buffer, t *schema.TableDef, typeName string) {
+	for _, a := range t.Actions() {
+		if len(a.Returns) == 0 {
+			continue
+		}
+		fmt.Fprintf(b, "\n/** The response body of `POST %s`. */\n", a.FullPath(t.Rest().Path))
+		fmt.Fprintf(b, "export interface %s {\n", tsActionResult(t, a))
+		for _, f := range a.Returns {
+			d := f.Desc()
+			tsDoc(b, "  ", d.Comment)
+			fmt.Fprintf(b, "  %s%s: %s;\n", tsProp(d.Name), tsOptional(optionalOnCreate(d)), tsDeclaredType(typeName, d))
 		}
 		fmt.Fprintln(b, "}")
 	}
@@ -98,10 +157,14 @@ func tsActionFunctions(b *bytes.Buffer, r tsResource) {
 		}
 		params = append(params, "signal?: AbortSignal")
 
-		// A collection verb answers 204, so there is nothing to type; an item
-		// verb answers with the row it left behind.
+		// A declared result is the response, whichever form the verb takes.
+		// Without one a collection verb answers 204, so there is nothing to
+		// type, and an item verb answers with the row it left behind.
 		result := "void"
-		if !a.IsCollection() {
+		switch {
+		case len(a.Returns) > 0:
+			result = tsActionResult(r.table, a)
+		case !a.IsCollection():
 			result = r.typeName
 		}
 

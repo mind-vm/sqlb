@@ -54,7 +54,7 @@ func TestCreateInputRefusesColumnCapabilities(t *testing.T) {
 	} {
 		t.Run(tc.claim, func(t *testing.T) {
 			r := childrenWith(schema.REST{Ops: schema.OpCreate, CreateInput: schema.Body(tc.spec)})
-			refusal(t, r, "CreateInput", tc.claim, "describes a column rather than a request body")
+			refusal(t, r, "CreateInput", tc.claim, "describes a column rather than a declared property")
 		})
 	}
 }

@@ -2691,18 +2691,26 @@ more than the row" is a report attached to a verb, not a new RPC surface.
 The shape mirrors the read side's own widening: `do` becomes
 `func(ctx, *T, In) (Out, error)` in place of `func(ctx, *T, In) error`,
 with `Out` defaulting to `row[T]` so every action declared today keeps
-compiling and keeps answering exactly what it answers now. Still
-unsettled and left for the second and third action that actually reach
-for it: whether `Out` needs a declaration in the field vocabulary the way
-a body does, or stays outside the schema's reach at the cost of the
-TypeScript client typing it `unknown`; whether `Writes` still persists
-from the mutated `*T` when `do` also returns a separate `Out`, or the two
-become one value; whether the widening reaches `sqlb.json`,
-`restcompat` and the TypeScript, Dart and CLI emitters the way a
-declared body and write set already do, or ships Go-only first as
-`Query`'s own `Out` still does; and whether a widened action is still
-one surface next to CRUD or the first crack in that boundary.
-[#218](https://github.com/jryannel/sqlb/issues/218) tracks the
+compiling and keeps answering exactly what it answers now. Four things were left
+unsettled for the second and third action that actually reached for it,
+and [a verb may declare what it answers with](#a-verb-may-declare-what-it-answers-with)
+answers all four, on the evidence of
+[#312](https://github.com/jryannel/sqlb/issues/312) and
+[#310](https://github.com/jryannel/sqlb/issues/310): `Out` **is** declared
+in the field vocabulary, for the reason a body is — a shape sqlb cannot
+see is a client method typed `unknown`; `Writes` **does** still persist
+from the mutated `*T`, so the envelope is unchanged and only the response
+differs; the widening **does** reach `sqlb.json`, `restcompat` and all
+three client emitters rather than shipping Go-only; and a widened action
+**is** still one surface next to CRUD, since the status stays 200 and a
+`GET` action is still declined.
+
+One thing about the sketch above did not survive contact: `Out` cannot
+default to `row[T]`, because Go has no default type parameter. The
+compatibility it was there to buy is bought instead by leaving `Action`
+alone and adding `ActionReturning` beside it — every action declared
+today keeps compiling because its registration is the one it always was.
+[#218](https://github.com/jryannel/sqlb/issues/218) tracked the
 implementation.
 
 ### The container is an adapter
@@ -4006,3 +4014,53 @@ Revisit if the same argument arrives for a patch body. It has not: the cases
 collected so far — a password at signup, an invite's token, a list of ids
 resolved into rows of another table — are all creates, and a second declaration
 before there is a second case would be a vocabulary invented for symmetry.
+
+### A verb may declare what it answers with
+
+[Declared actions](#declared-actions) gave a domain verb a route and a generated
+envelope, and fixed the response: an item action answers with the row it acted
+on, and a collection action answers 204. Both are right for the verb that
+*transitions* a row, which is the case that decision was written for.
+
+Neither is right for the verb whose answer is the point. Grading a quiz returns
+a score; a score is not a Lesson, and 204 is not a score. An audit of a
+nine-vertical application ([#312](https://github.com/jryannel/sqlb/issues/312))
+put one operation in that shape after its own correction, and
+[#310](https://github.com/jryannel/sqlb/issues/310) is the collection half of
+it — a verb that created a row and could only answer 204, leaving the client to
+re-list and guess which row was new. Both stayed hand-written, and a
+hand-written route takes the OpenAPI operation and four clients with it.
+
+So `Action.Returns` declares the response in the same field vocabulary
+`Action.Body` uses, and the func grows a return value. Everything else is the
+envelope as it was: the same scoped fetch, the same row lock, the same write of
+the declared set. The declaration *replaces* the default response rather than
+adding to it, because one operation has one body — a client that needs the row
+as well re-reads the id it already sent.
+
+**The runtime grows two functions rather than a flag.** `ActionReturning` and
+`CollectionActionReturning` sit beside `Action` and `CollectionAction`, because
+the response type is a Go type parameter: what a route answers with is fixed at
+`huma.Register`, so it cannot be a value the spec carries. That also keeps the
+existing signatures untouched, which matters more than the symmetry — a mount
+written against the old ones is a mount that still compiles.
+
+**The status is 200, never 201.** A collection verb that creates a row is
+describing `OpCreate`, and since
+[a create body may carry what the row does not](#a-create-body-may-carry-what-the-row-does-not)
+that operation can take an input with no column behind it, which was the reason
+#310 reached for a collection action in the first place. Two ways to spell one
+create is the ambiguity that issue was one half of; this closes the half that is
+about the answer, and leaves creating to the operation named for it.
+
+**What the response says is diffed.** `sqlb impact` records the declared result
+and classifies it as a reader-side contract, which is the mirror of the request
+side: a property leaving the response breaks the client that reads it, a value
+set that *grows* breaks the client that switched on it, and acquiring or losing
+a declared result is a change of return type rather than of one property.
+
+Revisit if a verb needs to answer with the row *and* something computed. The
+shape that would take is a declared result with a property whose type is the
+model, and it is not built: the cases collected so far each want one or the
+other, and a response type that sometimes embeds a row is the thing that makes
+a generated client's return type conditional.

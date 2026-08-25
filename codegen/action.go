@@ -59,6 +59,18 @@ func (d actionDef) goName() string {
 // change the signature of the func the application already wrote.
 func (d actionDef) inputName() string { return d.goName() + "Input" }
 
+// resultName is the generated response type, emitted only where the verb
+// declares one.
+//
+// Unlike the input there is nothing to keep stable by emitting it always:
+// declaring a result changes the func's signature — it grows a return value —
+// so an empty Result type would be a type nothing names.
+func (d actionDef) resultName() string { return d.goName() + "Result" }
+
+// returns reports the declared response properties, empty for the verbs that
+// answer with the row or with nothing.
+func (d actionDef) returns() []*schema.Field { return d.action.Returns }
+
 // fullPath is the route: the resource path with the action's own appended.
 func (d actionDef) fullPath() string { return d.action.FullPath(d.table.Rest().Path) }
 
@@ -117,6 +129,40 @@ func renderActionInput(b *bytes.Buffer, d actionDef) {
 	fmt.Fprintln(b, "}")
 }
 
+// renderActionResult writes one action's response type, where it declared one.
+//
+// Same rules as the input, and for the same reason: it is the column
+// vocabulary, so a nullable property is a pointer and an enum is a tagged
+// string. What it is *not* is the model — a verb that answers with a score
+// answers with a score, and the row it changed is persisted and not returned
+// (#312).
+func renderActionResult(b *bytes.Buffer, d actionDef) {
+	props := d.returns()
+	if len(props) == 0 {
+		return
+	}
+	name := d.resultName()
+	fmt.Fprintf(b, "\n// %s is the response body for %s.\n", name, d.fullPath())
+	if d.action.IsCollection() {
+		fmt.Fprintf(b, "//\n// The verb answers 200 with this rather than 204: a collection verb does\n")
+		fmt.Fprintf(b, "// its work through the transaction, and this is what it has to say about it.\n")
+	} else {
+		fmt.Fprintf(b, "//\n// The verb answers with this instead of with the row it acted on: one\n")
+		fmt.Fprintf(b, "// operation has one body. What the envelope persists is unchanged.\n")
+	}
+	fmt.Fprintf(b, "type %s struct {\n", name)
+	for _, f := range props {
+		desc := f.Desc()
+		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name,
+			omitEmpty(optionalOnCreate(desc)), enumTag(desc))
+		if c := desc.Comment; c != "" {
+			fmt.Fprintf(b, " // %s", c)
+		}
+		fmt.Fprintln(b)
+	}
+	fmt.Fprintln(b, "}")
+}
+
 // actionBodyType is the Go type of one body property.
 func actionBodyType(d *schema.FieldDesc) string {
 	base := d.GoType()
@@ -138,6 +184,7 @@ func actionBodyType(d *schema.FieldDesc) string {
 func actionBodyImports(imports map[string]bool, defs []actionDef) {
 	for _, d := range defs {
 		bodyPropImports(imports, d.action.Body)
+		bodyPropImports(imports, d.returns())
 	}
 }
 
@@ -182,17 +229,34 @@ func renderActions(b *bytes.Buffer, defs []actionDef) {
 				"\t// is yours through sqlb.TxFrom, and statements issued there take\n"+
 				"\t// their own locks, in an order this code owns.\n", quoteList(w))
 		}
+		if len(d.returns()) > 0 {
+			if d.action.IsCollection() {
+				fmt.Fprintf(b, "\t//\n\t// It answers 200 with a %s rather than 204:\n"+
+					"\t// the response is what the func returns.\n", d.resultName())
+			} else {
+				fmt.Fprintf(b, "\t//\n\t// It answers with a %s rather than with the row.\n"+
+					"\t// The row is still persisted; one operation has one response body.\n", d.resultName())
+			}
+		}
 		if tt := d.action.Touches; len(tt) > 0 {
 			fmt.Fprintf(b, "\t//\n\t// Declared reach beyond that row: %s. Nothing checks it; it is\n"+
 				"\t// what the route tells `sqlb impact`, the OpenAPI document and the\n"+
 				"\t// CLI's --help, so a change here belongs in the schema.\n", quoteList(tt))
 		}
+		// A declared result is a second return value rather than a pointer the
+		// func fills in: a value returned beside an error cannot be half-set
+		// when the error is non-nil, and the envelope answers with it only when
+		// there is no error.
+		result := "error"
+		if len(d.returns()) > 0 {
+			result = fmt.Sprintf("(%s, error)", d.resultName())
+		}
 		if d.action.IsCollection() {
-			fmt.Fprintf(b, "\t%s func(context.Context, %s) error\n", d.goName(), d.inputName())
+			fmt.Fprintf(b, "\t%s func(context.Context, %s) %s\n", d.goName(), d.inputName(), result)
 			continue
 		}
-		fmt.Fprintf(b, "\t%s func(context.Context, *%s, %s) error\n",
-			d.goName(), TypeName(d.table), d.inputName())
+		fmt.Fprintf(b, "\t%s func(context.Context, *%s, %s) %s\n",
+			d.goName(), TypeName(d.table), d.inputName(), result)
 	}
 	fmt.Fprintln(b, "}")
 }
@@ -201,9 +265,16 @@ func renderActions(b *bytes.Buffer, defs []actionDef) {
 func renderActionCalls(b *bytes.Buffer, optsVar string, defs []actionDef) {
 	for _, d := range defs {
 		typeName := TypeName(d.table)
-		if d.action.IsCollection() {
+		switch {
+		case d.action.IsCollection() && len(d.returns()) > 0:
+			fmt.Fprintf(b, "\tif err := rest.CollectionActionReturning[%s, %s](api, db, %s, ",
+				d.inputName(), d.resultName(), optsVar)
+		case d.action.IsCollection():
 			fmt.Fprintf(b, "\tif err := rest.CollectionAction[%s](api, db, %s, ", d.inputName(), optsVar)
-		} else {
+		case len(d.returns()) > 0:
+			fmt.Fprintf(b, "\tif err := rest.ActionReturning[%s, %s, %s](api, db, %s, ",
+				typeName, d.inputName(), d.resultName(), optsVar)
+		default:
 			fmt.Fprintf(b, "\tif err := rest.Action[%s, %s](api, db, %s, ", typeName, d.inputName(), optsVar)
 		}
 		fmt.Fprintf(b, "rest.ActionSpec{\n")

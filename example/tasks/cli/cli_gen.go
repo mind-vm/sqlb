@@ -1356,8 +1356,8 @@ func newTasksCompleteCommand(c *client.Client) *cobra.Command {
 
 Marks the task done and stamps its completion time. A task that is already done is refused with a 409.
 
-A verb on one row. The server fetches it, runs the transition, and answers
-with the row as it now stands.
+A verb on one row. The server fetches it and runs the transition.
+It answers with the row as it now stands.
 
 The response row carries status, completed_at, and no other column the server changed on it.
 

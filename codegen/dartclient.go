@@ -385,6 +385,7 @@ func dartRowSection(b *bytes.Buffer, reg *schema.Registry, t *schema.TableDef) e
 
 	dartBodyTypes(b, t, base, reg.Wire())
 	dartActionBodies(b, t, base)
+	dartActionResults(b, t, base)
 	return nil
 }
 
@@ -753,7 +754,7 @@ func dartBodyTypes(b *bytes.Buffer, t *schema.TableDef, base string, wire schema
 			params = append(params, required+"this."+dartMember(d.Name))
 		}
 		for _, f := range props {
-			d := f.Desc()
+			d := dartDeclared(f)
 			required := ""
 			if !optionalOnCreate(d) {
 				required = "required "
@@ -768,7 +769,7 @@ func dartBodyTypes(b *bytes.Buffer, t *schema.TableDef, base string, wire schema
 			fmt.Fprintf(b, "  final %s %s;\n", dartBodyType(base, d, true), dartMember(d.Name))
 		}
 		for _, f := range props {
-			d := f.Desc()
+			d := dartDeclared(f)
 			fmt.Fprintln(b)
 			dartDoc(b, "  ", dartColumnDoc(d, fmt.Sprintf("The %s input. Not a column: the server derives\nwhat it stores from it.", d.Name)))
 			fmt.Fprintf(b, "  final %s %s;\n", dartBodyType(base, d, true), dartMember(d.Name))
