@@ -2090,6 +2090,23 @@ so a camelCase schema's worked example printed a request that would 400.
 Both are fixed now, and both are evidence that "one setting, several
 surfaces" has to be tested surface by surface rather than asserted.
 
+A third gap had the same shape and a sharper cost: the surfaces were
+tested for what they *serve* and not for what they *accept*. The generated
+request bodies, the ejected body decoder and the CLI's `--set-null` each
+tagged their JSON properties with the column's own name while the row
+struct beside them, the TypeScript client and the Dart client all sent the
+derived spelling — so under `WireCase(Camel)` a generated client could
+read a resource and not write one, which is the failure mode a single
+derived spelling exists to make impossible. The guard that missed it
+asserted the spelling reaches five surfaces and never looked at a request
+body, so it now checks both directions: the property a client sends, and
+the column name that same generated code hands the statement, which is
+where the two spellings are *supposed* to part company. A create body's
+declared non-column properties are the other place they legitimately
+differ, and they are spelled verbatim: the derivation is a function of a
+*column* name, and a property that names no column has nothing to derive
+from.
+
 `compatibility.md`'s frozen entry reads "one spelling per deployment,
 computed from the column name by the schema's declared `WireCase`" rather
 than "the column's own name, verbatim" — what's frozen is that there is
@@ -2292,6 +2309,22 @@ people to pass the failure flag reflexively; or if the two diff engines
 are ever found to have drifted on a shared kind of change, which would
 mean their shared core should be one function both call rather than two
 that happen to agree.
+
+The walk enumerated above is per resource and per column, and it has since
+had to grow a third kind of entry: a *declared route*. A verb declared with
+`AddAction` and a read declared with `AddQuery` are URLs a generated client
+has a named method for, and neither is a column, an operation of the fixed
+CRUD set, or anything a per-column walk visits — so each arrived invisible
+to this check and had to be added as its own facet, actions first and
+queries afterward. The gap the second one left is the instructive half,
+because it is the failure mode this decision already names: between the
+release that added `AddQuery` and the one that captured it, adding,
+removing or repathing a declared read was a contract change `-error` could
+not see, while the report it printed looked complete. That is "fires
+sometimes" arriving by omission rather than by misclassification, and the
+lesson is that the facet list is not closed — a new *kind* of generated
+route is a new facet, and shipping one without it makes the check quieter
+rather than wrong, which is the harder failure to notice.
 
 ### The driver is a dependency
 
@@ -2658,15 +2691,26 @@ more than the row" is a report attached to a verb, not a new RPC surface.
 The shape mirrors the read side's own widening: `do` becomes
 `func(ctx, *T, In) (Out, error)` in place of `func(ctx, *T, In) error`,
 with `Out` defaulting to `row[T]` so every action declared today keeps
-compiling and keeps answering exactly what it answers now. Still
-unsettled and left for the second and third action that actually reach
-for it: whether `Out` needs a declaration in the field vocabulary the way
-a body does, or stays outside the schema's reach at the cost of the
-TypeScript client typing it `unknown`; whether `Writes` still persists
-from the mutated `*T` when `do` also returns a separate `Out`, or the two
-become one value; and whether a widened action is still one surface next
-to CRUD or the first crack in that boundary.
-[#218](https://github.com/jryannel/sqlb/issues/218) tracks the
+compiling and keeps answering exactly what it answers now. Four things were left
+unsettled for the second and third action that actually reached for it,
+and [a verb may declare what it answers with](#a-verb-may-declare-what-it-answers-with)
+answers all four, on the evidence of
+[#312](https://github.com/jryannel/sqlb/issues/312) and
+[#310](https://github.com/jryannel/sqlb/issues/310): `Out` **is** declared
+in the field vocabulary, for the reason a body is — a shape sqlb cannot
+see is a client method typed `unknown`; `Writes` **does** still persist
+from the mutated `*T`, so the envelope is unchanged and only the response
+differs; the widening **does** reach `sqlb.json`, `restcompat` and all
+three client emitters rather than shipping Go-only; and a widened action
+**is** still one surface next to CRUD, since the status stays 200 and a
+`GET` action is still declined.
+
+One thing about the sketch above did not survive contact: `Out` cannot
+default to `row[T]`, because Go has no default type parameter. The
+compatibility it was there to buy is bought instead by leaving `Action`
+alone and adding `ActionReturning` beside it — every action declared
+today keeps compiling because its registration is the one it always was.
+[#218](https://github.com/jryannel/sqlb/issues/218) tracked the
 implementation.
 
 ### The container is an adapter
@@ -3912,3 +3956,111 @@ resource rather than fixed; or if the stream acquires an authorization
 obligation the way tenant scoping has one, since the opener seam is where a
 token would have to be threaded and it is currently a callback rather than
 something a mount can check.
+
+### A create body may carry what the row does not
+
+A create body is derived from the columns, and the request that creates a thing
+with a secret in it carries one thing that is not a column: the plaintext. The
+column stores a digest. Before this there was nowhere to put the property, and
+the two available shapes each lied to somebody
+([#309](https://github.com/jryannel/sqlb/issues/309)).
+
+Marking the digest column `WriteOnly` puts it in the body under its own name,
+so the client sends a plaintext PIN in a property called `pin_hash` — and
+[the wire is the column name](#the-wire-is-the-column-name) means there is no
+per-field override to rename it, deliberately. Renaming the column to `pin`
+fixes the wire and moves the lie into the DDL, where a `VARCHAR(255)` called
+`pin` holds a bcrypt digest and every reader of the schema concludes it is
+plaintext. A collection action can declare an honest body and answers 204, so
+the client does not get the row it created. The honest option left was to
+hand-write the create, and with it the DTO, the route, the OpenAPI operation
+and all four clients — which is exactly the door
+[hooks as domain seam](#hooks-as-domain-seam) exists to close, arguing that a
+generated create *is* the placement for the rule.
+
+So `schema.REST.CreateInput` declares those properties, in the field
+vocabulary [a declared action's body](#declared-actions) already uses.
+The body is still the columns; this is the part of it that is not.
+
+**The value reaches the hook through the context**, as `sqlb.CreateInputFrom`,
+which is [the principal seam](#a-verifier-composes-with-the-principal-seam) applied a
+second time
+and for the same reason: `BeforeCreate` is handed the row and the context and
+nothing else, and that is what lets one registration cover every insert of the
+model. Widening the hook signature was the alternative and it is the one that
+does not compose — the input's type is per-resource and `Hooks[T]` is generic
+over the model, so a typed second parameter cannot be spelled, and an untyped
+one would hand every existing hook a `map[string]any` it never asked for. The
+cost is that a hook has to fail closed when nothing was supplied, which the
+doc comment says in the imperative: every insert runs the hook, including one
+from a job that never saw a request, and treating the absence as "nothing to
+do" writes the row with an empty digest in the column that authenticates.
+
+**A property is spelled as declared**, not through `WireCase`. The case is a
+declared function of a *column* name, and this is not a column — an action's
+body has always worked this way, and the two disagreeing would be a second rule
+for one vocabulary. What the schema does refuse is a property whose name is a
+column's, in either spelling, since the two share one JSON object and the
+generated body would carry both under one tag.
+
+**The exit carries it too.** An ejected package has no hooks, so the seam is a
+function field — `Derive`, beside the `Confine` and `Assign` that
+[declared scope is required](#declared-scope-is-required) already put there —
+and `Register` refuses a nil one rather than serving a create that silently
+drops the property. That is the same shape [the exit is generated](#the-exit-is-generated)
+uses everywhere: keep the property, drop the machinery.
+
+Revisit if the same argument arrives for a patch body. It has not: the cases
+collected so far — a password at signup, an invite's token, a list of ids
+resolved into rows of another table — are all creates, and a second declaration
+before there is a second case would be a vocabulary invented for symmetry.
+
+### A verb may declare what it answers with
+
+[Declared actions](#declared-actions) gave a domain verb a route and a generated
+envelope, and fixed the response: an item action answers with the row it acted
+on, and a collection action answers 204. Both are right for the verb that
+*transitions* a row, which is the case that decision was written for.
+
+Neither is right for the verb whose answer is the point. Grading a quiz returns
+a score; a score is not a Lesson, and 204 is not a score. An audit of a
+nine-vertical application ([#312](https://github.com/jryannel/sqlb/issues/312))
+put one operation in that shape after its own correction, and
+[#310](https://github.com/jryannel/sqlb/issues/310) is the collection half of
+it — a verb that created a row and could only answer 204, leaving the client to
+re-list and guess which row was new. Both stayed hand-written, and a
+hand-written route takes the OpenAPI operation and four clients with it.
+
+So `Action.Returns` declares the response in the same field vocabulary
+`Action.Body` uses, and the func grows a return value. Everything else is the
+envelope as it was: the same scoped fetch, the same row lock, the same write of
+the declared set. The declaration *replaces* the default response rather than
+adding to it, because one operation has one body — a client that needs the row
+as well re-reads the id it already sent.
+
+**The runtime grows two functions rather than a flag.** `ActionReturning` and
+`CollectionActionReturning` sit beside `Action` and `CollectionAction`, because
+the response type is a Go type parameter: what a route answers with is fixed at
+`huma.Register`, so it cannot be a value the spec carries. That also keeps the
+existing signatures untouched, which matters more than the symmetry — a mount
+written against the old ones is a mount that still compiles.
+
+**The status is 200, never 201.** A collection verb that creates a row is
+describing `OpCreate`, and since
+[a create body may carry what the row does not](#a-create-body-may-carry-what-the-row-does-not)
+that operation can take an input with no column behind it, which was the reason
+#310 reached for a collection action in the first place. Two ways to spell one
+create is the ambiguity that issue was one half of; this closes the half that is
+about the answer, and leaves creating to the operation named for it.
+
+**What the response says is diffed.** `sqlb impact` records the declared result
+and classifies it as a reader-side contract, which is the mirror of the request
+side: a property leaving the response breaks the client that reads it, a value
+set that *grows* breaks the client that switched on it, and acquiring or losing
+a declared result is a change of return type rather than of one property.
+
+Revisit if a verb needs to answer with the row *and* something computed. The
+shape that would take is a declared result with a property whose type is the
+model, and it is not built: the cases collected so far each want one or the
+other, and a response type that sometimes embeds a row is the thing that makes
+a generated client's return type conditional.

@@ -149,6 +149,43 @@ func TestEjectSuppliesTheValuesNoBodyCarries(t *testing.T) {
 	}
 }
 
+// The exit serves the row with wire-spelled json tags, so the body it accepts
+// has to be spelled the same way — otherwise a project that ejects keeps its
+// committed clients for reads and loses them for writes, which is the one thing
+// the exit promises not to do.
+//
+// The decoder is where the two spellings meet: a property is matched by wire
+// name and recorded under the column name, because the map it returns is what
+// the INSERT and the UPDATE are built from.
+func TestEjectBodyDecoderSpellsTheWire(t *testing.T) {
+	files := eject(t, wireFixture(schema.Camel))
+	handlers, models := files["handlers.go"], files["models.go"]
+
+	for _, want := range []string{
+		`allowed := []string{"title", "createdAt", "publishedBy"}`,
+		`case "createdAt":`,
+		`badRequest("body.createdAt", "this property is required", allowed)`,
+	} {
+		if !strings.Contains(handlers, want) {
+			t.Errorf("the ejected decoder does not carry the wire spelling %q:\n%s", want, handlers)
+		}
+	}
+	// And the column is what comes out, since that is what the statement sets.
+	for _, want := range []string{`out["created_at"] = *v`, `if _, ok := out["created_at"]; !ok {`} {
+		if !strings.Contains(handlers, want) {
+			t.Errorf("the ejected decoder does not name the column %q:\n%s", want, handlers)
+		}
+	}
+	if strings.Contains(handlers, `case "created_at":`) {
+		t.Errorf("the ejected decoder matches a property the client never sends:\n%s", handlers)
+	}
+	// The half that was already right, asserted here so the pair cannot drift
+	// apart again: what the exit writes back is spelled the same way.
+	if !strings.Contains(models, `json:"createdAt"`) {
+		t.Errorf("the ejected row stopped serving the wire spelling:\n%s", models)
+	}
+}
+
 // The README is the honest half of the feature, so it is generated with the
 // code rather than written once and left behind.
 func TestEjectDocumentsWhatItDoesNotCarry(t *testing.T) {

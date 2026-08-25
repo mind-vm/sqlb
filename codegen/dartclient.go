@@ -385,6 +385,7 @@ func dartRowSection(b *bytes.Buffer, reg *schema.Registry, t *schema.TableDef) e
 
 	dartBodyTypes(b, t, base, reg.Wire())
 	dartActionBodies(b, t, base)
+	dartActionResults(b, t, base)
 	return nil
 }
 
@@ -732,6 +733,11 @@ func dartBodyTypes(b *bytes.Buffer, t *schema.TableDef, base string, wire schema
 
 	if rest.Ops.Has(schema.OpCreate) {
 		fields := bodyFields(t, forCreate)
+		// The declared inputs that are not columns (#309). They are ordinary
+		// properties of this class and they carry their declared spelling: a
+		// property is not a column, so there is no column name for the wire case
+		// to be a function of.
+		props := createInput(t)
 		fmt.Fprintln(b)
 		dartDoc(b, "", fmt.Sprintf("The request body for creating a %s.", base))
 		dartDoc(b, "", "")
@@ -747,11 +753,25 @@ func dartBodyTypes(b *bytes.Buffer, t *schema.TableDef, base string, wire schema
 			}
 			params = append(params, required+"this."+dartMember(d.Name))
 		}
+		for _, f := range props {
+			d := dartDeclared(f)
+			required := ""
+			if !optionalOnCreate(d) {
+				required = "required "
+			}
+			params = append(params, required+"this."+dartMember(d.Name))
+		}
 		dartNamedCtor(b, base+"Create", params)
 		for _, f := range fields {
 			d := f.Desc()
 			fmt.Fprintln(b)
 			dartDoc(b, "  ", dartColumnDoc(d, fmt.Sprintf("The %s.%s column.", t.Name(), d.Name)))
+			fmt.Fprintf(b, "  final %s %s;\n", dartBodyType(base, d, true), dartMember(d.Name))
+		}
+		for _, f := range props {
+			d := dartDeclared(f)
+			fmt.Fprintln(b)
+			dartDoc(b, "  ", dartColumnDoc(d, fmt.Sprintf("The %s input. Not a column: the server derives\nwhat it stores from it.", d.Name)))
 			fmt.Fprintf(b, "  final %s %s;\n", dartBodyType(base, d, true), dartMember(d.Name))
 		}
 		fmt.Fprintln(b)
@@ -761,6 +781,15 @@ func dartBodyTypes(b *bytes.Buffer, t *schema.TableDef, base string, wire schema
 			d := f.Desc()
 			member := dartMember(d.Name)
 			entry := fmt.Sprintf("%s: _wire(%s)", dartString(wire.WireName(d.Name)), member)
+			if optionalOnCreate(d) {
+				entry = fmt.Sprintf("if (%s != null) %s", member, entry)
+			}
+			entries = append(entries, entry)
+		}
+		for _, f := range props {
+			d := f.Desc()
+			member := dartMember(d.Name)
+			entry := fmt.Sprintf("%s: _wire(%s)", dartString(d.Name), member)
 			if optionalOnCreate(d) {
 				entry = fmt.Sprintf("if (%s != null) %s", member, entry)
 			}

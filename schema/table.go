@@ -124,6 +124,57 @@ type REST struct {
 	// Tag groups the resource's operations in the OpenAPI document. Defaults
 	// to the table name.
 	Tag string
+
+	// CreateInput declares properties the create body carries that are not
+	// columns. Build it with [Body], the same way an action's body is built.
+	//
+	//	Children.Expose(schema.REST{
+	//	    Ops: schema.OpCreate | schema.Reads,
+	//	    CreateInput: schema.Body(
+	//	        schema.Varchar("pin", 4).Comment("Four digits. Hashed on the way in; never stored as sent."),
+	//	    ),
+	//	})
+	//
+	// The generated body still carries every writable column. This adds to it,
+	// and what it adds never reaches the row: the value arrives at BeforeCreate
+	// through the context, as [sqlb.CreateInputFrom], and what the hook does
+	// with it — hash it, resolve it into rows of another table, refuse the
+	// request — is the application's.
+	//
+	// # Why a create needs this when nothing else does
+	//
+	// A create body is derived from the columns, so before this there was
+	// nowhere to put a property that is an *input to* a column rather than the
+	// column itself. The case is not exotic — a signup taking a password, an
+	// invite carrying a token that is hashed and never stored, a broadcast
+	// whose audience is a list that becomes rows of another table — and it had
+	// two workarounds, both of which lie (#309).
+	//
+	// Marking the hashed column WriteOnly puts it in the body under its own
+	// name, so the client sends a plaintext PIN in a property called pin_hash;
+	// there is no per-field wire override to rename it, by design ("The wire is
+	// the column name"). Renaming the column to `pin` fixes the wire and moves
+	// the lie into the DDL, where a VARCHAR called `pin` holds a bcrypt digest.
+	// Either way the honest alternative was to hand-write the create — and with
+	// it the DTO, the route, the OpenAPI operation and all four clients.
+	//
+	// An action already declares properties in this vocabulary independent of
+	// the columns; this is the same mechanism reaching the one write that could
+	// not use it.
+	//
+	// # What a property may say
+	//
+	// Only what describes a value: name, type, size, nullability, enum values,
+	// default and comment. The capabilities that place a column in a table —
+	// Filterable, PrimaryKey, Hidden and the rest — are refused by Validate
+	// rather than ignored, exactly as they are in an action's body, because a
+	// property claiming Filterable reads as though it did something.
+	//
+	// A property may not take the name of a column, in either spelling: the two
+	// share one JSON object, so the collision is a body with two meanings for
+	// one key. Declaring one at all requires OpCreate — there is no other body
+	// for it to be part of.
+	CreateInput []*Field
 }
 
 // Index is a secondary index.

@@ -49,6 +49,8 @@ than three guesses.
 | Find out who is calling, and scope the query to them | [Authenticating a request](../rest/auth.md) — the identity seam, then [Hooks](../queries/hooks.md) |
 | Resolve a tenant or role from a header, not just the token | [Identity is one stage; enrichment is another](../rest/auth.md#identity-is-one-stage-enrichment-is-another) |
 | Offer something CRUD does not cover | [Actions](../rest/actions.md) |
+| Return a score, a count or a token from a verb | [What the verb answers with](../rest/actions.md#what-the-verb-answers-with) — a declared result, instead of the row or a 204 |
+| Take a password, token or id list that is not a column | [A body that carries more than the row](../rest/README.md#a-body-that-carries-more-than-the-row) — declared inputs, and the hook that derives what is stored |
 | Give operators a way to browse the data | [Admin](../rest/admin.md) |
 | Notify another system when a row changes | [Events](../rest/events.md) and [Webhooks](../rest/webhooks.md) |
 | Control what a filter may express | [Filtering](../rest/filtering.md), and the [filter grammar reference](https://jryannel.github.io/sqlb/reference/filter-grammar/) |

@@ -132,10 +132,14 @@ func decodeAuthorCreate(data []byte) (map[string]any, error) {
 			return nil, badRequest("body."+name, "unknown property", allowed)
 		}
 	}
-	for _, want := range []struct{ column, wire string }{{"org_id", "org_id"}, {"email", "email"}, {"name", "name"}} {
-		if _, ok := out[want.column]; !ok {
-			return nil, badRequest("body."+want.wire, "this property is required", allowed)
-		}
+	if _, ok := out["org_id"]; !ok {
+		return nil, badRequest("body.org_id", "this property is required", allowed)
+	}
+	if _, ok := out["email"]; !ok {
+		return nil, badRequest("body.email", "this property is required", allowed)
+	}
+	if _, ok := out["name"]; !ok {
+		return nil, badRequest("body.name", "this property is required", allowed)
 	}
 	return out, nil
 }
@@ -501,10 +505,17 @@ func decodePostCreate(data []byte) (map[string]any, error) {
 			return nil, badRequest("body."+name, "unknown property", allowed)
 		}
 	}
-	for _, want := range []struct{ column, wire string }{{"org_id", "org_id"}, {"author_id", "author_id"}, {"title", "title"}, {"body", "body"}} {
-		if _, ok := out[want.column]; !ok {
-			return nil, badRequest("body."+want.wire, "this property is required", allowed)
-		}
+	if _, ok := out["org_id"]; !ok {
+		return nil, badRequest("body.org_id", "this property is required", allowed)
+	}
+	if _, ok := out["author_id"]; !ok {
+		return nil, badRequest("body.author_id", "this property is required", allowed)
+	}
+	if _, ok := out["title"]; !ok {
+		return nil, badRequest("body.title", "this property is required", allowed)
+	}
+	if _, ok := out["body"]; !ok {
+		return nil, badRequest("body.body", "this property is required", allowed)
 	}
 	return out, nil
 }

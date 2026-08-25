@@ -217,6 +217,15 @@ func registerCreate[T any, C CreateBody[T]](api huma.API, w writer, b *binding[T
 		// holding its zero value is omitted by Insert itself, so id, created_at
 		// and anything else the database owns still comes from the database.
 		b.clearReadOnly(value)
+
+		// A body carrying properties that are not columns hands them over here,
+		// because the hook that needs them is handed the row and the context and
+		// nothing else. It goes in before the write rather than beside Row(),
+		// which builds the row and has no business knowing about the ones that
+		// are not on it (#309).
+		if declared, ok := any(in.Body).(CreateInput); ok {
+			ctx = sqlb.WithCreateInput(ctx, declared.Input())
+		}
 		created, err := write(ctx, w, func(ctx context.Context, db sqlb.Executor) (T, error) {
 			// The mount's computed list covers both paths: the columns this
 			// resource decided to pay for are the ones its RETURNING evaluates,

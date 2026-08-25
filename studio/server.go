@@ -408,7 +408,7 @@ func (s *Server) handleRowNewForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, s.form, formPage{
 		pageHeader: s.header(r),
 		Table:      *t,
-		Fields:     buildFormFields(t, nil),
+		Fields:     buildFormFields(t, createInput(t), nil),
 		Action:     s.url("/tables/" + t.Name + "/rows/new"),
 		Title:      "New " + t.Name + " row",
 		Back:       s.url("/tables/" + t.Name + "/rows"),
@@ -432,14 +432,15 @@ func (s *Server) handleRowNewSubmit(w http.ResponseWriter, r *http.Request) {
 
 	action, title, back := s.url("/tables/"+t.Name+"/rows/new"), "New "+t.Name+" row", s.url("/tables/"+t.Name+"/rows")
 
-	body, err := parseFormBody(t, r.PostForm)
+	props := createInput(t)
+	body, err := parseFormBody(t, props, r.PostForm)
 	if err != nil {
-		s.renderFormError(w, r, t, r.PostForm, action, title, back, err.Error())
+		s.renderFormError(w, r, t, props, r.PostForm, action, title, back, err.Error())
 		return
 	}
 	created, err := client.Create(r.Context(), t.REST.Path, body)
 	if err != nil {
-		s.renderFormAPIError(w, r, t, r.PostForm, action, title, back, err)
+		s.renderFormAPIError(w, r, t, props, r.PostForm, action, title, back, err)
 		return
 	}
 
@@ -471,7 +472,7 @@ func (s *Server) handleRowEditForm(w http.ResponseWriter, r *http.Request) {
 	s.render(w, s.form, formPage{
 		pageHeader: s.header(r),
 		Table:      *t,
-		Fields:     buildFormFields(t, row),
+		Fields:     buildFormFields(t, nil, row),
 		Action:     s.url("/tables/" + t.Name + "/rows/" + id + "/edit"),
 		Title:      "Edit " + t.Name + " row",
 		Back:       s.url("/tables/" + t.Name + "/rows/" + id),
@@ -498,23 +499,23 @@ func (s *Server) handleRowEditSubmit(w http.ResponseWriter, r *http.Request) {
 	title := "Edit " + t.Name + " row"
 	back := s.url("/tables/" + t.Name + "/rows/" + id)
 
-	body, err := parseFormBody(t, r.PostForm)
+	body, err := parseFormBody(t, nil, r.PostForm)
 	if err != nil {
-		s.renderFormError(w, r, t, r.PostForm, action, title, back, err.Error())
+		s.renderFormError(w, r, t, nil, r.PostForm, action, title, back, err.Error())
 		return
 	}
 	if _, err := client.Patch(r.Context(), t.REST.Path+"/"+id, body); err != nil {
-		s.renderFormAPIError(w, r, t, r.PostForm, action, title, back, err)
+		s.renderFormAPIError(w, r, t, nil, r.PostForm, action, title, back, err)
 		return
 	}
 	http.Redirect(w, r, back, http.StatusFound)
 }
 
-func (s *Server) renderFormError(w http.ResponseWriter, r *http.Request, t *schema.TableManifest, form url.Values, action, title, back, errMsg string) {
+func (s *Server) renderFormError(w http.ResponseWriter, r *http.Request, t *schema.TableManifest, props []schema.BodyProperty, form url.Values, action, title, back, errMsg string) {
 	s.render(w, s.form, formPage{
 		pageHeader: s.header(r),
 		Table:      *t,
-		Fields:     formFieldsFromForm(t, form),
+		Fields:     formFieldsFromForm(t, props, form),
 		Action:     action,
 		Title:      title,
 		Back:       back,
@@ -526,7 +527,7 @@ func (s *Server) renderFormError(w http.ResponseWriter, r *http.Request, t *sche
 // stale token still bounces to /login, but every other failure re-renders the
 // form with what the operator typed rather than losing it behind a generic
 // error page.
-func (s *Server) renderFormAPIError(w http.ResponseWriter, r *http.Request, t *schema.TableManifest, form url.Values, action, title, back string, err error) {
+func (s *Server) renderFormAPIError(w http.ResponseWriter, r *http.Request, t *schema.TableManifest, props []schema.BodyProperty, form url.Values, action, title, back string, err error) {
 	var ae *apiError
 	if errors.As(err, &ae) && ae.Status == http.StatusUnauthorized {
 		s.clearTokenCookie(w)
@@ -537,7 +538,7 @@ func (s *Server) renderFormAPIError(w http.ResponseWriter, r *http.Request, t *s
 	if errors.As(err, &ae) {
 		msg = fmt.Sprintf("%d from API: %s", ae.Status, ae.Body)
 	}
-	s.renderFormError(w, r, t, form, action, title, back, msg)
+	s.renderFormError(w, r, t, props, form, action, title, back, msg)
 }
 
 func (s *Server) findAction(t *schema.TableManifest, name string) *schema.ActionManifest {
@@ -608,7 +609,7 @@ func (s *Server) handleActionForm(w http.ResponseWriter, r *http.Request) {
 		pageHeader: s.header(r),
 		Table:      *t,
 		Action:     *action,
-		Fields:     buildActionFields(action.Body),
+		Fields:     buildBodyFields(action.Body),
 		Back:       back,
 	})
 }
@@ -628,8 +629,7 @@ func (s *Server) handleActionSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wire := schema.WireCase(s.manifest.WireCase)
-	body, err := parseActionBody(wire, action.Body, r.PostForm)
+	body, err := parseActionBody(action.Body, r.PostForm)
 	if err != nil {
 		s.renderActionError(w, r, t, action, back, r.PostForm, err.Error())
 		return
@@ -656,7 +656,7 @@ func (s *Server) handleActionSubmit(w http.ResponseWriter, r *http.Request) {
 		pageHeader: s.header(r),
 		Table:      *t,
 		Action:     *action,
-		Fields:     buildActionFields(action.Body),
+		Fields:     buildBodyFields(action.Body),
 		Back:       back,
 		Result:     string(pretty),
 	})
@@ -667,7 +667,7 @@ func (s *Server) renderActionError(w http.ResponseWriter, r *http.Request, t *sc
 		pageHeader: s.header(r),
 		Table:      *t,
 		Action:     *action,
-		Fields:     actionFieldsFromForm(action.Body, form),
+		Fields:     bodyFieldsFromForm(action.Body, form),
 		Back:       back,
 		Error:      errMsg,
 	})

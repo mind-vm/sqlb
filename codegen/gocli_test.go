@@ -213,8 +213,10 @@ func TestCLIWritesOnlyTheFlagsThatWerePassed(t *testing.T) {
 	if !contains(update, `if cmd.Flags().Changed("title") { body["title"] = valTitle }`) {
 		t.Errorf("a patch should send only the flags it was given:\n%s", update)
 	}
-	// A value flag can say "empty"; it cannot say "null".
-	if !contains(update, `setNullFields(body, setNull, []string{"subtitle", "published_at", "meta"})`) {
+	// A value flag can say "empty"; it cannot say "null". Each column carries
+	// both its spellings, since the flag is written with one and the body key
+	// is the other — the same string under this fixture's default WireCase.
+	if !contains(update, `setNullFields(body, setNull, []nullableColumn{{"subtitle", "subtitle"}, {"published_at", "published_at"}, {"meta", "meta"}})`) {
 		t.Errorf("nullable columns should be reachable through --set-null:\n%s", update)
 	}
 	if !contains(update, `errors.New("nothing to update: pass at least one field flag")`) {

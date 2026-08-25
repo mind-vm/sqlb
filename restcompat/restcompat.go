@@ -59,12 +59,13 @@ const (
 	FacetCreate   Facet = "create-body" // the POST body
 	FacetPatch    Facet = "patch-body"  // the PATCH body
 	FacetAction   Facet = "action"      // a declared domain verb and its body
+	FacetQuery    Facet = "query"       // a declared read and its parameters
 )
 
 var facetOrder = map[Facet]int{
 	FacetWire: 0, FacetResource: 1, FacetOps: 2, FacetResponse: 3,
 	FacetFilter: 4, FacetSort: 5, FacetExpand: 6, FacetCreate: 7,
-	FacetPatch: 8, FacetAction: 9,
+	FacetPatch: 8, FacetAction: 9, FacetQuery: 10,
 }
 
 // Break is one classified delta between two generated contracts.
@@ -251,7 +252,9 @@ func diffResource(o, n resource, add func(Break)) {
 		diffField(n.path, o.fields[name], nv, add)
 	}
 
+	diffProps(n.path, createBody, "", o.createInput, n.createInput, add)
 	diffActions(n.path, o.actions, n.actions, add)
+	diffQueries(n.path, o.queries, n.queries, add)
 }
 
 // diffRemoved reports the breaks caused by a column leaving the schema.
@@ -570,6 +573,23 @@ type ResourceSnap struct {
 	// existed has none, which reads correctly: every verb in the new schema is
 	// an addition.
 	Actions []ActionSnap `json:"actions,omitempty"`
+	// CreateInput is the create body's declared properties that are not columns
+	// (#309). They are part of the contract for the reason the columns are: a
+	// deployed client sends this body, and adding a required property to it
+	// fails every request that client already makes.
+	//
+	// Recorded under its own key rather than as more fields, because it is not
+	// a column and nothing else about the field list is true of it — it is not
+	// in a response, not filterable, and not something a rename could reach.
+	CreateInput []BodyPropSnap `json:"create_input,omitempty"`
+	// Queries are the declared reads, and carry the same omitempty Actions
+	// does for the same two reasons: a baseline recorded before this field
+	// existed stays byte-identical, and its absence reads correctly as "this
+	// resource declared none" rather than as "not recorded". The first
+	// snapshot taken after this field arrives reports every existing query as
+	// an addition, which is the safe direction — an addition is never a gate
+	// failure, and a re-record settles it.
+	Queries []QuerySnap `json:"queries,omitempty"`
 }
 
 // FieldSnap is one column's contract-relevant shape. Storage-only properties —
@@ -639,6 +659,10 @@ func Capture(r *schema.Registry) Snapshot {
 				res.Ops = append(res.Ops, c.name)
 			}
 		}
+		if rest.Ops.Has(schema.OpCreate) {
+			res.CreateInput = captureBodyProps(rest.CreateInput)
+		}
+		res.Queries = captureQueries(t, path)
 		for _, f := range t.Fields() {
 			d := f.Desc()
 			fs := FieldSnap{
@@ -718,6 +742,11 @@ type resource struct {
 	// separate comparison form: the snapshot shape is already exactly what the
 	// diff reads.
 	actions map[string]ActionSnap
+	// createInput is the create body's non-column half, in declaration order —
+	// the snapshot's own shape, for the reason actions keeps it.
+	createInput []BodyPropSnap
+	// queries are the declared reads, by name, for the same reason again.
+	queries map[string]QuerySnap
 }
 
 // fieldView is the contract-relevant view of one column. It carries only what
@@ -767,7 +796,12 @@ func (f *fieldView) requiredAtCreate() bool {
 func index(s Snapshot) map[string]resource {
 	out := map[string]resource{}
 	for _, rs := range s.Resources {
-		res := resource{path: rs.Path, fields: map[string]*fieldView{}, actions: map[string]ActionSnap{}}
+		res := resource{
+			path:    rs.Path,
+			fields:  map[string]*fieldView{},
+			actions: map[string]ActionSnap{},
+			queries: map[string]QuerySnap{},
+		}
 		for _, name := range rs.Ops {
 			for _, c := range canonicalOps {
 				if c.name == name {
@@ -801,6 +835,10 @@ func index(s Snapshot) map[string]resource {
 		}
 		for _, as := range rs.Actions {
 			res.actions[as.Name] = as
+		}
+		res.createInput = rs.CreateInput
+		for _, qs := range rs.Queries {
+			res.queries[qs.Name] = qs
 		}
 		out[rs.Path] = res
 	}

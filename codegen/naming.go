@@ -146,3 +146,14 @@ func TypeName(t *schema.TableDef) string {
 	}
 	return GoName(Singular(t.LocalName()))
 }
+
+// plural picks between two spellings for n, which is the whole of what a
+// generated sentence needs and less than a dependency. schema has its own for
+// the same reason: the two packages do not share a helper file, and this is
+// four lines.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}

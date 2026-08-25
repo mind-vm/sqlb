@@ -57,6 +57,10 @@ func renderREST(opts Options) ([]byte, error) {
 		for _, f := range create {
 			bodyImports(imports, t.Name(), f.Desc(), ov)
 		}
+		// The declared properties go through the body-property path rather than
+		// bodyImports, for the reason actionBodyImports gives: an override is
+		// keyed by table and column, and a property is not a column.
+		bodyPropImports(imports, createInput(t))
 		patch, hasPatch := patchBody(t)
 		if hasPatch {
 			// UnmarshalJSON decodes the body twice, the second time into a
@@ -91,12 +95,19 @@ func renderREST(opts Options) ([]byte, error) {
 
 	b := header(opts.Package, sortedSet(imports))
 
+	// A body's property names are the wire spelling, which is the one the row
+	// struct, the TypeScript client and the Dart client already use. Tagged
+	// with the column name instead, a body under a non-default WireCase is one
+	// no generated client can fill: the client sends createdAt and the server
+	// is looking for created_at.
+	wire := opts.Registry.Wire()
 	for _, t := range exposed {
-		renderCreateBody(b, t, ov)
-		renderUpdateBody(b, t, ov)
+		renderCreateBody(b, t, ov, wire)
+		renderUpdateBody(b, t, ov, wire)
 	}
 	for _, a := range acts {
 		renderActionInput(b, a)
+		renderActionResult(b, a)
 	}
 	if len(acts) > 0 {
 		renderActions(b, acts)
@@ -179,6 +190,28 @@ func patchBody(t *schema.TableDef) ([]*schema.Field, bool) {
 	return fields, true
 }
 
+// createInput reports the create body's declared non-column properties.
+//
+// Empty unless the schema declared some, which is the ordinary case: a create
+// body is its columns, and this is the exception where the request carries
+// something the row does not (#309). It reads the exposure rather than the
+// table because that is where the declaration lives, and returns nothing at all
+// where no create is exposed — the schema refuses that pair, and an emitter
+// that trusted the declaration instead of the operation would write a type
+// nothing binds.
+func createInput(t *schema.TableDef) []*schema.Field {
+	if r := t.Rest(); r != nil && r.Ops.Has(schema.OpCreate) {
+		return r.CreateInput
+	}
+	return nil
+}
+
+// createInputName is the generated type carrying those properties:
+// CreateChildInput, beside the CompleteTaskInput an action emits. The two are
+// named alike because they are the same thing — a declared request body that is
+// not a row — and a hook reads this one the way an action's func receives its.
+func createInputName(t *schema.TableDef) string { return "Create" + TypeName(t) + "Input" }
+
 // bodyImports records the packages one body field's type names.
 //
 // An override replaces the type outright, so what the field needs is the
@@ -232,7 +265,7 @@ func optionalOnCreate(d *schema.FieldDesc) bool {
 	return d.Nullable || d.DatabaseSupplied()
 }
 
-func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
+func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire schema.WireCase) {
 	fields, ok := createBody(t)
 	if !ok {
 		return
@@ -247,13 +280,21 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range fields {
 		d := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), d.Name, omitEmpty(optionalOnCreate(d)), enumTag(d))
+		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), wire.WireName(d.Name), omitEmpty(optionalOnCreate(d)), enumTag(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", c)
 		}
 		fmt.Fprintln(b)
 	}
+	props := createInput(t)
+	if len(props) > 0 {
+		fmt.Fprintf(b, "\n\t// The declared inputs that are not columns. Row does not write them;\n")
+		fmt.Fprintf(b, "\t// they reach the BeforeCreate hook as a %s.\n", createInputName(t))
+		renderBodyProps(b, props)
+	}
 	fmt.Fprintln(b, "}")
+
+	renderCreateInput(b, t, props)
 
 	fmt.Fprintf(b, "\n// Row builds the row to insert. It satisfies rest.CreateBody.\n")
 	fmt.Fprintf(b, "func (c %s) Row() (*%s, error) {\n", name, typeName)
@@ -281,9 +322,67 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 		}
 	}
 	fmt.Fprintln(b, "\treturn row, nil\n}")
+
+	if len(props) == 0 {
+		return
+	}
+	inputName := createInputName(t)
+	fmt.Fprintf(b, "\n// Input returns the properties the request carried that are not columns. It\n")
+	fmt.Fprintf(b, "// satisfies rest.CreateInput, which is what puts them in the context the\n")
+	fmt.Fprintf(b, "// BeforeCreate hook reads.\n")
+	fmt.Fprintf(b, "func (c %s) Input() any {\n", name)
+	fmt.Fprintf(b, "\treturn %s{\n", inputName)
+	for _, f := range props {
+		field := GoName(f.Desc().Name)
+		fmt.Fprintf(b, "\t\t%s: c.%s,\n", field, field)
+	}
+	fmt.Fprintln(b, "\t}\n}")
 }
 
-func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
+// renderCreateInput writes the type the BeforeCreate hook reads.
+//
+// It is a type of its own rather than the body itself, because the two are
+// different contracts. The body is the wire's — every writable column, shaped
+// by what a POST may set — and this is the hook's: exactly what was declared,
+// so that a column added to the table does not change the value a hook already
+// destructures, and so that the hook cannot reach a column by reading it off
+// the request instead of off the row it was handed.
+func renderCreateInput(b *bytes.Buffer, t *schema.TableDef, props []*schema.Field) {
+	if len(props) == 0 {
+		return
+	}
+	name := createInputName(t)
+	fmt.Fprintf(b, "\n// %s is the part of a create request that is not a column.\n", name)
+	fmt.Fprintf(b, "//\n// A BeforeCreate hook reads it with sqlb.CreateInputFrom, which is how a value\n")
+	fmt.Fprintf(b, "// the request sends but the table does not store — a plaintext secret, an id\n")
+	fmt.Fprintf(b, "// list resolved into rows of another table — reaches the code that derives\n")
+	fmt.Fprintf(b, "// what is stored. It is absent from every response.\n")
+	fmt.Fprintf(b, "//\n//\tsqlb.On[%s](reg).BeforeCreate(func(ctx context.Context, row *%s) error {\n", TypeName(t), TypeName(t))
+	fmt.Fprintf(b, "//\t    in, ok := sqlb.CreateInputFrom[%s](ctx)\n", name)
+	fmt.Fprintf(b, "//\t    ...\n//\t})\n")
+	fmt.Fprintf(b, "type %s struct {\n", name)
+	renderBodyProps(b, props)
+	fmt.Fprintln(b, "}")
+}
+
+// renderBodyProps writes declared properties as struct fields.
+//
+// One function for both types that carry them, because Input() copies the body
+// field to the input field by name: the two agreeing is not a convention to be
+// remembered but the same call site twice.
+func renderBodyProps(b *bytes.Buffer, props []*schema.Field) {
+	for _, f := range props {
+		d := f.Desc()
+		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), actionBodyType(d), d.Name,
+			omitEmpty(optionalOnCreate(d)), enumTag(d))
+		if c := d.Comment; c != "" {
+			fmt.Fprintf(b, " // %s", c)
+		}
+		fmt.Fprintln(b)
+	}
+}
+
+func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire schema.WireCase) {
 	fields, ok := patchBody(t)
 	if !ok {
 		return
@@ -298,7 +397,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range fields {
 		d := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), d.Name, enumTag(d))
+		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), wire.WireName(d.Name), enumTag(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", c)
 		}
@@ -311,7 +410,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	fmt.Fprintln(b, "}")
 
 	fmt.Fprintf(b, "\n// UnmarshalJSON decodes the body and remembers which properties were present.\n")
-	fmt.Fprintf(b, "//\n// Without this a nil pointer would be ambiguous: `{}` and `{\"%s\": null}` decode\n", fields[0].Desc().Name)
+	fmt.Fprintf(b, "//\n// Without this a nil pointer would be ambiguous: `{}` and `{\"%s\": null}` decode\n", wire.WireName(fields[0].Desc().Name))
 	fmt.Fprintf(b, "// identically, but the first must change nothing and the second must write NULL.\n")
 	fmt.Fprintf(b, "func (u *%s) UnmarshalJSON(data []byte) error {\n", name)
 	fmt.Fprintf(b, "\ttype plain %s\n", name)
@@ -328,13 +427,17 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides) {
 	for _, f := range fields {
 		d := f.Desc()
 		field := GoName(d.Name)
-		fmt.Fprintf(b, "\tif u.present[%q] {\n", d.Name)
+		// present is keyed by what the request said and out by what the
+		// statement will set, so the two part company here under any WireCase
+		// but the default. The error is read by the client, so it names the
+		// property the client sent.
+		fmt.Fprintf(b, "\tif u.present[%q] {\n", wire.WireName(d.Name))
 		if d.Nullable {
 			// A nil pointer that was present is an explicit null.
 			fmt.Fprintf(b, "\t\tout[%q] = u.%s\n", d.Name, field)
 		} else {
 			fmt.Fprintf(b, "\t\tif u.%s == nil {\n", field)
-			fmt.Fprintf(b, "\t\t\treturn nil, errors.New(%q)\n", d.Name+" is not nullable and cannot be set to null")
+			fmt.Fprintf(b, "\t\t\treturn nil, errors.New(%q)\n", wire.WireName(d.Name)+" is not nullable and cannot be set to null")
 			fmt.Fprintf(b, "\t\t}\n")
 			fmt.Fprintf(b, "\t\tout[%q] = *u.%s\n", d.Name, field)
 		}

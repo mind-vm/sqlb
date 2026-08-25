@@ -1,6 +1,9 @@
 package schema
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // An action is a domain verb the table exposes: POST /tasks/{id}/complete.
 //
@@ -122,6 +125,40 @@ type Action struct {
 	// row of it, and a verb that writes others has no other way to declare them.
 	Touches []string
 
+	// Returns declares the verb's response body, in the field vocabulary. Build
+	// it with [Result].
+	//
+	//	Lesson.AddAction(schema.Action{
+	//	    Name: "submit-quiz",
+	//	    Body: schema.Body(schema.JSON("answers")),
+	//	    Returns: schema.Result(
+	//	        schema.Int("score"),
+	//	        schema.Int("total"),
+	//	    ),
+	//	})
+	//
+	// Leaving it empty is the default and is what almost every verb wants: an
+	// item action answers with the row it acted on, and a collection action
+	// answers 204. This is for the verb whose *answer* is the point and is not
+	// a row of this table — grading a quiz returns a score, and a score is not
+	// a Lesson (#312).
+	//
+	// Declaring one replaces the response rather than adding to it. An item
+	// action that returns a score does not also return the lesson, because one
+	// operation has one response body; a verb that wants both declares both
+	// halves here, or the client re-reads the row it already knows the id of.
+	//
+	// The status is 200 either way. A verb that created something and wants to
+	// say so with a 201 is describing OpCreate, which is its own operation with
+	// its own body and its own response — see [REST.CreateInput] for the case
+	// where that create needs an input the row has no column for.
+	//
+	// It is declared rather than reflected from the func's return type for the
+	// reason Body is: the value of an action is that it reaches the TypeScript,
+	// Dart, CLI and OpenAPI emitters, and a result those cannot see produces a
+	// client method typed `unknown`.
+	Returns []*Field
+
 	// Summary is the one-line description in the OpenAPI document.
 	//
 	// Left empty it is filled in downstream, as "Complete a task", rather than
@@ -133,31 +170,6 @@ type Action struct {
 
 	// Description documents the operation at length.
 	Description string
-}
-
-// Body builds an action's request body from field declarations.
-//
-//	Body: schema.Body(
-//	    schema.Text("note").Nullable(),
-//	    schema.Timestamp("completed_at"),
-//	)
-//
-// The vocabulary is the column vocabulary, deliberately: it is the one the
-// emitters already know how to turn into a TypeScript type, a Dart class, a CLI
-// flag and an OpenAPI schema. Only what describes a *value* applies here —
-// name, type, nullability, enum values, default and comment. The capabilities
-// that describe a column's place in a table (Filterable, PrimaryKey, Ref,
-// Computed, and the rest) have no meaning in a request body and are refused by
-// Validate rather than ignored.
-func Body(specs ...FieldSpec) []*Field {
-	var out []*Field
-	for _, s := range specs {
-		if s == nil {
-			continue
-		}
-		out = append(out, s.fields()...)
-	}
-	return out
 }
 
 // AddAction declares a domain verb on the table and returns the table, so
@@ -242,7 +254,8 @@ func (r *Registry) validateActions(t *TableDef, report func(string, string, stri
 			}
 		}
 
-		r.validateActionBody(t, a, report)
+		r.validateBody(t, fmt.Sprintf("action %q", a.Name), a.Body, report)
+		r.validateBody(t, fmt.Sprintf("action %q: result", a.Name), a.Returns, report)
 		r.validateActionWrites(t, a, report)
 		r.validateActionTouches(t, a, report)
 	}
@@ -308,46 +321,6 @@ func (r *Registry) validateActionTouches(t *TableDef, a Action, report func(stri
 			continue
 		}
 		seen[name] = true
-	}
-}
-
-// validateActionBody refuses the claims a request body cannot make.
-func (r *Registry) validateActionBody(t *TableDef, a Action, report func(string, string, string, ...any)) {
-	seen := make(map[string]bool, len(a.Body))
-	for _, f := range a.Body {
-		d := f.Desc()
-		if !isIdent(d.Name) {
-			report(t.name, d.Name, "action %q: body property name is not a valid identifier", a.Name)
-		}
-		if seen[d.Name] {
-			report(t.name, d.Name, "action %q: body property declared twice", a.Name)
-		}
-		seen[d.Name] = true
-
-		// A body property is a value, not a column. Every capability below
-		// describes a column's place in a table, and silently ignoring one
-		// would leave a declaration that reads as though it did something.
-		for _, c := range []struct {
-			claimed bool
-			what    string
-		}{
-			{d.PrimaryKey, "PrimaryKey"},
-			{d.Unique, "Unique"},
-			{d.Filterable, "Filterable"},
-			{d.Sortable, "Sortable"},
-			{d.Searchable, "Searchable"},
-			{d.ReadOnly, "ReadOnly"},
-			{d.Immutable, "Immutable"},
-			{d.Hidden, "Hidden"},
-			{d.WriteOnly, "WriteOnly"},
-			{d.Scoped, "Scoped"},
-			{d.Ref != nil, "Ref"},
-			{d.Computed(), "Computed"},
-		} {
-			if c.claimed {
-				report(t.name, d.Name, "action %q: body property claims %s, which describes a column rather than a request body", a.Name, c.what)
-			}
-		}
 	}
 }
 

@@ -318,22 +318,37 @@ func skillResource(b *strings.Builder, t schema.TableManifest) {
 			"it costs the same at any depth.\n\n", r.MaxOffset)
 	}
 
+	// A property that is not a column is invisible from everywhere else in this
+	// document: it is absent from the column table, from the filter vocabulary
+	// and from every response. So a caller assembling a POST out of the columns
+	// assembles a body the server refuses, and this is the only line that says
+	// otherwise (#309).
+	if len(r.CreateInput) > 0 {
+		fmt.Fprintf(b, "**`POST %s` carries more than the columns.** %s "+
+			"Not a column, not stored as sent, and absent from every response — the server "+
+			"derives what it stores from it. A create body assembled from the column table "+
+			"alone is refused.\n\n", r.Path, skillCreateInput(r.CreateInput))
+	}
+
 	skillEnums(b, t)
 
 	if len(r.Actions) > 0 {
 		b.WriteString("**Declared actions.** Domain verbs this resource owns. " +
 			"Reaching the same outcome by PATCHing a column is the mistake these exist to " +
 			"prevent — the verb owns the transition.\n\n")
-		b.WriteString("| Verb | Route | Writes | Also writes |\n|---|---|---|---|\n")
+		b.WriteString("| Verb | Route | Answers | Writes | Also writes |\n|---|---|---|---|---|\n")
 		for _, a := range r.Actions {
-			fmt.Fprintf(b, "| `%s` | `%s %s` | %s | %s |\n",
-				a.Name, a.Method, a.Path,
+			fmt.Fprintf(b, "| `%s` | `%s %s` | %s | %s | %s |\n",
+				a.Name, a.Method, a.Path, skillActionAnswer(a),
 				orNone(joinCode(a.Writes, ", ")), orNone(joinCode(a.Touches, ", ")))
 		}
-		b.WriteString("\n*Writes* is the columns the envelope persists on the addressed row. " +
-			"*Also writes* is the tables the verb declares it reaches through its " +
-			"transaction — declared, not enforced, and *none* there means no claim was " +
-			"made rather than that none are written.\n\n")
+		b.WriteString("\n*Answers* is what comes back. A verb that declares a result answers with " +
+			"exactly those properties and not with the row — reading a column off that " +
+			"response is the mistake the column is missing from. *Writes* is the columns " +
+			"the envelope persists on the addressed row. *Also writes* is the tables the " +
+			"verb declares it reaches through its transaction — declared, not enforced, " +
+			"and *none* there means no claim was made rather than that none are " +
+			"written.\n\n")
 	}
 
 	if len(t.CollectedBy) > 0 {
@@ -352,6 +367,59 @@ func skillResource(b *strings.Builder, t schema.TableManifest) {
 		}
 		b.WriteString("\n")
 	}
+}
+
+// skillActionAnswer is what a verb's response carries: a declared result, the
+// row, or nothing at all.
+//
+// It is in the table rather than in prose because it is the one fact about a
+// verb that changes what a caller does *next* — an agent that expects the row
+// back and gets a score will go looking for the columns in it.
+func skillActionAnswer(a schema.ActionManifest) string {
+	if len(a.Returns) > 0 {
+		names := make([]string, 0, len(a.Returns))
+		for _, p := range a.Returns {
+			names = append(names, p.Name)
+		}
+		return joinCode(names, ", ")
+	}
+	if strings.Contains(a.Path, "{id}") {
+		return "the row"
+	}
+	return "204, no body"
+}
+
+// skillCreateInput names the declared non-column properties of a create body,
+// with the fact a caller needs about each: its type, and whether the request
+// may leave it out.
+func skillCreateInput(props []schema.BodyProperty) string {
+	parts := make([]string, 0, len(props))
+	for _, p := range props {
+		required := ", required"
+		if p.Nullable {
+			required = ", optional"
+		}
+		values := ""
+		if len(p.Enum) > 0 {
+			values = fmt.Sprintf(", one of %s", joinCode(p.Enum, " "))
+		}
+		parts = append(parts, fmt.Sprintf("`%s` (%s%s%s)", p.Name, p.Type, values, required))
+	}
+	return "It also takes " + joinWords(parts) + "."
+}
+
+// joinWords renders a list the way a sentence does: commas, and an "and"
+// before the last.
+func joinWords(parts []string) string {
+	switch len(parts) {
+	case 0:
+		return ""
+	case 1:
+		return parts[0]
+	case 2:
+		return parts[0] + " and " + parts[1]
+	}
+	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
 }
 
 // skillEnums names the values a constrained column accepts.

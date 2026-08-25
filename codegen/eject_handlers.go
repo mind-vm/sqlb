@@ -29,8 +29,9 @@ func ejectHandlers(opts EjectOptions, exposed []*schema.TableDef) ([]byte, error
 
 	ejectOptionsType(b, exposed)
 	ejectRegister(b, exposed)
+	wire := opts.Registry.Wire()
 	for _, t := range exposed {
-		ejectResource(b, t, opts.Registry.Wire())
+		ejectResource(b, t, wire)
 	}
 	return ejectFile("handlers.go", opts.pkg(), b)
 }
@@ -98,6 +99,11 @@ func ejectOptionsType(b *bytes.Buffer, exposed []*schema.TableDef) {
 			fmt.Fprintf(b, "// Assign is required too, and supplies %s on create: the column is\n", o.scope)
 			fmt.Fprintln(b, "// read-only, so no request body can carry it and nothing else would.")
 		}
+		props := createInput(t)
+		if len(props) > 0 {
+			fmt.Fprintf(b, "// Derive is required here as well: the create body declares %s, which\n", quoteList(propNames(props)))
+			fmt.Fprintln(b, "// is not a column, so something has to turn it into the columns that are.")
+		}
 		fmt.Fprintf(b, "type %sHooks struct {\n", name)
 		fmt.Fprintln(b, "\t// Confine narrows every statement this resource issues. Nil means")
 		fmt.Fprintln(b, "\t// unconfined, which is only allowed when the schema declared nothing.")
@@ -105,6 +111,13 @@ func ejectOptionsType(b *bytes.Buffer, exposed []*schema.TableDef) {
 		fmt.Fprintln(b, "\t// Assign supplies column values a create must set that no request body")
 		fmt.Fprintln(b, "\t// carries. It runs before the insert and its values win.")
 		fmt.Fprintln(b, "\tAssign func(*http.Request) (map[string]any, error)")
+		if len(props) > 0 {
+			fmt.Fprintln(b, "\t// Derive turns the create body's declared inputs — the properties that")
+			fmt.Fprintln(b, "\t// are not columns — into column values. This is the BeforeCreate hook")
+			fmt.Fprintln(b, "\t// that hashed the secret, with the machinery removed: the input map is")
+			fmt.Fprintln(b, "\t// keyed by property name, and what it returns is written to the row.")
+			fmt.Fprintln(b, "\tDerive func(*http.Request, map[string]any) (map[string]any, error)")
+		}
 		fmt.Fprintln(b, "}")
 	}
 }
@@ -140,6 +153,9 @@ func ejectResource(b *bytes.Buffer, t *schema.TableDef, wire schema.WireCase) {
 	if rest.Ops.Has(schema.OpCreate) {
 		hasDefaults = ejectInsertDefaults(b, t, lower)
 		ejectBodyDecoder(b, t, lower, forCreate, wire)
+		if props := createInput(t); len(props) > 0 {
+			ejectCreateInputDecoder(b, t, props)
+		}
 	}
 	if rest.Ops.Has(schema.OpUpdate) {
 		ejectBodyDecoder(b, t, lower, forUpdate, wire)
@@ -157,6 +173,13 @@ func ejectResource(b *bytes.Buffer, t *schema.TableDef, wire schema.WireCase) {
 		fmt.Fprintf(b, "\tif h.Assign == nil {\n")
 		fmt.Fprintf(b, "\t\treturn fmt.Errorf(\"ejected: %%s: Assign is required (%%s is Scoped and read-only, so a create body cannot carry it)\", %q, %q)\n",
 			rest.Path, o.scope)
+		fmt.Fprintf(b, "\t}\n")
+	}
+
+	if props := createInput(t); len(props) > 0 {
+		fmt.Fprintf(b, "\tif h.Derive == nil {\n")
+		fmt.Fprintf(b, "\t\treturn fmt.Errorf(\"ejected: %%s: Derive is required (the create body declares %%s, which is not a column)\", %q, %q)\n",
+			rest.Path, strings.Join(propNames(props), ", "))
 		fmt.Fprintf(b, "\t}\n")
 	}
 
@@ -306,11 +329,6 @@ func ejectSortLiteral(terms []string) string {
 // A map of raw messages rather than a struct, because that is what answers the
 // question a PATCH asks: `{}` and `{"title": null}` decode identically into a
 // struct of pointers, and they mean different things.
-//
-// The two spellings meet here, in the same shape the column table uses for the
-// read side: a property is matched and reported by its wire name, and the map
-// that comes out is keyed by column, because every consumer of it — the insert,
-// the update, the Assign hook, the insert defaults — builds SQL from its keys.
 func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bodyKind, wire schema.WireCase) {
 	fields := bodyFields(t, kind)
 	verb, suffix := "create", "Create"
@@ -318,9 +336,24 @@ func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bo
 		verb, suffix = "patch", "Patch"
 	}
 
-	allowed := make([]string, 0, len(fields))
+	// The declared inputs are part of the body and so part of `allowed`, but
+	// they are not columns and must not reach the INSERT: the switch below
+	// names each one and drops it, and decode<T>CreateInput is what reads them.
+	var props []*schema.Field
+	if kind == forCreate {
+		props = createInput(t)
+	}
+	// A column is named the way the request spells it, which is the schema's
+	// WireCase and the same spelling the row struct's json tags carry. The map
+	// this returns is keyed by column name instead, because it goes to an
+	// INSERT or an UPDATE — see the case bodies below. A declared property has
+	// only the one spelling, since a wire case is a function of a column name.
+	allowed := make([]string, 0, len(fields)+len(props))
 	for _, f := range fields {
 		allowed = append(allowed, fmt.Sprintf("%q", wire.WireName(f.Desc().Name)))
+	}
+	for _, f := range props {
+		allowed = append(allowed, fmt.Sprintf("%q", f.Desc().Name))
 	}
 
 	fmt.Fprintf(b, "\n// decode%s%s reads a %s body for %s: which columns it named, and\n",
@@ -362,32 +395,88 @@ func ejectBodyDecoder(b *bytes.Buffer, t *schema.TableDef, lower string, kind bo
 		}
 	}
 
+	for _, f := range props {
+		fmt.Fprintf(b, "\t\tcase %q:\n", f.Desc().Name)
+		fmt.Fprintf(b, "\t\t\t// A declared input, not a column: decode%sCreateInput reads it.\n", TypeName(t))
+	}
 	fmt.Fprintln(b, "\t\tdefault:")
 	fmt.Fprintln(b, "\t\t\treturn nil, badRequest(\"body.\"+name, \"unknown property\", allowed)")
 	fmt.Fprintln(b, "\t\t}")
 	fmt.Fprintln(b, "\t}")
 
 	if kind == forCreate {
-		var required []string
+		// Looked up by column, since that is what out is keyed by, and reported
+		// by wire name, since that is the property the caller left out.
 		for _, f := range fields {
-			if d := f.Desc(); !optionalOnCreate(d) {
-				required = append(required, fmt.Sprintf("{%q, %q}", d.Name, wire.WireName(d.Name)))
+			d := f.Desc()
+			if optionalOnCreate(d) {
+				continue
 			}
-		}
-		if len(required) > 0 {
-			// Both spellings, because this check reads a map keyed by column
-			// and writes an error that has to name the property the caller
-			// would have sent.
-			fmt.Fprintf(b, "\tfor _, want := range []struct{ column, wire string }{%s} {\n",
-				strings.Join(required, ", "))
-			fmt.Fprintln(b, "\t\tif _, ok := out[want.column]; !ok {")
-			fmt.Fprintln(b, "\t\t\treturn nil, badRequest(\"body.\"+want.wire, \"this property is required\", allowed)")
-			fmt.Fprintln(b, "\t\t}")
+			fmt.Fprintf(b, "\tif _, ok := out[%q]; !ok {\n", d.Name)
+			fmt.Fprintf(b, "\t\treturn nil, badRequest(\"body.%s\", \"this property is required\", allowed)\n", wire.WireName(d.Name))
 			fmt.Fprintln(b, "\t}")
 		}
 	}
 	fmt.Fprintln(b, "\treturn out, nil")
 	fmt.Fprintln(b, "}")
+}
+
+// ejectCreateInputDecoder emits the reader for the create body's declared
+// inputs — the properties that are not columns.
+//
+// Separate from the column decoder because the two answers go to different
+// places: one becomes the INSERT, and this one becomes the argument to Derive.
+// Fusing them would put a value with no column into the statement, which is the
+// one mistake this whole feature exists to prevent.
+func ejectCreateInputDecoder(b *bytes.Buffer, t *schema.TableDef, props []*schema.Field) {
+	typeName := TypeName(t)
+	fmt.Fprintf(b, "\n// decode%sCreateInput reads the create body's declared inputs: the\n", typeName)
+	fmt.Fprintln(b, "// properties that are part of the request and not of the table. What is")
+	fmt.Fprintln(b, "// stored is Derive's answer, not these.")
+	fmt.Fprintf(b, "func decode%sCreateInput(data []byte) (map[string]any, error) {\n", typeName)
+	fmt.Fprintln(b, "\tvar raw map[string]json.RawMessage")
+	fmt.Fprintln(b, "\tif err := json.Unmarshal(data, &raw); err != nil {")
+	fmt.Fprintln(b, "\t\treturn nil, badRequest(\"body\", \"request body is not a JSON object: \"+err.Error(), nil)")
+	fmt.Fprintln(b, "\t}")
+	fmt.Fprintln(b, "\tout := map[string]any{}")
+	for _, f := range props {
+		d := f.Desc()
+		goType := ejectGoType(d)
+		pointer := strings.HasPrefix(goType, "*")
+		target := goType
+		if !pointer {
+			target = "*" + goType
+		}
+		fmt.Fprintf(b, "\tif msg, ok := raw[%q]; ok {\n", d.Name)
+		fmt.Fprintf(b, "\t\tvar v %s\n", target)
+		fmt.Fprintln(b, "\t\tif err := json.Unmarshal(msg, &v); err != nil {")
+		fmt.Fprintf(b, "\t\t\treturn nil, badRequest(%q, err.Error(), nil)\n", "body."+d.Name)
+		fmt.Fprintln(b, "\t\t}")
+		if pointer {
+			fmt.Fprintf(b, "\t\tout[%q] = v\n", d.Name)
+		} else {
+			fmt.Fprintln(b, "\t\tif v == nil {")
+			fmt.Fprintf(b, "\t\t\treturn nil, badRequest(%q, \"this property is not nullable\", nil)\n", "body."+d.Name)
+			fmt.Fprintln(b, "\t\t}")
+			fmt.Fprintf(b, "\t\tout[%q] = *v\n", d.Name)
+		}
+		if !optionalOnCreate(d) {
+			fmt.Fprintln(b, "\t} else {")
+			fmt.Fprintf(b, "\t\treturn nil, badRequest(%q, \"this property is required\", nil)\n", "body."+d.Name)
+		}
+		fmt.Fprintln(b, "\t}")
+	}
+	fmt.Fprintln(b, "\treturn out, nil")
+	fmt.Fprintln(b, "}")
+}
+
+// propNames is the declared names of a body's properties, for a diagnostic.
+func propNames(props []*schema.Field) []string {
+	out := make([]string, 0, len(props))
+	for _, f := range props {
+		out = append(out, f.Desc().Name)
+	}
+	return out
 }
 
 func ejectListHandler(b *bytes.Buffer, t *schema.TableDef, typeName, lower string) {
@@ -466,6 +555,28 @@ func ejectReadHandler(b *bytes.Buffer, t *schema.TableDef, typeName, lower strin
 }
 
 func ejectCreateHandler(b *bytes.Buffer, t *schema.TableDef, typeName, lower string, hasDefaults bool) {
+	// The declared inputs are read into their own map and handed to Derive,
+	// whose answer is written to the row. This is the BeforeCreate hook the
+	// sqlb resource had, with the machinery removed — and it is placed before
+	// the assignment for the same reason the body is: an assignment is the
+	// server's own statement about the row and wins over both (#309).
+	derive := ""
+	if props := createInput(t); len(props) > 0 {
+		derive = fmt.Sprintf(`		inputs, err := decode%sCreateInput(body)
+		if err != nil {
+			WriteProblem(w, err)
+			return
+		}
+		derived, err := h.Derive(r, inputs)
+		if err != nil {
+			WriteProblem(w, err)
+			return
+		}
+		for k, v := range derived {
+			values[k] = v
+		}
+`, typeName)
+	}
 	defaults := ""
 	if hasDefaults {
 		defaults = fmt.Sprintf(`
@@ -490,7 +601,7 @@ func ejectCreateHandler(b *bytes.Buffer, t *schema.TableDef, typeName, lower str
 			WriteProblem(w, err)
 			return
 		}
-%s		assigned, err := assignFor(r, h.Assign)
+%s%s		assigned, err := assignFor(r, h.Assign)
 		if err != nil {
 			WriteProblem(w, err)
 			return
@@ -508,7 +619,7 @@ func ejectCreateHandler(b *bytes.Buffer, t *schema.TableDef, typeName, lower str
 		}
 		WriteJSON(w, http.StatusCreated, row)
 	})
-`, t.Rest().Path, t.Rest().Path, typeName, defaults, typeName)
+`, t.Rest().Path, t.Rest().Path, typeName, derive, defaults, typeName)
 }
 
 func ejectUpdateHandler(b *bytes.Buffer, t *schema.TableDef, typeName, lower string) {

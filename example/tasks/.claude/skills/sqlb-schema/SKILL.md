@@ -108,11 +108,11 @@ Values: `status` is one of `todo` `in_progress` `blocked` `done`; `priority` is 
 
 **Declared actions.** Domain verbs this resource owns. Reaching the same outcome by PATCHing a column is the mistake these exist to prevent — the verb owns the transition.
 
-| Verb | Route | Writes | Also writes |
-|---|---|---|---|
-| `complete` | `POST /tasks/{id}/complete` | `status`, `completed_at` | `comments` |
+| Verb | Route | Answers | Writes | Also writes |
+|---|---|---|---|---|
+| `complete` | `POST /tasks/{id}/complete` | the row | `status`, `completed_at` | `comments` |
 
-*Writes* is the columns the envelope persists on the addressed row. *Also writes* is the tables the verb declares it reaches through its transaction — declared, not enforced, and *none* there means no claim was made rather than that none are written.
+*Answers* is what comes back. A verb that declares a result answers with exactly those properties and not with the row — reading a column off that response is the mistake the column is missing from. *Writes* is the columns the envelope persists on the addressed row. *Also writes* is the tables the verb declares it reaches through its transaction — declared, not enforced, and *none* there means no claim was made rather than that none are written.
 
 ### `users`
 

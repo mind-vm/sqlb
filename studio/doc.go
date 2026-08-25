@@ -21,7 +21,9 @@
 //   - Data: a paginated grid per exposed table, and a row detail page that
 //     follows an internal reference to the table it points at.
 //   - Writes: create and edit, generated from the same writable-column set
-//     the manifest already reports (ReadOnly and Computed excluded).
+//     the manifest already reports (ReadOnly and Computed excluded), plus —
+//     on the create form alone — the properties RESTManifest.CreateInput
+//     declares, which are part of the request and not of the row.
 //   - Actions: an invoke form per declared action, built from
 //     ActionManifest.Body the way ADR-0043 designed it to be read.
 //

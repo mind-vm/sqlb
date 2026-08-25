@@ -54,6 +54,10 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "howto" } }],
         },
         {
+          label: "Cheatsheet",
+          items: [{ autogenerate: { directory: "cheatsheet" } }],
+        },
+        {
           label: "Schema",
           items: [{ autogenerate: { directory: "schema" } }],
         },

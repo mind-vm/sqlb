@@ -91,7 +91,7 @@ func TestBodyPropertiesCannotClaimColumnCapabilities(t *testing.T) {
 	refusal(t, tasksWith(schema.Action{
 		Name: "complete",
 		Body: schema.Body(schema.Text("note").Filterable()),
-	}), "Filterable", "describes a column rather than a request body")
+	}), "Filterable", "describes a column rather than a declared property")
 
 	refusal(t, tasksWith(schema.Action{
 		Name: "complete",

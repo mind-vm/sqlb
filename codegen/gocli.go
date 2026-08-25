@@ -644,6 +644,15 @@ func cliDeleteCommand(b *bytes.Buffer, r cliResource) {
 // give.
 func cliWriteCommand(b *bytes.Buffer, r cliResource, kind bodyKind) {
 	fields := bodyFields(r.table, kind)
+	// The declared inputs that are not columns take a flag like anything else
+	// the body carries (#309): the CLI is a client, and what a client sends is
+	// what the body declares. Only a create declares them, so `all` and
+	// `fields` are the same list on a patch.
+	var props []*schema.Field
+	if kind == forCreate {
+		props = createInput(r.table)
+	}
+	all := append(append([]*schema.Field(nil), fields...), props...)
 	verb, method := "Create", "http.MethodPost"
 	if kind == forUpdate {
 		verb, method = "Update", "http.MethodPatch"
@@ -654,7 +663,7 @@ func cliWriteCommand(b *bytes.Buffer, r cliResource, kind bodyKind) {
 	fmt.Fprintf(b, "func new%s%sCommand(c *client.Client) *cobra.Command {\n", r.goPlural, verb)
 
 	fmt.Fprintln(b, "\tvar (")
-	for _, f := range fields {
+	for _, f := range all {
 		fmt.Fprintf(b, "\t\t%s %s\n", cliValueVar(f.Desc()), cliFlagType(f.Desc()))
 	}
 	nullable := cliNullableNames(fields)
@@ -678,7 +687,7 @@ func cliWriteCommand(b *bytes.Buffer, r cliResource, kind bodyKind) {
 		fmt.Fprintln(b, "\t\tArgs:  cobra.ExactArgs(1),")
 	}
 	fmt.Fprintf(b, "\t\tLong:  %s,\n", goRawString(cliWriteLong(r, kind)))
-	fmt.Fprintf(b, "\t\tExample: %s,\n", goRawString(cliWriteExample(r, kind, fields)))
+	fmt.Fprintf(b, "\t\tExample: %s,\n", goRawString(cliWriteExample(r, kind, all)))
 	if kind == forCreate || r.singleton() {
 		fmt.Fprintln(b, "\t\tRunE: func(cmd *cobra.Command, _ []string) error {")
 	} else {
@@ -688,12 +697,19 @@ func cliWriteCommand(b *bytes.Buffer, r cliResource, kind bodyKind) {
 	for _, f := range fields {
 		cliBodyAssignment(b, f.Desc(), r.wire)
 	}
+	for _, f := range props {
+		// Verbatim, not the schema's wire case: a declared property is not a
+		// column, so its name is not something a case is a function of. It is
+		// sent exactly as it was declared, which is what the Go body, the
+		// TypeScript client and the Dart client all do with it too.
+		cliBodyAssignment(b, f.Desc(), schema.Verbatim)
+	}
 	if kind == forUpdate && len(nullable) > 0 {
 		// A flag can say "title is now empty" but not "title is now null", and
 		// the two write different SQL. This is the command-line form of the
 		// presence map the generated patch body keeps for the same reason.
 		fmt.Fprintf(b, "\t\t\tif err := setNullFields(body, setNull, %s); err != nil {\n\t\t\t\treturn err\n\t\t\t}\n",
-			goSliceLiteral(nullable))
+			cliNullableLiteral(nullable, r.wire))
 	}
 	if kind == forUpdate {
 		fmt.Fprintln(b, "\t\t\tif len(body) == 0 {")
@@ -710,7 +726,7 @@ func cliWriteCommand(b *bytes.Buffer, r cliResource, kind bodyKind) {
 	fmt.Fprintln(b, "\t\t},\n\t}")
 
 	fmt.Fprintln(b, "\tflags := cmd.Flags()")
-	for _, f := range fields {
+	for _, f := range all {
 		d := f.Desc()
 		fmt.Fprintf(b, "\tflags.%sVar(&%s, %q, %s,\n\t\t%s)\n",
 			cliFlagKind(d), cliValueVar(d), cliFlagName(d.Name), cliFlagZero(d),
@@ -749,6 +765,18 @@ func cliWriteLong(r cliResource, kind bodyKind) string {
 		b.WriteString("so there is nothing for a caller to send. A column with a default is optional,\n")
 		b.WriteString("and leaving it out means the database supplies the value rather than the zero\n")
 		b.WriteString("value overwriting it.")
+		// The declared inputs are the flags that are not columns, and nothing
+		// else in this help says so — a caller reading a value back off a
+		// subsequent `get` would otherwise expect to find it (#309).
+		if props := createInput(r.table); len(props) > 0 {
+			var flags []string
+			for _, f := range props {
+				flags = append(flags, "--"+cliFlagName(f.Desc().Name))
+			}
+			fmt.Fprintf(&b, "\n\n%s %s not a column: the server derives what it stores from\n%s, "+
+				"so nothing sent there comes back on a later read.",
+				strings.Join(flags, ", "), plural(len(flags), "is", "are"), plural(len(flags), "it", "them"))
+		}
 		return b.String()
 	}
 	fmt.Fprintf(&b, "PATCH %s\n\n", r.itemRoute())
@@ -897,6 +925,18 @@ func cliBodyAssignment(b *bytes.Buffer, d *schema.FieldDesc, wire schema.WireCas
 		fmt.Fprintf(b, "\t\t\t\tbody[%q] = %s\n", wire.WireName(d.Name), v)
 	}
 	fmt.Fprintln(b, "\t\t\t}")
+}
+
+// cliNullableLiteral is the nullable columns as setNullFields wants them: the
+// flag's spelling, which a documented command line does not lose when the
+// schema declares a WireCase, beside the body's, which is the only one the
+// server will accept.
+func cliNullableLiteral(columns []string, wire schema.WireCase) string {
+	pairs := make([]string, len(columns))
+	for i, c := range columns {
+		pairs[i] = fmt.Sprintf("{%q, %q}", c, wire.WireName(c))
+	}
+	return "[]nullableColumn{" + strings.Join(pairs, ", ") + "}"
 }
 
 // cliNullableNames is the columns a patch may set to null.

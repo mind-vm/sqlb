@@ -25,7 +25,12 @@ type ActionSnap struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
 	// Body is the request body's properties, in declaration order.
-	Body []ActionPropSnap `json:"body,omitempty"`
+	Body []BodyPropSnap `json:"body,omitempty"`
+	// Returns is the declared response body, in declaration order. Absent means
+	// the default answer — the row for an item verb, nothing for a collection
+	// one — and moving between the two is a change of response type, which is
+	// why it is diffed as a whole and not only property by property.
+	Returns []BodyPropSnap `json:"returns,omitempty"`
 	// Writes names the columns the envelope persists. No client couples to it,
 	// so a change here is neutral — but it widens or narrows what one route
 	// can mutate, which is exactly the blast-radius question this tool is for.
@@ -38,8 +43,20 @@ type ActionSnap struct {
 	Touches []string `json:"touches,omitempty"`
 }
 
-// ActionPropSnap is one property of an action's request body.
-type ActionPropSnap struct {
+// BodyPropSnap is one declared property of a request — an action's body, the
+// non-column half of a create's (#309), or a query's parameters.
+//
+// It was ActionPropSnap until a create body could declare one too; the alias
+// below keeps a baseline reader compiling, and the JSON is unchanged either way.
+//
+// The name has since outgrown itself by one caller: a query's parameters are
+// not a body, and they are this type because they are this shape — a name, a
+// type, and the three flags that decide whether a request must carry it — and
+// because the rules that classify a change to one are the rules that classify
+// a change to any of them. Renaming it a second time inside one release would
+// cost two deprecated aliases to buy one accurate word. If a fourth
+// declaration arrives that is also not a body, that is the moment.
+type BodyPropSnap struct {
 	Name       string   `json:"name"`
 	Type       string   `json:"type"`
 	Enum       []string `json:"enum,omitempty"`
@@ -47,31 +64,49 @@ type ActionPropSnap struct {
 	HasDefault bool     `json:"has_default,omitempty"`
 }
 
+// ActionPropSnap is the former name of [BodyPropSnap].
+//
+// Deprecated: use BodyPropSnap.
+type ActionPropSnap = BodyPropSnap
+
 // required reports whether a request must carry the property. It is the create
 // body's rule: a nullable property may be absent as null, and a defaulted one
 // may be absent so the default applies.
-func (p ActionPropSnap) required() bool { return !p.Nullable && !p.HasDefault }
+func (p BodyPropSnap) required() bool { return !p.Nullable && !p.HasDefault }
 
 // captureActions projects a table's verbs into their contract form.
 func captureActions(t *schema.TableDef, path string) []ActionSnap {
 	var out []ActionSnap
 	for _, a := range t.Actions() {
-		snap := ActionSnap{Name: a.Name, Path: a.FullPath(path), Writes: a.Writes, Touches: a.Touches}
-		for _, f := range a.Body {
-			d := f.Desc()
-			snap.Body = append(snap.Body, ActionPropSnap{
-				Name:       d.Name,
-				Type:       string(d.Type),
-				Enum:       d.EnumValues,
-				Nullable:   d.Nullable,
-				HasDefault: d.DatabaseSupplied(),
-			})
+		snap := ActionSnap{
+			Name: a.Name, Path: a.FullPath(path),
+			Body:    captureBodyProps(a.Body),
+			Returns: captureBodyProps(a.Returns),
+			Writes:  a.Writes, Touches: a.Touches,
 		}
 		out = append(out, snap)
 	}
 	// Sorted, so that reordering the declarations in a schema file is not a
 	// diff in the recorded contract.
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// captureBodyProps projects a declared body into its contract form, in
+// declaration order. One function for both declarations that have a body, so
+// that the two cannot record the same property differently.
+func captureBodyProps(body []*schema.Field) []BodyPropSnap {
+	var out []BodyPropSnap
+	for _, f := range body {
+		d := f.Desc()
+		out = append(out, BodyPropSnap{
+			Name:       d.Name,
+			Type:       string(d.Type),
+			Enum:       d.EnumValues,
+			Nullable:   d.Nullable,
+			HasDefault: d.DatabaseSupplied(),
+		})
+	}
 	return out
 }
 
@@ -97,6 +132,7 @@ func diffActions(path string, o, n map[string]ActionSnap, add func(Break)) {
 				fmt.Sprintf("action moved from %s to %s; a deployed client holds the old URL", ov.Path, nv.Path)})
 		}
 		diffActionBody(path, name, ov, nv, add)
+		diffActionResult(path, name, ov, nv, add)
 
 		if !sameStrings(ov.Writes, nv.Writes) {
 			add(Break{LevelNeutral, path, FacetAction, name,
@@ -111,28 +147,73 @@ func diffActions(path string, o, n map[string]ActionSnap, add func(Break)) {
 	}
 }
 
+// propKind is the vocabulary one property-bearing declaration uses to describe
+// its own properties to a reader.
+//
+// The classifier below is identical for all three: the same rule for whether a
+// request must carry the property, the same rule for a type change, the same
+// rule for a narrowed enum. An action's body and a create's differ only in
+// which facet they are reported under; a query's parameters differ in the noun
+// as well, since they are not a body. So the rules live once and the words are
+// passed in — which is the point, because the next fix to one of those rules
+// would otherwise have to be made three times and would be made once (#68 was
+// that fix, and it landed when there was only one caller to make it in).
+type propKind struct {
+	facet Facet
+	// noun names one property in a summary: "body property", "parameter".
+	noun string
+	// removed is the whole summary for a property that is gone, rather than a
+	// suffix on noun, because it is the one case where the declarations differ
+	// in substance and not only in wording — see queryParam.
+	removed string
+}
+
+// The three declarations that carry request properties. The first two share a
+// noun and differ only in facet, which is what makes them two values rather
+// than one with the facet passed alongside: a caller naming its kind reads as
+// the thing it is.
+//
+// A verb's declared *result* is not among them and does not go through
+// diffProps: every classification a response gets is the inverse of the one a
+// request gets, so it is diffActionResult's own — see the argument there.
+var (
+	actionBody = propKind{FacetAction, "body property", "body property removed"}
+	createBody = propKind{FacetCreate, "body property", "body property removed"}
+)
+
 // diffActionBody compares two versions of one verb's request body.
 func diffActionBody(path, action string, o, n ActionSnap, add func(Break)) {
-	oldProps := propsByName(o.Body)
-	newProps := propsByName(n.Body)
+	diffProps(path, actionBody, action+".", o.Body, n.Body, add)
+}
+
+// diffProps compares two versions of one declared property set, whichever
+// declaration it came from.
+//
+// prefix qualifies the field name in the report: an action's properties are
+// reported under "complete.note", a query's under "overdue.as_of", and a
+// create's under the bare property name, because a resource has one create
+// body and does not need it qualified.
+func diffProps(path string, kind propKind, prefix string, oldBody, newBody []BodyPropSnap, add func(Break)) {
+	oldProps := propsByName(oldBody)
+	newProps := propsByName(newBody)
 
 	for _, name := range unionProps(oldProps, newProps) {
-		field := action + "." + name
+		field := prefix + name
 		op, inOld := oldProps[name]
 		np, inNew := newProps[name]
 		switch {
 		case inOld && !inNew:
 			// The property is gone. A client still sending it is now sending
-			// something the operation does not declare.
-			add(Break{LevelBreaking, path, FacetAction, field,
-				"body property removed"})
+			// something the operation does not declare — or, for a query,
+			// something it is refused for; see queryParam.
+			add(Break{LevelBreaking, path, kind.facet, field, kind.removed})
 		case !inOld && inNew:
 			if np.required() {
-				add(Break{LevelBreaking, path, FacetAction, field,
-					"required body property added; every existing request omits it"})
+				add(Break{LevelBreaking, path, kind.facet, field,
+					"required " + kind.noun + " added; every existing request omits it"})
 				continue
 			}
-			add(Break{LevelAdditive, path, FacetAction, field, "optional body property added"})
+			add(Break{LevelAdditive, path, kind.facet, field, "optional " + kind.noun + " added"})
 		default:
 			// Sequential, not a switch. A property whose enum narrows *and*
 			// whose requiredness relaxes is two deltas, and a switch reported
@@ -140,23 +221,23 @@ func diffActionBody(path, action string, o, n ActionSnap, add func(Break)) {
 			// one that does not need reporting (#68). The field path beside
 			// this one has always used sequential ifs; this is it agreeing.
 			if op.Type != np.Type {
-				add(Break{LevelBreaking, path, FacetAction, field,
-					fmt.Sprintf("body property type changed from %s to %s", op.Type, np.Type)})
+				add(Break{LevelBreaking, path, kind.facet, field,
+					fmt.Sprintf("%s type changed from %s to %s", kind.noun, op.Type, np.Type)})
 			}
 			if !op.required() && np.required() {
-				add(Break{LevelBreaking, path, FacetAction, field,
-					"body property became required"})
+				add(Break{LevelBreaking, path, kind.facet, field,
+					kind.noun + " became required"})
 			}
 			if op.required() && !np.required() {
-				add(Break{LevelAdditive, path, FacetAction, field,
-					"body property became optional"})
+				add(Break{LevelAdditive, path, kind.facet, field,
+					kind.noun + " became optional"})
 			}
 			if len(np.Enum) > 0 && !sameStrings(op.Enum, np.Enum) {
 				// Narrowing the accepted set rejects a value that used to work;
 				// widening it does not. Reported as one delta either way, because
 				// the enum is a set and the honest summary names both spellings.
-				add(Break{levelForEnum(op.Enum, np.Enum), path, FacetAction, field,
-					fmt.Sprintf("body property values changed from %v to %v", op.Enum, np.Enum)})
+				add(Break{levelForEnum(op.Enum, np.Enum), path, kind.facet, field,
+					fmt.Sprintf("%s values changed from %v to %v", kind.noun, op.Enum, np.Enum)})
 			}
 		}
 	}
@@ -177,8 +258,67 @@ func levelForEnum(old, new []string) Level {
 	return LevelAdditive
 }
 
-func propsByName(props []ActionPropSnap) map[string]ActionPropSnap {
-	out := make(map[string]ActionPropSnap, len(props))
+// diffActionResult compares what two versions of one verb answer with.
+//
+// It is a separate function from the request side rather than the same one
+// under a flag, because every classification is inverted and a boolean
+// parameter whose only job is "invert this" reads as one rule when it is two: a
+// property leaving a *request* breaks the client that sends it, and one leaving
+// a *response* breaks the client that reads it; a widened value set is safe to
+// send and unsafe to receive.
+func diffActionResult(path, action string, o, n ActionSnap, add func(Break)) {
+	// Acquiring or losing a declared result changes the response *type*, not
+	// one of its properties. A client holding the old signature gets the row
+	// where it expects a score, or nothing where it expects a row.
+	switch {
+	case len(o.Returns) == 0 && len(n.Returns) > 0:
+		add(Break{LevelBreaking, path, FacetAction, action,
+			"now answers with a declared result instead of the row or 204; the client's return type changes"})
+		return
+	case len(o.Returns) > 0 && len(n.Returns) == 0:
+		add(Break{LevelBreaking, path, FacetAction, action,
+			"no longer answers with a declared result; the client's return type changes"})
+		return
+	}
+
+	oldProps := propsByName(o.Returns)
+	newProps := propsByName(n.Returns)
+	for _, name := range unionProps(oldProps, newProps) {
+		field := action + ".result." + name
+		op, inOld := oldProps[name]
+		np, inNew := newProps[name]
+		switch {
+		case inOld && !inNew:
+			add(Break{LevelBreaking, path, FacetAction, field, "result property removed"})
+			continue
+		case !inOld && inNew:
+			add(Break{LevelAdditive, path, FacetAction, field, "result property added"})
+			continue
+		}
+		if op.Type != np.Type {
+			add(Break{LevelBreaking, path, FacetAction, field,
+				fmt.Sprintf("result property type changed from %s to %s", op.Type, np.Type)})
+		}
+		if !op.Nullable && np.Nullable {
+			add(Break{LevelBreaking, path, FacetAction, field,
+				"result property may now be null; a non-nullable client type breaks on null"})
+		}
+		if op.Nullable && !np.Nullable {
+			add(Break{LevelNeutral, path, FacetAction, field,
+				"result property is no longer null; readers that handled the type are unaffected"})
+		}
+		if len(np.Enum) > 0 && !sameStrings(op.Enum, np.Enum) {
+			// The mirror image of the request side: a value the response may
+			// now carry is one a closed client type has no case for, and one it
+			// no longer carries breaks nothing.
+			add(Break{levelForEnum(np.Enum, op.Enum), path, FacetAction, field,
+				fmt.Sprintf("result property values changed from %v to %v", op.Enum, np.Enum)})
+		}
+	}
+}
+
+func propsByName(props []BodyPropSnap) map[string]BodyPropSnap {
+	out := make(map[string]BodyPropSnap, len(props))
 	for _, p := range props {
 		out[p.Name] = p
 	}
@@ -204,7 +344,7 @@ func unionActions(a, b map[string]ActionSnap) []string {
 	return keys
 }
 
-func unionProps(a, b map[string]ActionPropSnap) []string {
+func unionProps(a, b map[string]BodyPropSnap) []string {
 	seen := map[string]bool{}
 	var keys []string
 	for k := range a {

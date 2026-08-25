@@ -186,7 +186,8 @@ in the query.
 ## Collection actions
 
 A path with no `{id}` addresses the collection. There is no row to fetch, so the
-func receives only the body and the response is a 204:
+func receives only the body, and the response is a 204 unless the verb declares
+what it answers with:
 
 ```go
 Project.AddAction(schema.Action{
@@ -224,11 +225,63 @@ An action that declares no body still gets an input type on the Go side, empty,
 so that declaring the first property later does not change the signature of the
 func you already wrote. The operation reads no request body until there is one.
 
+## What the verb answers with
+
+By default an item action answers with the row it acted on, and a collection
+action answers 204. For most verbs that is right: the point of `complete` is
+the transition, and the row is what changed.
+
+Some verbs are not like that. Grading a quiz produces a score, marking a batch
+read produces a count, issuing an invite produces a token — the *answer* is the
+point, and it is not a row of the table. `Returns` declares it:
+
+```go
+Lesson.AddAction(schema.Action{
+    Name: "submit-quiz",
+    Body: schema.Body(schema.JSON("answers")),
+    Returns: schema.Result(
+        schema.Int("score"),
+        schema.Int("total"),
+    ),
+    Writes: []string{"attempts"},
+})
+```
+
+The func grows a return value, and the compiler will not let you forget it:
+
+```go
+func submitQuiz(ctx context.Context, l *lessons.Lesson, in lessons.SubmitQuizLessonInput) (lessons.SubmitQuizLessonResult, error) {
+    score := grade(in.Answers)
+    l.Attempts++
+    return lessons.SubmitQuizLessonResult{Score: score, Total: 10}, nil
+}
+```
+
+Everything else is unchanged: the same scoped fetch, the same row lock, the same
+write of the declared columns. Only the response differs, and it *replaces* the
+default one — the row is persisted and not returned, because one operation has
+one response body. A client that needs both re-reads the row whose id it already
+sent.
+
+`Result` is `Body` under a second name; the two build the same thing, and the
+second name is there so a declaration says which direction it travels in.
+
+**The status is 200 either way**, including for a collection action, which
+answers 200 with the result instead of 204. A verb that creates something and
+wants to say so with a 201 is describing `OpCreate` — which can take an input
+the row has no column for, see
+[a body that carries more than the row](README.md#a-body-that-carries-more-than-the-row).
+
+The declaration reaches every surface the body does: the OpenAPI response
+schema, a `Promise<SubmitQuizLessonResult>` in TypeScript, a
+`Future<SubmitQuizLessonResult>` in Dart, and the CLI's `--help`, which stops
+promising the row.
+
 ## Errors
 
 | The func returns | The client sees |
 |---|---|
-| `nil` | 200 with the row, or 204 for a collection action |
+| `nil` | 200 with the row (or the declared result), or 204 for a collection action that declares none |
 | `*rest.Problem` | that problem's own status — this is how "cannot complete an archived task" is a 409 |
 | anything else | 500, with the error logged and the transaction rolled back |
 

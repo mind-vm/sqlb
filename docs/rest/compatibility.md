@@ -6,7 +6,9 @@ answers are different, and often inverted.
 
 The REST contract a schema generates — the response fields, the filter and sort
 parameters, the `?expand` relations, the create and patch bodies, the operation
-set — is a pure function of the model's capabilities
+set, and the declared routes: each `AddAction` verb with its body, each
+`AddQuery` read with its parameters — is a pure function of the model's
+capabilities
 ([ADR-0007](../architecture.md#generated-rest-handlers)). So sqlb is the one thing
 that knows how a schema edit changes that contract, and `sqlb impact` reports it
 ([ADR-0039](../architecture.md#a-schema-edit-is-an-api-edit)).
@@ -25,6 +27,7 @@ all:
 | `NULL` → `NOT NULL` on an exposed column | a lock hazard | readers unaffected; the **create body now requires it** |
 | Drop a column | destructive, commented out | breaking — the field and its filter vanish |
 | Change the schema's `WireCase` | no DDL at all | **breaks** every field of every resource at once |
+| Drop an `AddAction` verb or an `AddQuery` read | no DDL at all | **breaks** the client holding that URL |
 
 The cleanest migration sqlb can emit — a declared rename — is a hard wire break,
 because the wire spelling of a column is derived from the column's name
@@ -112,6 +115,33 @@ mise run impact-check
 
 which fails if the blog example's committed contract has a breaking change that
 was not re-recorded. Add the same line to your CI beside `sqlb check`.
+
+## Declared routes are part of it
+
+A verb declared with `AddAction` and a read declared with `AddQuery` are routes
+a generated client has a named method for, so withdrawing one, moving its path
+or tightening its input is a break with no DDL in the change at all — the same
+shape as un-exposing a column, and the reason both are diffed:
+
+```
+breaking  /tasks action.complete       action removed; POST /tasks/{id}/complete now 404s
+breaking  /tasks query.overdue         query removed; GET /tasks/overdue now 404s
+breaking  /tasks query.overdue.as_of   parameter removed; a client still sending it is refused, not ignored
+```
+
+That last line is sharper than its action-body equivalent for a reason worth
+knowing: a declared query mounts with `RejectUnknownQueryParameters`, so a
+client still sending a withdrawn parameter is **refused**, where an extra
+property in a JSON body is merely undeclared.
+
+Two things a declared route contributes are reported `neutral`, because no
+client couples to them — but they are reported rather than dropped, since each
+is a change in what a route *claims*. `Action.Writes` and `Action.Touches` say
+what a verb may leave changed and what else it reaches; `Query.Reads` says what
+a client cache should invalidate this read on. The `Reads` finding names which
+direction the set moved, because the two directions differ: a deployed client
+holds the *old* set, so widening the server's leaves that client under-
+invalidating and showing stale data, while narrowing it only costs a refetch.
 
 ## What is in scope
 
