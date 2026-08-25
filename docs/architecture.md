@@ -3970,3 +3970,53 @@ Revisit if the same argument arrives for a patch body. It has not: the cases
 collected so far — a password at signup, an invite's token, a list of ids
 resolved into rows of another table — are all creates, and a second declaration
 before there is a second case would be a vocabulary invented for symmetry.
+
+### A verb may declare what it answers with
+
+[Declared actions](#declared-actions) gave a domain verb a route and a generated
+envelope, and fixed the response: an item action answers with the row it acted
+on, and a collection action answers 204. Both are right for the verb that
+*transitions* a row, which is the case that decision was written for.
+
+Neither is right for the verb whose answer is the point. Grading a quiz returns
+a score; a score is not a Lesson, and 204 is not a score. An audit of a
+nine-vertical application ([#312](https://github.com/jryannel/sqlb/issues/312))
+put one operation in that shape after its own correction, and
+[#310](https://github.com/jryannel/sqlb/issues/310) is the collection half of
+it — a verb that created a row and could only answer 204, leaving the client to
+re-list and guess which row was new. Both stayed hand-written, and a
+hand-written route takes the OpenAPI operation and four clients with it.
+
+So `Action.Returns` declares the response in the same field vocabulary
+`Action.Body` uses, and the func grows a return value. Everything else is the
+envelope as it was: the same scoped fetch, the same row lock, the same write of
+the declared set. The declaration *replaces* the default response rather than
+adding to it, because one operation has one body — a client that needs the row
+as well re-reads the id it already sent.
+
+**The runtime grows two functions rather than a flag.** `ActionReturning` and
+`CollectionActionReturning` sit beside `Action` and `CollectionAction`, because
+the response type is a Go type parameter: what a route answers with is fixed at
+`huma.Register`, so it cannot be a value the spec carries. That also keeps the
+existing signatures untouched, which matters more than the symmetry — a mount
+written against the old ones is a mount that still compiles.
+
+**The status is 200, never 201.** A collection verb that creates a row is
+describing `OpCreate`, and since
+[a create body may carry what the row does not](#a-create-body-may-carry-what-the-row-does-not)
+that operation can take an input with no column behind it, which was the reason
+#310 reached for a collection action in the first place. Two ways to spell one
+create is the ambiguity that issue was one half of; this closes the half that is
+about the answer, and leaves creating to the operation named for it.
+
+**What the response says is diffed.** `sqlb impact` records the declared result
+and classifies it as a reader-side contract, which is the mirror of the request
+side: a property leaving the response breaks the client that reads it, a value
+set that *grows* breaks the client that switched on it, and acquiring or losing
+a declared result is a change of return type rather than of one property.
+
+Revisit if a verb needs to answer with the row *and* something computed. The
+shape that would take is a declared result with a property whose type is the
+model, and it is not built: the cases collected so far each want one or the
+other, and a response type that sometimes embeds a row is the thing that makes
+a generated client's return type conditional.

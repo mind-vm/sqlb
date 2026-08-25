@@ -107,7 +107,7 @@ func (s ActionSpec) describe() string {
 		return s.Description
 	}
 	reach := fmt.Sprintf(
-		"Beyond the row in the response, this operation writes: %s. "+
+		"Beyond what the response carries, this operation writes: %s. "+
 			"That set is declared rather than enforced — see the schema for what it claims.",
 		strings.Join(s.Touches, ", "))
 	if s.Description == "" {
@@ -219,32 +219,135 @@ type collectionInput[In any] struct {
 // spec.Writes, and answers 200 with the row. do reports failure by returning an
 // error; a *Problem is answered with its own status, which is how a verb says
 // "cannot complete an archived task" is a 409 rather than a 500.
+//
+// [ActionReturning] is the same envelope answering with a declared result
+// instead of the row, for the verb whose answer is not a row of this table.
 func Action[T, In any](api huma.API, db sqlb.Executor, opts Options, spec ActionSpec, do func(context.Context, *T, In) error) error {
-	if err := opts.validate(); err != nil {
-		return err
-	}
-	if err := spec.validate(opts.Path); err != nil {
-		return err
-	}
-	if db == nil {
-		return fmt.Errorf("rest: %s has no Executor", spec.Path)
-	}
 	if do == nil {
 		return missingDo(opts.Path, spec)
+	}
+	env, err := prepareItemAction[T, In, struct{}](api, db, opts, spec,
+		func(ctx context.Context, found *T, body In) (struct{}, error) {
+			return struct{}{}, do(ctx, found, body)
+		})
+	if err != nil {
+		return err
+	}
+
+	answer := func(ctx context.Context, id string, body In) (*itemOutput[T], error) {
+		found, _, err := env.run(ctx, id, body)
+		if err != nil {
+			return nil, err
+		}
+		return &itemOutput[T]{Body: row[T]{value: found, cols: env.b.selectable, keys: env.b.jsonKey}}, nil
+	}
+
+	if spec.HasBody {
+		huma.Register(api, env.op, func(ctx context.Context, in *actionInput[In]) (*itemOutput[T], error) {
+			return answer(ctx, in.ID, in.Body)
+		})
+		return nil
+	}
+	huma.Register(api, env.op, func(ctx context.Context, in *itemInput) (*itemOutput[T], error) {
+		var body In
+		return answer(ctx, in.ID, body)
+	})
+	return nil
+}
+
+// ActionReturning registers a verb on one row of T that answers with a declared
+// result rather than with the row (#312).
+//
+// Everything else is [Action]: the same fetch under the same BeforeQuery, the
+// same row lock where a write set is declared, the same write-back afterwards.
+// Only the response differs — do returns the value, and that value is the body.
+//
+// It exists because a verb's answer is not always a row. Grading a quiz returns
+// a score; the score is not a Lesson, and the two shapes a route had before
+// this were "the row" and "204". Both are wrong for it, and the endpoint stayed
+// hand-written — with the OpenAPI operation and every generated client staying
+// hand-written beside it, which is the drift a declared action exists to
+// remove.
+//
+// The row the verb mutated is still persisted, and is still not in the
+// response: one operation has one body. A client that needs both re-reads the
+// row whose id it already sent.
+func ActionReturning[T, In, Out any](api huma.API, db sqlb.Executor, opts Options, spec ActionSpec, do func(context.Context, *T, In) (Out, error)) error {
+	if do == nil {
+		return missingDo(opts.Path, spec)
+	}
+	env, err := prepareItemAction[T, In, Out](api, db, opts, spec, do)
+	if err != nil {
+		return err
+	}
+
+	answer := func(ctx context.Context, id string, body In) (*resultOutput[Out], error) {
+		_, result, err := env.run(ctx, id, body)
+		if err != nil {
+			return nil, err
+		}
+		return &resultOutput[Out]{Body: result}, nil
+	}
+
+	if spec.HasBody {
+		huma.Register(api, env.op, func(ctx context.Context, in *actionInput[In]) (*resultOutput[Out], error) {
+			return answer(ctx, in.ID, in.Body)
+		})
+		return nil
+	}
+	huma.Register(api, env.op, func(ctx context.Context, in *itemInput) (*resultOutput[Out], error) {
+		var body In
+		return answer(ctx, in.ID, body)
+	})
+	return nil
+}
+
+// resultOutput carries a declared result. It is itemOutput's peer, and the
+// reason it is a separate type is that itemOutput's body is a row — projected,
+// keyed by wire name, and narrowed by the resource's column list. A declared
+// result is none of those things: it is exactly the properties the schema
+// named, and Huma renders it from the generated struct's own tags.
+type resultOutput[Out any] struct {
+	Body Out
+}
+
+// itemActionEnvelope is what an item action is once the mount-time checks have
+// passed: the binding the response needs, the operation to register, and the
+// run that does the work.
+//
+// It exists so that the two item forms share one copy of the envelope. What
+// differs between them is which body the response carries, and that difference
+// has to live at the huma.Register call — the output type is a Go type, not a
+// value — so everything before it is here.
+type itemActionEnvelope[T, In, Out any] struct {
+	b   *binding[T]
+	op  huma.Operation
+	run func(ctx context.Context, id string, body In) (T, Out, error)
+}
+
+func prepareItemAction[T, In, Out any](api huma.API, db sqlb.Executor, opts Options, spec ActionSpec, do func(context.Context, *T, In) (Out, error)) (*itemActionEnvelope[T, In, Out], error) {
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
+	if err := spec.validate(opts.Path); err != nil {
+		return nil, err
+	}
+	if db == nil {
+		return nil, fmt.Errorf("rest: %s has no Executor", spec.Path)
 	}
 
 	b, err := bind[T](opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if b.model.PK == nil {
-		return fmt.Errorf("rest: %s addresses a row by id but %s declares no primary key",
+		return nil, fmt.Errorf("rest: %s addresses a row by id but %s declares no primary key",
 			spec.Path, b.model.Type)
 	}
 
 	writes, err := b.writeSet(spec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// The envelope's fetch is a read, so a confined table's obligations are the
@@ -255,22 +358,27 @@ func Action[T, In any](api huma.API, db sqlb.Executor, opts Options, spec Action
 	readOnly.Path = spec.Path
 	readOnly.Ops = OpRead
 	if err := checkObligations[T](b.model, db, readOnly); err != nil {
-		return err
+		return nil, err
 	}
 
 	w, err := newWriter(db, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fetch := b.actionSelection(writes)
 
-	run := func(ctx context.Context, id string, body In) (*itemOutput[T], error) {
+	run := func(ctx context.Context, id string, body In) (T, Out, error) {
+		var zeroRow T
+		var zeroOut Out
 		key, err := b.key(id)
 		if err != nil {
-			return nil, err
+			return zeroRow, zeroOut, err
 		}
-		out, err := write(ctx, w, func(ctx context.Context, db sqlb.Executor) (T, error) {
+		// Both answers come out of one transaction, so a verb's result cannot
+		// describe a write that then rolled back.
+		done, err := write(ctx, w, func(ctx context.Context, db sqlb.Executor) (actionResult[T, Out], error) {
+			var out actionResult[T, Out]
 			q := sqlb.Query[T]().
 				Select(fetch...).
 				Where(sqlb.F(b.model.PK.Name).Eq(key))
@@ -284,14 +392,16 @@ func Action[T, In any](api huma.API, db sqlb.Executor, opts Options, spec Action
 			}
 			found, err := q.One(ctx, db)
 			if err != nil {
-				return found, err
+				return out, err
 			}
-			if err := do(ctx, &found, body); err != nil {
-				var zero T
-				return zero, err
+			result, err := do(ctx, &found, body)
+			if err != nil {
+				return actionResult[T, Out]{}, err
 			}
+			out.result = result
 			if len(writes) == 0 {
-				return found, nil
+				out.row = found
+				return out, nil
 			}
 			// Exactly the declared columns, taken off the row the verb
 			// mutated. A column it changed and did not declare stays
@@ -306,20 +416,44 @@ func Action[T, In any](api huma.API, db sqlb.Executor, opts Options, spec Action
 				}
 				stmt.Set(col.Name, fv.Interface())
 			}
-			return stmt.One(ctx, db)
+			out.row, err = stmt.One(ctx, db)
+			return out, err
 		})
 		if err != nil {
-			return nil, asHumaError(ctx, err, opts.name())
+			return zeroRow, zeroOut, asHumaError(ctx, err, opts.name())
 		}
-		return &itemOutput[T]{Body: row[T]{value: out, cols: b.selectable, keys: b.jsonKey}}, nil
+		return done.row, done.result, nil
 	}
 
+	op, err := actionOperation(api, opts, spec, http.StatusNotFound)
+	if err != nil {
+		return nil, err
+	}
+	return &itemActionEnvelope[T, In, Out]{b: b, op: op, run: run}, nil
+}
+
+// actionResult pairs what the envelope persists with what the verb answered.
+// The two travel together because they come out of one transaction, and write
+// carries one value.
+type actionResult[T, Out any] struct {
+	row    T
+	result Out
+}
+
+// actionOperation builds the operation and refuses an id another one holds.
+//
+// The status list differs between the item and collection forms by exactly one
+// entry — 404 is a row that was not found, and a collection action fetches
+// nothing — so that one is a parameter and the rest is shared.
+func actionOperation(api huma.API, opts Options, spec ActionSpec, extra ...int) (huma.Operation, error) {
 	id := spec.operationID(opts)
 	if err := refuseDuplicateID(api, opts.Path, spec.Name, id); err != nil {
-		return err
+		return huma.Operation{}, err
 	}
-
-	op := huma.Operation{
+	statuses := append([]int{http.StatusBadRequest}, extra...)
+	statuses = append(statuses, http.StatusConflict,
+		http.StatusUnprocessableEntity, http.StatusInternalServerError)
+	return huma.Operation{
 		OperationID:                  id,
 		Method:                       http.MethodPost,
 		Path:                         spec.Path,
@@ -328,22 +462,8 @@ func Action[T, In any](api huma.API, db sqlb.Executor, opts Options, spec Action
 		Tags:                         []string{opts.tag()},
 		Security:                     opts.Security,
 		RejectUnknownQueryParameters: true,
-		Responses: errorResponses(api.OpenAPI().Components.Schemas,
-			http.StatusBadRequest, http.StatusNotFound, http.StatusConflict,
-			http.StatusUnprocessableEntity, http.StatusInternalServerError),
-	}
-
-	if spec.HasBody {
-		huma.Register(api, op, func(ctx context.Context, in *actionInput[In]) (*itemOutput[T], error) {
-			return run(ctx, in.ID, in.Body)
-		})
-		return nil
-	}
-	huma.Register(api, op, func(ctx context.Context, in *itemInput) (*itemOutput[T], error) {
-		var body In
-		return run(ctx, in.ID, body)
-	})
-	return nil
+		Responses:                    errorResponses(api.OpenAPI().Components.Schemas, statuses...),
+	}, nil
 }
 
 // CollectionAction registers a verb on the collection rather than on a row.
@@ -353,66 +473,116 @@ func Action[T, In any](api huma.API, db sqlb.Executor, opts Options, spec Action
 // declared scope obliges nothing here and confining the statements this verb
 // issues is the verb's own job — the position sqlb.Query in application code is
 // already in (ADR-0030).
+//
+// [CollectionActionReturning] is the same envelope answering 200 with a
+// declared result, for the verb that computed something worth sending back.
 func CollectionAction[In any](api huma.API, db sqlb.Executor, opts Options, spec ActionSpec, do func(context.Context, In) error) error {
-	if err := opts.validate(); err != nil {
-		return err
-	}
-	if err := spec.validate(opts.Path); err != nil {
-		return err
-	}
-	if db == nil {
-		return fmt.Errorf("rest: %s has no Executor", spec.Path)
-	}
 	if do == nil {
 		return missingDo(opts.Path, spec)
 	}
-
-	w, err := newWriter(db, opts)
+	run, op, err := prepareCollectionAction[In, struct{}](api, db, opts, spec,
+		func(ctx context.Context, body In) (struct{}, error) { return struct{}{}, do(ctx, body) })
 	if err != nil {
 		return err
 	}
+	// The one thing this form says that the returning one does not: there is no
+	// body, so the status is the one that promises none.
+	op.DefaultStatus = statusNoBody
 
-	run := func(ctx context.Context, body In) (*struct{}, error) {
-		_, err := write(ctx, w, func(ctx context.Context, _ sqlb.Executor) (struct{}, error) {
-			return struct{}{}, do(ctx, body)
-		})
-		if err != nil {
-			return nil, asHumaError(ctx, err, opts.name())
+	answer := func(ctx context.Context, body In) (*struct{}, error) {
+		if _, err := run(ctx, body); err != nil {
+			return nil, err
 		}
 		return nil, nil
 	}
 
-	id := spec.operationID(opts)
-	if err := refuseDuplicateID(api, opts.Path, spec.Name, id); err != nil {
-		return err
-	}
-
-	op := huma.Operation{
-		OperationID:                  id,
-		Method:                       http.MethodPost,
-		Path:                         spec.Path,
-		Summary:                      spec.Summary,
-		Description:                  spec.describe(),
-		Tags:                         []string{opts.tag()},
-		Security:                     opts.Security,
-		DefaultStatus:                statusNoBody,
-		RejectUnknownQueryParameters: true,
-		Responses: errorResponses(api.OpenAPI().Components.Schemas,
-			http.StatusBadRequest, http.StatusConflict,
-			http.StatusUnprocessableEntity, http.StatusInternalServerError),
-	}
-
 	if spec.HasBody {
 		huma.Register(api, op, func(ctx context.Context, in *collectionInput[In]) (*struct{}, error) {
-			return run(ctx, in.Body)
+			return answer(ctx, in.Body)
 		})
 		return nil
 	}
 	huma.Register(api, op, func(ctx context.Context, _ *struct{}) (*struct{}, error) {
 		var body In
-		return run(ctx, body)
+		return answer(ctx, body)
 	})
 	return nil
+}
+
+// CollectionActionReturning registers a collection verb that answers 200 with a
+// declared result instead of 204 (#310, #312).
+//
+// A collection action does all of its work through the transaction it holds, so
+// what it has to say afterwards is not a row this envelope fetched — it is
+// whatever the verb computed: how many notifications were marked read, the id
+// of something it created, a token it issued. Answering 204 meant the caller
+// had to go and look for it, and for a verb that created a row that means
+// re-listing and guessing which one is new.
+//
+// What is absent is what is absent from [CollectionAction]: no fetch, so no
+// BeforeQuery, so a declared scope obliges nothing here.
+func CollectionActionReturning[In, Out any](api huma.API, db sqlb.Executor, opts Options, spec ActionSpec, do func(context.Context, In) (Out, error)) error {
+	if do == nil {
+		return missingDo(opts.Path, spec)
+	}
+	run, op, err := prepareCollectionAction[In, Out](api, db, opts, spec, do)
+	if err != nil {
+		return err
+	}
+
+	answer := func(ctx context.Context, body In) (*resultOutput[Out], error) {
+		result, err := run(ctx, body)
+		if err != nil {
+			return nil, err
+		}
+		return &resultOutput[Out]{Body: result}, nil
+	}
+
+	if spec.HasBody {
+		huma.Register(api, op, func(ctx context.Context, in *collectionInput[In]) (*resultOutput[Out], error) {
+			return answer(ctx, in.Body)
+		})
+		return nil
+	}
+	huma.Register(api, op, func(ctx context.Context, _ *struct{}) (*resultOutput[Out], error) {
+		var body In
+		return answer(ctx, body)
+	})
+	return nil
+}
+
+func prepareCollectionAction[In, Out any](api huma.API, db sqlb.Executor, opts Options, spec ActionSpec, do func(context.Context, In) (Out, error)) (func(context.Context, In) (Out, error), huma.Operation, error) {
+	if err := opts.validate(); err != nil {
+		return nil, huma.Operation{}, err
+	}
+	if err := spec.validate(opts.Path); err != nil {
+		return nil, huma.Operation{}, err
+	}
+	if db == nil {
+		return nil, huma.Operation{}, fmt.Errorf("rest: %s has no Executor", spec.Path)
+	}
+
+	w, err := newWriter(db, opts)
+	if err != nil {
+		return nil, huma.Operation{}, err
+	}
+
+	run := func(ctx context.Context, body In) (Out, error) {
+		out, err := write(ctx, w, func(ctx context.Context, _ sqlb.Executor) (Out, error) {
+			return do(ctx, body)
+		})
+		if err != nil {
+			var zero Out
+			return zero, asHumaError(ctx, err, opts.name())
+		}
+		return out, nil
+	}
+
+	op, err := actionOperation(api, opts, spec)
+	if err != nil {
+		return nil, huma.Operation{}, err
+	}
+	return run, op, nil
 }
 
 // writeSet resolves an action's declared write set against the model.

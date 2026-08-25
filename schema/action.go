@@ -125,6 +125,40 @@ type Action struct {
 	// row of it, and a verb that writes others has no other way to declare them.
 	Touches []string
 
+	// Returns declares the verb's response body, in the field vocabulary. Build
+	// it with [Result].
+	//
+	//	Lesson.AddAction(schema.Action{
+	//	    Name: "submit-quiz",
+	//	    Body: schema.Body(schema.JSON("answers")),
+	//	    Returns: schema.Result(
+	//	        schema.Int("score"),
+	//	        schema.Int("total"),
+	//	    ),
+	//	})
+	//
+	// Leaving it empty is the default and is what almost every verb wants: an
+	// item action answers with the row it acted on, and a collection action
+	// answers 204. This is for the verb whose *answer* is the point and is not
+	// a row of this table — grading a quiz returns a score, and a score is not
+	// a Lesson (#312).
+	//
+	// Declaring one replaces the response rather than adding to it. An item
+	// action that returns a score does not also return the lesson, because one
+	// operation has one response body; a verb that wants both declares both
+	// halves here, or the client re-reads the row it already knows the id of.
+	//
+	// The status is 200 either way. A verb that created something and wants to
+	// say so with a 201 is describing OpCreate, which is its own operation with
+	// its own body and its own response — see [REST.CreateInput] for the case
+	// where that create needs an input the row has no column for.
+	//
+	// It is declared rather than reflected from the func's return type for the
+	// reason Body is: the value of an action is that it reaches the TypeScript,
+	// Dart, CLI and OpenAPI emitters, and a result those cannot see produces a
+	// client method typed `unknown`.
+	Returns []*Field
+
 	// Summary is the one-line description in the OpenAPI document.
 	//
 	// Left empty it is filled in downstream, as "Complete a task", rather than
@@ -221,6 +255,7 @@ func (r *Registry) validateActions(t *TableDef, report func(string, string, stri
 		}
 
 		r.validateBody(t, fmt.Sprintf("action %q", a.Name), a.Body, report)
+		r.validateBody(t, fmt.Sprintf("action %q: result", a.Name), a.Returns, report)
 		r.validateActionWrites(t, a, report)
 		r.validateActionTouches(t, a, report)
 	}

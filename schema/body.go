@@ -1,14 +1,16 @@
 package schema
 
-// A declared request body: properties in the field vocabulary that are not
-// columns.
+// A declared body: properties in the field vocabulary that are not columns.
 //
-// Two declarations use it. [Action.Body] is the older one — a domain verb's
-// request body, which has no columns to derive itself from — and
-// [REST.CreateInput] is the newer, where the body *is* derived from the columns
-// and this is the part of it that is not (#309). One vocabulary, one validator,
-// one set of rules about what a property may claim, because the two bodies
-// differ in where they are declared and in nothing else.
+// Three declarations use it. [Action.Body] is the oldest — a domain verb's
+// request body, which has no columns to derive itself from. [REST.CreateInput]
+// is the create body's non-column half, where the body *is* derived from the
+// columns and this is the part of it that is not (#309). [Action.Returns] is a
+// verb's response, for the verb whose answer is not a row (#312).
+//
+// One vocabulary, one validator, one set of rules about what a property may
+// claim, because the three differ in where they are declared and in which
+// direction they travel — and in nothing else.
 
 // Body builds a request body from field declarations.
 //
@@ -35,19 +37,29 @@ func Body(specs ...FieldSpec) []*Field {
 	return out
 }
 
-// validateBody refuses the claims a request body cannot make.
+// Result builds an action's response body from field declarations.
 //
-// where names the declaration in the diagnostic — `action "complete"` or
-// `CreateInput` — so that one rule reads correctly wherever it fires.
+// It is [Body] under a second name, and the second name is the whole of the
+// difference: `Returns: schema.Body(...)` reads as a request, and a reader who
+// has to check which side of the exchange a declaration is on is one the
+// vocabulary has failed. What both build is a list of declared properties, and
+// one validator checks them.
+func Result(specs ...FieldSpec) []*Field { return Body(specs...) }
+
+// validateBody refuses the claims a declared body cannot make.
+//
+// where names the declaration in the diagnostic — `action "complete"`,
+// `action "submit-quiz": result`, `CreateInput` — so that one rule reads
+// correctly wherever it fires.
 func (r *Registry) validateBody(t *TableDef, where string, body []*Field, report func(string, string, string, ...any)) {
 	seen := make(map[string]bool, len(body))
 	for _, f := range body {
 		d := f.Desc()
 		if !isIdent(d.Name) {
-			report(t.name, d.Name, "%s: body property name is not a valid identifier", where)
+			report(t.name, d.Name, "%s: property name is not a valid identifier", where)
 		}
 		if seen[d.Name] {
-			report(t.name, d.Name, "%s: body property declared twice", where)
+			report(t.name, d.Name, "%s: property declared twice", where)
 		}
 		seen[d.Name] = true
 
@@ -72,7 +84,7 @@ func (r *Registry) validateBody(t *TableDef, where string, body []*Field, report
 			{d.Computed(), "Computed"},
 		} {
 			if c.claimed {
-				report(t.name, d.Name, "%s: body property claims %s, which describes a column rather than a request body", where, c.what)
+				report(t.name, d.Name, "%s: property claims %s, which describes a column rather than a declared property", where, c.what)
 			}
 		}
 	}

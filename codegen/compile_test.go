@@ -90,6 +90,11 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// keep working without it.
 		"singleton":        {Registry: singletonFixture()},
 		"keylesssingleton": {Registry: keylessSingletonFixture()},
+		// A verb that answers with a declared result (#312): a second body type
+		// per verb, a two-value func signature on the Actions struct, and the
+		// Returning registrations — for both the item and the collection form,
+		// which have different defaults to displace.
+		"actionresult": {Registry: actionResultFixture()},
 		// A create body carrying properties that are not columns (#309): a
 		// second body type, an Input() method returning it, and — like the
 		// actions case — imports earned by a property rather than by a column,

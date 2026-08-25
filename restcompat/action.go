@@ -26,6 +26,11 @@ type ActionSnap struct {
 	Path string `json:"path"`
 	// Body is the request body's properties, in declaration order.
 	Body []BodyPropSnap `json:"body,omitempty"`
+	// Returns is the declared response body, in declaration order. Absent means
+	// the default answer — the row for an item verb, nothing for a collection
+	// one — and moving between the two is a change of response type, which is
+	// why it is diffed as a whole and not only property by property.
+	Returns []BodyPropSnap `json:"returns,omitempty"`
 	// Writes names the columns the envelope persists. No client couples to it,
 	// so a change here is neutral — but it widens or narrows what one route
 	// can mutate, which is exactly the blast-radius question this tool is for.
@@ -67,8 +72,9 @@ func captureActions(t *schema.TableDef, path string) []ActionSnap {
 	for _, a := range t.Actions() {
 		snap := ActionSnap{
 			Name: a.Name, Path: a.FullPath(path),
-			Body:   captureBodyProps(a.Body),
-			Writes: a.Writes, Touches: a.Touches,
+			Body:    captureBodyProps(a.Body),
+			Returns: captureBodyProps(a.Returns),
+			Writes:  a.Writes, Touches: a.Touches,
 		}
 		out = append(out, snap)
 	}
@@ -118,6 +124,7 @@ func diffActions(path string, o, n map[string]ActionSnap, add func(Break)) {
 				fmt.Sprintf("action moved from %s to %s; a deployed client holds the old URL", ov.Path, nv.Path)})
 		}
 		diffActionBody(path, name, ov, nv, add)
+		diffActionResult(path, name, ov, nv, add)
 
 		if !sameStrings(ov.Writes, nv.Writes) {
 			add(Break{LevelNeutral, path, FacetAction, name,
@@ -135,6 +142,65 @@ func diffActions(path string, o, n map[string]ActionSnap, add func(Break)) {
 // diffActionBody compares two versions of one verb's request body.
 func diffActionBody(path, action string, o, n ActionSnap, add func(Break)) {
 	diffBodyProps(path, FacetAction, action+".", o.Body, n.Body, add)
+}
+
+// diffActionResult compares what two versions of one verb answer with.
+//
+// It is a separate function from the request side rather than the same one
+// under a flag, because every classification is inverted and a boolean
+// parameter whose only job is "invert this" reads as one rule when it is two: a
+// property leaving a *request* breaks the client that sends it, and one leaving
+// a *response* breaks the client that reads it; a widened value set is safe to
+// send and unsafe to receive.
+func diffActionResult(path, action string, o, n ActionSnap, add func(Break)) {
+	// Acquiring or losing a declared result changes the response *type*, not
+	// one of its properties. A client holding the old signature gets the row
+	// where it expects a score, or nothing where it expects a row.
+	switch {
+	case len(o.Returns) == 0 && len(n.Returns) > 0:
+		add(Break{LevelBreaking, path, FacetAction, action,
+			"now answers with a declared result instead of the row or 204; the client's return type changes"})
+		return
+	case len(o.Returns) > 0 && len(n.Returns) == 0:
+		add(Break{LevelBreaking, path, FacetAction, action,
+			"no longer answers with a declared result; the client's return type changes"})
+		return
+	}
+
+	oldProps := propsByName(o.Returns)
+	newProps := propsByName(n.Returns)
+	for _, name := range unionProps(oldProps, newProps) {
+		field := action + ".result." + name
+		op, inOld := oldProps[name]
+		np, inNew := newProps[name]
+		switch {
+		case inOld && !inNew:
+			add(Break{LevelBreaking, path, FacetAction, field, "result property removed"})
+			continue
+		case !inOld && inNew:
+			add(Break{LevelAdditive, path, FacetAction, field, "result property added"})
+			continue
+		}
+		if op.Type != np.Type {
+			add(Break{LevelBreaking, path, FacetAction, field,
+				fmt.Sprintf("result property type changed from %s to %s", op.Type, np.Type)})
+		}
+		if !op.Nullable && np.Nullable {
+			add(Break{LevelBreaking, path, FacetAction, field,
+				"result property may now be null; a non-nullable client type breaks on null"})
+		}
+		if op.Nullable && !np.Nullable {
+			add(Break{LevelNeutral, path, FacetAction, field,
+				"result property is no longer null; readers that handled the type are unaffected"})
+		}
+		if len(np.Enum) > 0 && !sameStrings(op.Enum, np.Enum) {
+			// The mirror image of the request side: a value the response may
+			// now carry is one a closed client type has no case for, and one it
+			// no longer carries breaks nothing.
+			add(Break{levelForEnum(np.Enum, op.Enum), path, FacetAction, field,
+				fmt.Sprintf("result property values changed from %v to %v", op.Enum, np.Enum)})
+		}
+	}
 }
 
 // diffBodyProps compares two versions of one declared request body, whichever
