@@ -1,7 +1,6 @@
 # sqlb
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/mind-vm/sqlb.svg)](https://pkg.go.dev/github.com/mind-vm/sqlb)
-[![CI](https://github.com/mind-vm/sqlb/actions/workflows/ci.yml/badge.svg)](https://github.com/mind-vm/sqlb/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/mind-vm/sqlb)](go.mod)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey.svg)](LICENSE)
 
@@ -200,12 +199,11 @@ Not built yet, in the order they matter: an MCP server over the manifest.
 
 ```bash
 mise run test    # the inner loop; no Docker or Postgres needed
-mise run ci      # the full gate, same as .github/workflows/ci.yml
+mise run ci      # the full gate — run it by hand before tagging a release
 mise tasks       # everything else
 ```
 
-Tool versions are pinned in `mise.toml`, so a green run locally and a green run
-in CI use the same Go and the same linter. The engine's tests run against an
+Tool versions are pinned in `mise.toml`. The engine's tests run against an
 in-memory executor rather than a database, which keeps the inner loop fast;
 `test-pg` answers what that cannot — whether the generated SQL is *valid* rather
 than merely expected — and is part of `ci`.

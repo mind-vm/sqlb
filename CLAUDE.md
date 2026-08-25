@@ -67,13 +67,13 @@ mise run heal   # everything the tooling can fix on its own
 mise run ci     # the gate: never rewrites, only fails
 ```
 
+There is no server-side CI — `mise run preflight` and `mise run ci` are the
+gate, full stop, run by hand before pushing and before tagging a release.
 `mise run preflight` is the push path: heal, build, database-free tests, about
-fifteen seconds. `mise run ci` mirrors `.github/workflows/ci.yml` in full and is
-for reproducing a CI failure rather than for routine use. `ci.yml` itself runs
-only on a pushed release tag, not on every push or pull request, so these two
-local commands are the gate during regular development — the GitHub workflow
-is the release-time re-check, not a PR check. The database-backed suites read
-a DSN and start nothing; `mise run pg-up` provides
+fifteen seconds. `mise run ci` is the full fourteen-stage set — everything
+`preflight` skips, plus the database-backed and multi-toolchain suites — and
+is what to run before a tag, since nothing runs it for you any more. The
+database-backed suites read a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
@@ -82,14 +82,7 @@ steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 
 ## Traps
 
-Three things that are not visible from where you would look for them.
-
-**A pull request shows no CI status at all.** `ci` runs only once a release
-tag is pushed, not on every push or pull request, so `gh pr checks` reports
-nothing on a PR — that absence is expected, not a sign of misconfiguration.
-`mise run preflight`/`mise run ci` locally are the gate during regular
-development; see "Releases" below for where `ci`'s tag-triggered result gets
-checked.
+Two things that are not visible from where you would look for them.
 
 **Docs mirror source by hand.** `docs/typescript/README.md` and
 `docs/dart/README.md` restate what `codegen.Options` says about the files each
@@ -127,19 +120,17 @@ exclusions, one test failed and named the constraint while the fixpoint test
 `adr-check`, `map-check` and `bisect-check` all exist
 because a convention that is only documented is a convention that drifts. If
 you are about to add a paragraph telling someone to remember something,
-consider whether it can fail in CI instead. `deps-check` is a plain case: the
-engine's dependency list is a decision, not a memory, and it is checked by
-diffing `go.mod` against a pinned allow-list rather than by asking a reviewer
-to notice a new import.
+consider whether it can fail as a `mise run ci` step instead. `deps-check` is
+a plain case: the engine's dependency list is a decision, not a memory, and it
+is checked by diffing `go.mod` against a pinned allow-list rather than by
+asking a reviewer to notice a new import.
 
-a GitHub release carrying the same text, once `ci` is green on it.
+**Releases.** A release is an annotated tag whose message *is* the notes, plus
+a GitHub release carrying the same text — run `mise run ci` on the commit
+being tagged first, since there is no server-side check behind it any more.
 [docs/compatibility.md](docs/compatibility.md) says what is frozen and what is
 expected to move; a pre-1.0 minor may break a surface listed under *Will
 move*, and the notes carry the mechanical edit that fixes it.
-
-`ci` runs only once the tag is pushed, so its result can only be read after:
-push the tag, then `gh run list --commit <sha>` (or watch the run the push
-just started) before turning it into a GitHub release.
 
 ## Things that are deliberate
 

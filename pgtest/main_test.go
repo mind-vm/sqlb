@@ -31,8 +31,7 @@ func TestMain(m *testing.M) {
 	if os.Getenv(pgEnv) == "" {
 		log.Fatalf("pgtest: %s is not set.\n"+
 			"These tests need a Postgres; they do not start one.\n"+
-			"  locally: mise run pg-up   (then mise run test-pg)\n"+
-			"  CI:      the service containers in .github/workflows/ci.yml", pgEnv)
+			"  locally: mise run pg-up   (then mise run test-pg)", pgEnv)
 	}
 	os.Exit(m.Run())
 }

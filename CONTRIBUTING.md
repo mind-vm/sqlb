@@ -26,11 +26,10 @@ on every save.
 mise run ci
 ```
 
-The full gate, identical to `.github/workflows/ci.yml`. It is here to reproduce
-a CI failure, not to run before every push — CI runs the same fourteen stages in
-three parallel jobs, and running them on a laptop is the same work done serially.
-Before pushing, run `mise run preflight` instead: heal, build, and the
-database-free tests, in about fifteen seconds.
+The full fourteen-stage gate. There is no server-side CI to run it for you —
+this is what to run before tagging a release, not before every push. Before
+pushing, run `mise run preflight` instead: heal, build, and the database-free
+tests, in about fifteen seconds.
 
 ```bash
 mise run preflight

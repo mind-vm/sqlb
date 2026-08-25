@@ -3,8 +3,7 @@
 # They used to start their own, one container per package, through
 # testcontainers — six servers for one `mise run ci`, plus a reaper that reaps
 # by label and therefore removed long-lived containers belonging to other work.
-# The suites now take a DSN and start nothing; this is what provides it locally,
-# and .github/workflows/ci.yml provides the same three as service containers.
+# The suites now take a DSN and start nothing; this is what provides it.
 #
 #   mise run pg-up     start these and wait for them
 #   mise run pg-down   stop them and discard the data

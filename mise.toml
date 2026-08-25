@@ -1,11 +1,11 @@
 # sqlb tasks and pinned toolchain.
 #
 #   mise tasks          list what is here
-#   mise run ci         the full gate, same as .github/workflows/ci.yml
+#   mise run ci         the full gate — run it by hand before tagging a release
 #   mise run test       the inner loop
 #
-# Tool versions are pinned so every checkout and CI runner builds and lints with
-# the same toolchain.
+# Tool versions are pinned so every checkout builds and lints with the same
+# toolchain.
 [tools]
 # Matches the application repository sqlb is developed against, so it is built
 # with the toolchain it will be consumed by. go.mod deliberately declares a
@@ -45,10 +45,8 @@ run = "go test -race ./..."
 
 # ---- The test databases ----
 #
-# The suites take a DSN and start nothing. compose.yaml provides the servers
-# locally; .github/workflows/ci.yml provides the same three as service
-# containers, on the ports the runner maps. These defaults match compose.yaml,
-# and CI overrides them.
+# The suites take a DSN and start nothing. compose.yaml provides the three
+# servers these defaults point at.
 [env]
 SQLB_TEST_POSTGRES = "postgres://sqlb:sqlb@localhost:15432/postgres?sslmode=disable"
 SQLB_TEST_PGVECTOR = "postgres://sqlb:sqlb@localhost:15433/postgres?sslmode=disable"
@@ -355,22 +353,21 @@ exit 0
 '''
 
 [tasks.preflight]
-description = "What to run before pushing. `ci` on GitHub now runs only on a pushed release tag, not on every push or pull request, so this is the gate during regular development. Heals what the tooling can fix on its own, then proves the tree compiles and its database-free tests pass. Seconds, no Docker, no race detector, no Node, no Dart."
+description = "What to run before pushing. There is no server-side CI at all, so this is the gate during regular development; `mise run ci` is the fuller one to run before tagging a release. Heals what the tooling can fix on its own, then proves the tree compiles and its database-free tests pass. Seconds, no Docker, no race detector, no Node, no Dart."
 run = '''
 set -e
-# `ci` on GitHub only runs once a release tag is pushed (CLAUDE.md,
-# "Releases"), so no server-side check gates a push or a pull request — this
-# is what does. `mise run ci` still reproduces the full fourteen-stage run for
-# chasing a specific failure, but running it before every push buys nothing
-# but a slower loop for the parts whose answer does not need Docker, Node or
-# Dart — measured at 90s warm on an idle machine, seven containers of its own.
-# What is left here is the part worth a local answer before every push.
+# Nothing gates a push or a pull request server-side (CLAUDE.md, "The gate")
+# — this is what does. `mise run ci` is the full fourteen-stage run, which is
+# what to run before a tag rather than before every push: measured at 90s
+# warm on an idle machine, seven containers of its own, for parts whose
+# answer does not need Docker, Node or Dart most of the time anyway. What is
+# left here is the part worth a local answer before every push.
 #
-# `heal` first, because the most common way this repository turns `ci` red at
-# tag time is drift a fixer would have silenced: unformatted code, a lint
-# finding with an autofix, an untidied go.mod, generated output that no longer
-# matches its source. Each of those costs a full CI round-trip to learn and
-# one second to fix, so it is fixed here.
+# `heal` first, because the most common way this repository accumulates
+# drift a fixer would have silenced: unformatted code, a lint finding with an
+# autofix, an untidied go.mod, generated output that no longer matches its
+# source. Each of those costs a `mise run ci` round-trip to learn and one
+# second to fix, so it is fixed here.
 mise run heal
 
 # Then the two questions worth a local answer: does it build, and do the tests
@@ -383,7 +380,7 @@ done
 go test ./...
 
 echo
-echo "preflight: ok — the gate until a release tag triggers ci"
+echo "preflight: ok — run mise run ci before tagging a release"
 '''
 
 [tasks.tidy]
@@ -1105,7 +1102,7 @@ echo "every commit builds, vets and tests green in isolation"
 '''
 
 [tasks.ci]
-description = "The full gate. A faithful mirror of .github/workflows/ci.yml: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check, which is not part of CI at all — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is here to reproduce a CI failure, not to run before every push — CI runs the same checks in two parallel jobs, and running them locally is the same work done serially while starving the machine. `mise run preflight` is what belongs in the push path."
+description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — fourteen stages is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
 run = '''
 set -e
 mise run vet

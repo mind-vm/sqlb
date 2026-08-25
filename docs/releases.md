@@ -14,6 +14,166 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.18.0
+
+2026-08-25 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.18.0)
+
+The repository moved from `github.com/jryannel/sqlb` to `github.com/mind-vm/sqlb`,
+and the module path moved with it — the only way that change could compile.
+Several feature additions and fixes came along in the same window, so this is a
+minor bump on its own merits and not only because of the move.
+
+**BREAKING: the import path is `github.com/mind-vm/sqlb`.** Every `go.mod`
+requiring the old path and every import statement naming it now says `jryannel`
+where the repository no longer does. The mechanical edit is the same string
+everywhere: replace `github.com/jryannel/sqlb` with `github.com/mind-vm/sqlb`
+across `go.mod` and every import, then `go mod tidy` to settle `go.sum`. A
+`GOPRIVATE` or `GONOPROXY` entry naming the old org needs the new one added
+beside it, not in place of it, if anything else still lives under
+`github.com/jryannel`. There is no compatibility shim and none is planned — a
+module path is not a runtime value an alias could paper over, so the next pull
+is this edit or a build failure naming it.
+
+**Housekeeping alongside the move.** The documentation site (Astro, published
+nowhere — the repository is private and a private repository on this plan
+cannot serve GitHub Pages) is deleted; every page it held is now plain markdown
+under `docs/`, readable straight from a checkout or on GitHub with no build
+step. `ci.yml` — `vet`, `lint`, both test jobs, the whole doc-drift check set —
+now runs only when a release tag is pushed rather than on every push or pull
+request; `mise run preflight` and `mise run ci` locally are the gate during
+regular development, and a pull request shows no CI status at all between
+opening and merge. And `LICENSE` changed: MIT is irrevocable per copy and said
+the opposite of what a private repository intends, so it is now an
+all-rights-reserved notice; nothing under `example/` is exempted.
+
+New surface, all additive — none of it is wired into an example schema yet, so
+`sqlb check` has nothing to regenerate and `sqlb impact` reports every example's
+REST contract unchanged.
+
+### A declared verb can answer with something other than the row
+
+A declared action had two response shapes: an item verb answered with the row
+it acted on, and a collection verb answered `204`. Neither is right for the verb
+whose answer is the point — grading a quiz returns a score, and a score is
+neither a row nor nothing
+([#310](https://github.com/mind-vm/sqlb/issues/310),
+[#312](https://github.com/mind-vm/sqlb/issues/312)).
+
+`Action.Returns` declares the response in the field vocabulary `Action.Body`
+already uses, built with `schema.Result`. The runtime gains `ActionReturning`
+and `CollectionActionReturning` beside the existing pair, since the response
+type is a Go type parameter fixed at registration rather than a value the spec
+carries. One declaration reaches the Go result type, the TypeScript and Dart
+clients, the CLI's `--help`, the skill's actions table, and `sqlb impact`, which
+now diffs a result the way it already diffs a request.
+
+### A create body can carry what the row does not
+
+A create body is derived from the columns, and a request that creates something
+with a secret in it carries one thing that is not a column — the plaintext
+behind a stored digest, an invite token, an id list resolved into rows of
+another table ([#309](https://github.com/mind-vm/sqlb/issues/309)).
+
+`schema.REST.CreateInput` declares those properties, and the value reaches
+`BeforeCreate` as `sqlb.CreateInputFrom` — the same context seam a principal
+already uses. One declaration, six surfaces: the Go body and a
+`Create<Model>Input` type, TypeScript, Dart and the CLI send it, the manifest
+and skill name it, `restcompat` records it as breaking if a required one is
+added, and an ejected package refuses to serve a create that would silently
+drop it.
+
+studio's write forms follow. `buildFormFields`, `parseFormBody` and the
+rejected-submission redisplay all carry the declared properties now, not only
+the columns — the redisplay path matters most, since it rebuilds from the
+submitted form and dropping the property there takes its input away on exactly
+the attempt the error is about. A pre-existing bug came out with it: the shared
+body encoder was keying a declared property by its `WireCase` spelling, which
+only a column has, so under `WireCase(Camel)` studio was sending `completedAt`
+to a handler that only knows `completed_at`.
+
+### Server-wide middleware has a documented seam
+
+`Server.Handler`'s doc comment always said to wrap it with application
+middleware; `Serve` offered no field to put one in, only an ordering nothing
+stated — assigning `srv.Handler` inside `mount` and trusting `Serve` to read it
+back afterwards ([#301](https://github.com/mind-vm/sqlb/issues/301)).
+`ServeConfig.Middleware` is that field now. It is also the one thing here that
+cannot become a hook: establishing the principal is upstream of every guarantee
+a `Scoped` hook makes.
+
+### A table's generated name can differ from its SQL name
+
+`board_columns` singularising to `BoardColumn` can collide with a name a
+different table's codegen already derives
+([#262](https://github.com/mind-vm/sqlb/issues/262)). The only existing fix was
+`RenamedFrom`, which actually renames the table — a live-data migration for a
+naming problem that has nothing to do with the data model.
+`TableDef.TypeName(name)` pins the generated Go/TypeScript/Dart identifier
+without touching storage, and the collision refusal now names both fixes.
+
+### A client directory outside the module states where it is
+
+`TSDir` and `DartDir` still default to resolving against `Dir` for every
+project configured before this. Two escapes remove the arithmetic instead of
+warning about getting it wrong
+([#290](https://github.com/mind-vm/sqlb/issues/290)): an absolute path is used
+verbatim, and a path prefixed `"//"` resolves against the directory holding the
+nearest `go.mod` instead of against `Dir` — `"//web/src/api"` means that at any
+`Dir` depth, for a client three levels outside the module, without simulating
+`filepath.Join` by hand to get there.
+
+### Fixes
+
+**A request body now speaks one vocabulary throughout, not two that
+occasionally disagreed.** `WireCase` is one setting applied by one function at
+every surface, and three places emitting a request body were not calling it:
+the generated create/patch struct tagged its JSON key by column name while the
+TypeScript and Dart clients beside it sent the wire spelling, the ejected
+decoder matched its `case` labels the same wrong way, and the CLI's
+`--set-null` wrote the column key after converting the flag from kebab-case.
+Fixed throughout, plus the same fault in the ejected read surface's `Column`,
+which now carries `Name` (SQL) and `Wire` (the request) separately rather than
+one string doing both jobs — an exit under `WireCase(Camel)` was accepting
+`?created_at` while its own generated clients sent `?createdAt`. An unrelated
+compile failure surfaced proving it: `sqlb eject`'s fixed import set predicted
+which packages a schema's conditions would need and drifted from the templates
+it was predicting for, so the plain shape (neither `Scoped` nor `SoftDelete`)
+emitted `"fmt"` imported and unused. Imports are now read off the rendered body
+instead of predicted ahead of it.
+
+**`sqlb impact` now sees a declared query, not only a declared action.**
+Between the release that added `TableDef.AddQuery` and this one, adding,
+removing or repathing a declared read was a REST contract change the tool could
+not see, while its report looked complete regardless. Removing or moving a
+query is now reported breaking; adding one is additive.
+
+**`sqlbtest.Fresh`'s scratch database names no longer collide.** The old
+suffix was a nanosecond clock reading, and on a host whose clock advances in
+whole microseconds roughly four calls land on the same tick — a
+ten-thousand-call loop produced 2629 distinct names and 7371 duplicates, worse
+across the two package binaries a `go test ./...` run starts together. The
+suffix is now a per-process random tag plus an atomic counter, neither of which
+depends on when anything started.
+
+**`ScopedHooks.BeforeCreate` exists now, and only to panic at registration**
+([#289](https://github.com/mind-vm/sqlb/issues/289)'s second report). The
+reasoning for keeping create out of a released scope was already written down;
+what was missing was the method itself, so the error a caller got was "has no
+field or method BeforeCreate" rather than anything naming the decision.
+
+**The generated Dart client's `withCursor` wraps past 80 columns like every
+other signature this emitter writes**
+([#302](https://github.com/mind-vm/sqlb/issues/302)). A long table name no
+longer produces a file `dart format` immediately rewrites.
+
+Deliberately not done: no release-time contract for a declared query's result
+type, which is always `[]T` for its table and would record a constant, and no
+client emitter reads a declared query yet, which is the larger gap behind that
+one. No `UpdateInput` to sit beside `CreateInput` — every case collected so far
+is a create, and a second declaration before there is a second case is
+vocabulary invented for symmetry. No `BeforeCreate` release under a scope; the
+panic is louder, not different.
+
 ## v0.17.1
 
 2026-08-23 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.17.1)

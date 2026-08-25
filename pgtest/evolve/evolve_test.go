@@ -71,8 +71,7 @@ func run(m *testing.M) (int, error) {
 		return 0, fmt.Errorf(
 			"%s is not set.\n"+
 				"These tests need a Postgres; they no longer start one.\n"+
-				"  locally: mise run pg-up   (then mise run test-pg)\n"+
-				"  CI:      the service containers in .github/workflows/ci.yml",
+				"  locally: mise run pg-up   (then mise run test-pg)",
 			pgEnv)
 	}
 	u, err := url.Parse(base)
