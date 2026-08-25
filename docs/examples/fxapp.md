@@ -1,15 +1,9 @@
----
-title: "fxapp — sqlb under a dependency-injection container"
-description: The same pieces assembled by uber-go/fx — a hook registry built from a value group, ordering expressed as types, and a resource that refuses to mount without its hooks.
-sidebar:
-  label: fxapp
-  order: 3
----
+# fxapp — sqlb under a dependency-injection container
 
 **In this repository:** [`example/fxapp/`](https://github.com/jryannel/sqlb/tree/main/example/fxapp)
 
-The example about *wiring*. [blog](/sqlb/examples/blog/) is the shortest path
-from a schema to a server and [tasks](/sqlb/examples/tasks/) is that machinery
+The example about *wiring*. [blog](blog.md) is the shortest path
+from a schema to a server and [tasks](tasks.md) is that machinery
 at application scale; this one answers the question people building on
 [uber-go/fx](https://github.com/uber-go/fx) ask first — where do the sqlb pieces
 go when the application is assembled by a container rather than by a `main` that
@@ -56,7 +50,7 @@ who never read the file.
 
 **That a refused mount can be a boot failure.** The generated `Register` returns
 the error sqlb raises when a resource declares a scope no hook backs
-([ADR-0030](/sqlb/project/architecture/#declared-scope-is-required)), the operation set
+([ADR-0030](../architecture.md#declared-scope-is-required)), the operation set
 carries it out, and fx reports it instead of listening. Remove the notes module
 from the list and the server does not start:
 
@@ -69,7 +63,7 @@ rest: /notes exposes create|read|update|delete|list, and nothing confines store.
 That is asserted rather than described. `TestResourcesRefuseToMountWithoutHooks`
 boots the reduced module list and requires the failure, because a guard nobody
 has watched refuse is a claim rather than a check
-([ADR-0016](/sqlb/project/architecture/#guards-proven-both-ways)).
+([ADR-0016](../architecture.md#guards-proven-both-ways)).
 
 **That ordering is better expressed as a type than as a list.** `fxkit.Migrated`
 is an empty struct meaning "every registered migration set has been applied".
@@ -105,7 +99,7 @@ packages: a standard stack every product composes, and the product.
 
 `fxkit` is glue to copy rather than a library to import. It was briefly a
 published module and is not one now
-([ADR-0044](/sqlb/project/architecture/#the-container-is-an-adapter) has the reversal):
+([ADR-0044](../architecture.md#the-container-is-an-adapter) has the reversal):
 nearly all of it is opinion — chi, humachi, goose, `log/slog` — and opinions
 that load-bearing are better adapted in a file you own. Its `doc.go` states the
 four obligations a copy has to preserve, of which the boot refusal above is the
@@ -115,7 +109,7 @@ first.
 
 **It is not an authentication system.** A tenant presents a shared secret from
 the configuration; there are no users, no sessions and no revocation.
-[tasks](/sqlb/examples/tasks/) is where authentication lives. The shared secret
+[tasks](tasks.md) is where authentication lives. The shared secret
 is still a boundary rather than a convention, which a plain `X-Space` header
 would not be — with that, any caller could name any tenant and every hook here
 would be decorative.

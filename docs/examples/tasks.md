@@ -1,14 +1,8 @@
----
-title: "tasks — a multi-tenant task manager"
-description: Six tables, JWT authentication, a workspace boundary held entirely by hooks, a migration history, and a generated TypeScript client and CLI.
-sidebar:
-  label: tasks
-  order: 2
----
+# tasks — a multi-tenant task manager
 
 **In this repository:** [`example/tasks/`](https://github.com/jryannel/sqlb/tree/main/example/tasks)
 
-The larger worked example. [blog](/sqlb/examples/blog/) shows the shortest path
+The larger worked example. [blog](blog.md) shows the shortest path
 from a schema to a server; this shows what the same machinery looks like once an
 application has a real shape — six tables, twenty-five endpoints, and a boundary
 that has to hold.
@@ -140,6 +134,6 @@ a refresh endpoint. Both are noted where they bite.
 
 ## Next
 
-- [Hooks](/sqlb/queries/hooks/) — the mechanism this example is an argument for
-- [library](/sqlb/examples/library/) — the mirror image: no authentication at
+- [Hooks](../queries/hooks.md) — the mechanism this example is an argument for
+- [library](library.md) — the mirror image: no authentication at
   all, and the hard part is a finite resource

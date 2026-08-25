@@ -1,18 +1,8 @@
----
-title: "library on sqlc + chi"
-description: The same lending library built the other way round — hand-written SQL typed by sqlc, routed by chi — and what that trade actually costs.
-sidebar:
-  label: library on sqlc + chi
-  order: 6
----
+# library on sqlc + chi
 
-:::note[Where the source is]
-This example lives outside the sqlb repository and is not published yet, so
-there is nothing to link to. The code quoted below is real; the paths are given
-so they can be found once it is.
-:::
+> **Where the source is.** This example lives outside the sqlb repository and is not published yet, so there is nothing to link to. The code quoted below is real; the paths are given so they can be found once it is.
 
-Same domain as [library](/sqlb/examples/library/), built the other way round:
+Same domain as [library](library.md), built the other way round:
 there, a schema DSL generates the queries and the REST layer; here the SQL is
 written by hand, `sqlc` types it, and `chi` routes it.
 
@@ -178,9 +168,9 @@ fail on the foreign key or destroy the history.
 
 ## Next
 
-- [library](/sqlb/examples/library/) — the same brief on sqlb
-- [library on sqlc + gin](/sqlb/examples/library-sqlc-gin/) — the third build
-- [Using sqlb with sqlc](/sqlb/project/with-sqlc/) — how to run both in one
+- [library](library.md) — the same brief on sqlb
+- [library on sqlc + gin](library-sqlc-gin.md) — the third build
+- [Using sqlb with sqlc](../with-sqlc.md) — how to run both in one
   project, sharing one transaction
-- [How sqlb compares](/sqlb/project/comparisons/) — the same argument without
+- [How sqlb compares](../comparisons.md) — the same argument without
   the code

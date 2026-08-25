@@ -1,13 +1,7 @@
----
-title: Filter grammar reference
-description: Every operator in the REST filter grammar, which column types accept it, the reserved query parameters, and the parser's limits.
-sidebar:
-  label: Filter grammar
-  order: 1
----
+# Filter grammar reference
 
 Checked against `filter/filter.go`. The guide page is
-[Filtering and search](/sqlb/rest/filtering/).
+[Filtering and search](../rest/filtering.md).
 
 ## Shape of a condition
 
@@ -125,7 +119,7 @@ so it appears in neither `?sort` nor the `?search` fan-out.
 
 `isnull` and `notnull` are accepted on **any** filterable column at the server;
 nothing checks that the column is nullable. The generated
-[TypeScript client](/sqlb/typescript/) and [CLI](/sqlb/cli/) are narrower — they
+[TypeScript client](../typescript/README.md) and [CLI](../cli/README.md) are narrower — they
 offer a null test only where the schema says the column is nullable — so the
 looser server behaviour is only reachable by hand-written requests.
 
@@ -304,5 +298,5 @@ are the exceptions: several of either is a request with several groups.
 says which to drop. A cursor is valid only for the ordering it was issued under;
 using one against a different `?sort=` is a 400 naming both orderings.
 
-See [Pagination](/sqlb/rest/pagination/) and
-[ADR-0027](/sqlb/project/architecture/#keyset-pagination).
+See [Pagination](../rest/pagination.md) and
+[ADR-0027](../architecture.md#keyset-pagination).

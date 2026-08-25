@@ -1,23 +1,13 @@
----
-title: "library on sqlc + gin"
-description: The lending library a third time — hand-written SQL, sqlc and gin — including the framework traps that had to be designed out.
-sidebar:
-  label: library on sqlc + gin
-  order: 7
----
+# library on sqlc + gin
 
-:::note[Where the source is]
-This example lives outside the sqlb repository and is not published yet, so
-there is nothing to link to. The code quoted below is real; the paths are given
-so they can be found once it is.
-:::
+> **Where the source is.** This example lives outside the sqlb repository and is not published yet, so there is nothing to link to. The code quoted below is real; the paths are given so they can be found once it is.
 
-The same brief as [library](/sqlb/examples/library/) and
-[library on sqlc + chi](/sqlb/examples/library-sqlc-chi/), built a third time.
+The same brief as [library](library.md) and
+[library on sqlc + chi](library-sqlc-chi.md), built a third time.
 The SQL, the view and the invariant are the chi build's; what differs is the
 router, and the three things gin asks for.
 
-Read the [chi build](/sqlb/examples/library-sqlc-chi/) first — this page covers
+Read the [chi build](library-sqlc-chi.md) first — this page covers
 only what is different.
 
 ## What the constraint is actually worth
@@ -115,7 +105,7 @@ endpoint, and that the registry still remembers it.
 
 ## Next
 
-- [library](/sqlb/examples/library/) — the same brief on sqlb
-- [library on sqlc + chi](/sqlb/examples/library-sqlc-chi/) — the second build
-- [How sqlb compares](/sqlb/project/comparisons/) — where each approach is the
+- [library](library.md) — the same brief on sqlb
+- [library on sqlc + chi](library-sqlc-chi.md) — the second build
+- [How sqlb compares](../comparisons.md) — where each approach is the
   right one, including when not to use sqlb

@@ -1,13 +1,7 @@
----
-title: Column type reference
-description: Every schema column constructor, the SQL type it emits, the Go type codegen produces, and which filter operators it admits.
-sidebar:
-  label: Column types
-  order: 2
----
+# Column type reference
 
 Checked against `schema/field.go` and `schema/type.go`. The guide page is
-[Declaring tables](/sqlb/schema/).
+[Declaring tables](../schema/README.md).
 
 ## Constructors
 
@@ -163,7 +157,7 @@ A `Group` inserts several columns as a unit. Two are built in:
 `SoftDelete()` adds the column and **nothing else**: nothing writes it, nothing
 filters it out, and the generated `DELETE` issues a real `DELETE`. What it does
 do is oblige a hook — a resource over a soft-deleting model does not mount until
-one confines it. See [Capabilities](/sqlb/schema/capabilities/).
+one confines it. See [Capabilities](../schema/capabilities.md).
 
 Return your own `schema.Group` to factor a recurring set the same way.
 
@@ -178,7 +172,7 @@ Delete actions: `NoAction`, `Restrict`, `Cascade`, `SetNull`, `SetDefault`.
 
 An `ExternalRef` cannot be `Expandable` and cannot declare an `Inverse`: both
 would reach a table this module does not own. See
-[References and relations](/sqlb/schema/references/).
+[References and relations](../schema/references.md).
 
 ## Modifiers
 
@@ -196,7 +190,7 @@ would reach a table this module does not own. See
 | `OnDelete(a)` / `OnUpdate(a)` | Referential actions, on a `Ref` |
 
 A nullable column is typed as its base type in the
-[typed column facade](/sqlb/queries/typed-columns/) — `*time.Time` on the model
+[typed column facade](../queries/typed-columns.md) — `*time.Time` on the model
 but `Col[time.Time]` there — so the comparand is a value and NULL is expressed
 with `IsNull`.
 
