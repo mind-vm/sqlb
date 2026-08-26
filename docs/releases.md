@@ -14,6 +14,60 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.20.0
+
+2026-08-26 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.20.0)
+
+The licence is MIT, and the documentation site is published again. No Go API
+change: nothing this release touches is code.
+
+### MIT, and what the previous licence actually cost
+
+[v0.18.0](#v0180) replaced MIT with an all-rights-reserved notice, reasoning
+that MIT is irrevocable per copy and said the opposite of what a private
+repository intends. That was right for a private repository and stops applying
+to a public one, which this now is.
+
+The cost while it stood was never the licence text. It was that every
+application and every CI runner building against sqlb needed `GOPRIVATE`, an
+`insteadOf` rewrite and a credential that expires, and that resolution went
+around `proxy.golang.org` and `sum.golang.org` entirely — no immutable
+versions, no checksum verification, and a build that failed when a token did.
+A restricted licence also gives a coding agent something legitimate to hesitate
+over, which is a strange price to pay in a repository whose `docs/`, `skills/`
+and generated agent skill all exist to make it legible to one.
+
+**The tags before this one are not relicensed and cannot be.** pkg.go.dev reads
+the licence out of the module zip, and a module version is immutable once the
+proxy has cached it. v0.19.0 and earlier stay what they were; this is the first
+MIT zip.
+
+### The documentation site is back
+
+Published at [mind-vm.github.io/sqlb](https://mind-vm.github.io/sqlb).
+v0.18.0 deleted `site/` because Pages cannot serve a private repository on this
+plan, so the deploy was permanently red and nothing it built ever reached a
+reader. Both halves of that are gone.
+
+It did not come back as it was. When the site was deleted its two hand-written
+directories — `examples/` and `reference/`, MDX that existed only under
+`site/` — were folded into `docs/` as plain markdown. Restoring the MDX would
+have recreated the second copy that deletion removed, so both are now entries
+in `sync-docs.mjs`'s `SOURCES` and generate from `docs/` like every other
+section. `HAND_WRITTEN` is empty; `index.mdx` is the only hand-written page
+left, and stays one because a card grid has no equivalent in a checkout.
+`docs/` is the single copy, and it still reads on GitHub.
+
+The deploy job is gated to `main`. A pull request still builds, because
+`npm run build` is the link check and that is the half that ever caught
+anything, but it has nothing to publish.
+
+### Also
+
+- `site-dev`, `site-build` and `site-check` are back in `mise.toml`.
+- `example/tasks/mobile/build/` was untracked-but-not-ignored, which is the
+  state that ends with build output in a commit. It now has a `.gitignore`.
+
 ## v0.19.0
 
 2026-08-26 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.19.0)
