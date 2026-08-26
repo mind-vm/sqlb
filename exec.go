@@ -111,6 +111,10 @@ func (b *Builder[T]) Resolved(ctx context.Context, db Executor) (*Builder[T], er
 	// fix everywhere else and a hook has no executor to do it with (#288).
 	var authored subqueryWalk
 	q.walkSubqueries(&authored)
+	// Same question for the CTE, which arrives by its own clause rather than
+	// through the expression walk: With is public on *Builder[T], so a hook can
+	// attach one.
+	authoredWith := q.withQuery
 
 	if err := hooksFor[T](db).runBeforeQuery(ctx, q, releasedFrom(db)); err != nil {
 		return nil, err
@@ -133,7 +137,11 @@ func (b *Builder[T]) Resolved(ctx context.Context, db Executor) (*Builder[T], er
 	// With's query is compiled straight into this statement rather than run,
 	// the same reason a nested Subquery is; see guardFrom.
 	if q.withQuery != nil {
-		if err := guardFrom(ctx, db, q.withName, q.withQuery); err != nil {
+		if err := guardCTE(ctx, db, cte{
+			clause: "With", name: q.withName, query: q.withQuery,
+			byHook: q.withQuery != authoredWith,
+			hook:   "BeforeQuery", owner: q.model.Type.Name(),
+		}); err != nil {
 			return nil, err
 		}
 	}

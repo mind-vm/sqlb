@@ -325,19 +325,25 @@ func (w *subqueryWalk) check(ctx context.Context, exec Executor) error {
 // hookName and ownerName degrade to something readable rather than to an empty
 // string, so a call site that reaches check without naming itself produces a
 // clumsy sentence rather than a broken one.
-func (w *subqueryWalk) hookName() string {
-	if w.hook == "" {
+func (w *subqueryWalk) hookName() string { return hookOr(w.hook) }
+
+// hookOr and ownerOr are the same fallbacks as methods, for the CTE guard,
+// which has the two names but no walk to hang them on.
+func hookOr(hook string) string {
+	if hook == "" {
 		return "query"
 	}
-	return w.hook
+	return hook
 }
 
-func (w *subqueryWalk) ownerName() string {
-	if w.owner == "" {
+func ownerOr(owner string) string {
+	if owner == "" {
 		return "the table being confined"
 	}
-	return w.owner
+	return owner
 }
+
+func (w *subqueryWalk) ownerName() string { return ownerOr(w.owner) }
 
 // guardNested is the check as a statement's clauses reach it.
 //
@@ -356,28 +362,66 @@ func guardNested(ctx context.Context, exec Executor, preds []Pred, exprs []Expr,
 	return w.check(ctx, exec)
 }
 
-// guardFrom is guardNested's counterpart for [Update.From]: the CTE's query is
-// compiled straight into the surrounding statement rather than run, so a model
-// with a registered BeforeQuery hook needs the same refusal a nested subquery
-// gets, for the reason [Subquery]'s own doc comment gives — and any subquery
-// nested inside *that* query needs the same check applied one level down.
-func guardFrom(ctx context.Context, exec Executor, name string, q Subquery) error {
-	if q == nil {
+// cte describes a CTE and where it came from, for the refusal below.
+//
+// clause is the method the caller would go looking for — [Builder.With] or
+// [Update.From] — because one guard serves both and naming the wrong one sends
+// the reader to a call they did not write.
+//
+// byHook says a registered hook attached it. Both methods are public on the
+// very types a hook is handed, so a rule reaching another table through a CTE
+// lands in exactly the dead end the nested-predicate case did (#288): told to
+// call Resolved, holding no executor to call it with.
+type cte struct {
+	clause string
+	name   string
+	query  Subquery
+	byHook bool
+	hook   string
+	owner  string
+}
+
+// guardCTE is guardNested's counterpart for a CTE: its query is compiled
+// straight into the surrounding statement rather than run, so a model with a
+// registered BeforeQuery hook needs the same refusal a nested subquery gets,
+// for the reason [Subquery]'s own doc comment gives — and any subquery nested
+// inside *that* query needs the same check applied one level down.
+func guardCTE(ctx context.Context, exec Executor, c cte) error {
+	if c.query == nil {
 		return nil
 	}
-	unresolved, err := q.subUnresolved(ctx, exec)
+	unresolved, err := c.query.subUnresolved(ctx, exec)
 	if err != nil {
 		return err
 	}
 	if unresolved != "" {
+		if c.byHook {
+			return fmt.Errorf(
+				"sqlb: a registered %s hook attached a %s(%q) over %s, whose reads are "+
+					"confined by a query hook that a CTE source does not run. Resolving it "+
+					"first is the fix elsewhere and is not one here: a hook is handed the "+
+					"statement and no executor to resolve with. Either denormalise onto %s "+
+					"the column this rule needs, so it becomes a plain predicate, or register "+
+					"the rule on %s instead, where its reads are already confined when they "+
+					"are issued",
+				hookOr(c.hook), c.clause, c.name, unresolved, ownerOr(c.owner), unresolved)
+		}
 		return fmt.Errorf(
-			"sqlb: From(%q) is over %s, whose reads are confined by a registered query hook "+
+			"sqlb: %s(%q) is over %s, whose reads are confined by a registered query hook "+
 				"that a CTE source does not run; resolve it first — "+
-				"sub, err := sqlb.Query[%s]()….Resolved(ctx, db) — and pass the result to From",
-			name, unresolved, unresolved)
+				"sub, err := sqlb.Query[%s]()….Resolved(ctx, db) — and pass the result to %s",
+			c.clause, c.name, unresolved, unresolved, c.clause)
 	}
-	var w subqueryWalk
-	q.walkSubqueries(&w)
+	// The subqueries nested inside the CTE inherit where the CTE came from: one
+	// inside a hook-attached CTE is as unreachable by Resolved as the CTE is.
+	w := subqueryWalk{hook: c.hook, owner: c.owner}
+	if c.byHook {
+		// No authored set, and a non-nil one is what check reads as "a hook
+		// added this". An empty map says every subquery here arrived with the
+		// CTE, which is true: the caller wrote none of it.
+		w.authored = map[Subquery]bool{}
+	}
+	c.query.walkSubqueries(&w)
 	return w.check(ctx, exec)
 }
 

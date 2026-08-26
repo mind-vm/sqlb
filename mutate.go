@@ -755,6 +755,7 @@ func (u *Update[T]) Resolved(ctx context.Context, db Executor) (*Update[T], erro
 	// query that appears only afterwards came from a hook, and the fix for that
 	// one is not the fix for this one. See subqueryWalk.check (#288).
 	authored := authoredIn(stmt.where, updateSetExprs(stmt))
+	authoredFrom := stmt.fromQuery
 	if err := hooksFor[T](db).runBeforeUpdate(ctx, stmt, releasedFrom(db)); err != nil {
 		return nil, err
 	}
@@ -769,7 +770,11 @@ func (u *Update[T]) Resolved(ctx context.Context, db Executor) (*Update[T], erro
 	// From's query is compiled straight into this statement rather than run,
 	// the same reason a nested Subquery is; see guardFrom.
 	if stmt.fromQuery != nil {
-		if err := guardFrom(ctx, db, stmt.fromName, stmt.fromQuery); err != nil {
+		if err := guardCTE(ctx, db, cte{
+			clause: "From", name: stmt.fromName, query: stmt.fromQuery,
+			byHook: stmt.fromQuery != authoredFrom,
+			hook:   "BeforeUpdate", owner: ModelOf[T]().Type.Name(),
+		}); err != nil {
 			return nil, err
 		}
 	}

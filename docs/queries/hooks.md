@@ -66,6 +66,12 @@ two fixes that are:
 - **Register the rule on the other model**, so its reads are confined where they
   are issued rather than where they are referenced.
 
+A CTE is the same rule reached by a different clause. `Builder.With` and
+`Update.From` are both public on the types a hook is handed, and a CTE's query
+is compiled into the surrounding statement rather than run — so attaching one
+over a confined model from inside a hook is refused, and names the same two
+fixes.
+
 ### When one surface is the exception
 
 A `BeforeQuery` confines every reader of the model, which is the point of it and

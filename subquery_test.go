@@ -347,3 +347,93 @@ func TestARefusalOutsideAHookStillAdvisesResolved(t *testing.T) {
 		t.Errorf("a subquery the caller wrote was blamed on a hook: %v", err)
 	}
 }
+
+// The other half of #288, in the path the reporter also named.
+//
+// The predicate case above is fixed; a CTE is the same refusal reached through
+// With and Update.From, and those took the caller-written advice unconditionally.
+// Both methods are public on the very types a hook is handed — *Builder[T] and
+// *Update[T] — so a rule that reaches another table through a CTE rather than a
+// nested predicate hit the identical dead end: told to call Resolved, holding no
+// executor to call it with.
+func TestARefusalForAHookAddedCTENamesTheFixesAHookCanApply(t *testing.T) {
+	h := subHarness(t)
+	reg := sqlb.NewRegistry()
+	sqlb.On[subPost](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[subPost]) error {
+		q.Where(sqlb.F("org_id").Eq("org1"))
+		return nil
+	})
+	sqlb.On[User](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[User]) error {
+		q.With("visible", sqlb.Query[subPost]().Select(sqlb.F("author_id")))
+		return nil
+	})
+	db := h.handle(reg)
+
+	_, err := sqlb.Query[User]().All(context.Background(), db)
+	if err == nil {
+		t.Fatal("a hook attached a CTE over a confined model without its scope")
+	}
+	msg := err.Error()
+
+	if !strings.Contains(msg, "BeforeQuery") {
+		t.Errorf("the refusal does not say a hook added the CTE: %v", err)
+	}
+	for _, want := range []string{"denormalise", "User", "subPost"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the refusal does not mention %q: %v", want, err)
+		}
+	}
+	if strings.Contains(msg, "Resolved(ctx, db)") {
+		t.Errorf("the refusal still advises a call a hook has no executor for: %v", err)
+	}
+}
+
+// And the caller-written CTE keeps the advice that works for it, which is what
+// makes the distinction above worth drawing rather than replacing one fixed
+// sentence with another.
+func TestACallerWrittenCTEStillAdvisesResolved(t *testing.T) {
+	h := subHarness(t)
+	reg := sqlb.NewRegistry()
+	sqlb.On[subPost](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[subPost]) error {
+		q.Where(sqlb.F("org_id").Eq("org1"))
+		return nil
+	})
+	db := h.handle(reg)
+
+	_, err := sqlb.Query[User]().
+		With("visible", sqlb.Query[subPost]().Select(sqlb.F("author_id"))).
+		All(context.Background(), db)
+	if err == nil {
+		t.Fatal("a caller-written CTE over a confined model was not refused")
+	}
+	if !strings.Contains(err.Error(), "Resolved(ctx, db)") {
+		t.Errorf("the caller-written case should keep the advice that works: %v", err)
+	}
+}
+
+// One guard serves Builder.With and Update.From, and it used to name From in
+// both. A caller who wrote With(...) was told to look at a call they had not
+// made — a small thing, and exactly the kind that turns a correct refusal into
+// a hunt through the wrong file.
+func TestACTERefusalNamesTheClauseTheCallerWrote(t *testing.T) {
+	h := subHarness(t)
+	reg := sqlb.NewRegistry()
+	sqlb.On[subPost](reg).BeforeQuery(func(_ context.Context, q *sqlb.Builder[subPost]) error {
+		q.Where(sqlb.F("org_id").Eq("org1"))
+		return nil
+	})
+	db := h.handle(reg)
+
+	_, err := sqlb.Query[User]().
+		With("visible", sqlb.Query[subPost]().Select(sqlb.F("author_id"))).
+		All(context.Background(), db)
+	if err == nil {
+		t.Fatal("a caller-written CTE over a confined model was not refused")
+	}
+	if !strings.Contains(err.Error(), `With("visible")`) {
+		t.Errorf("a CTE attached with With should be named as With: %v", err)
+	}
+	if strings.Contains(err.Error(), "From(") {
+		t.Errorf("the refusal names a clause the caller did not write: %v", err)
+	}
+}
