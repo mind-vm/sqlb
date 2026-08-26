@@ -6,5 +6,5 @@
 // Deploying somewhere else — a custom domain, a user page — means changing
 // `base` to "/" here and nowhere else. scripts/check-links.mjs verifies the
 // result rather than trusting it.
-export const site = "https://jryannel.github.io";
+export const site = "https://mind-vm.github.io";
 export const base = "/sqlb";

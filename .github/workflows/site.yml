@@ -1,16 +1,20 @@
-# Builds the documentation site, and stops there.
+# Builds the documentation site, and deploys it to GitHub Pages from `main`.
 #
-# It used to deploy to GitHub Pages as well. The repository is private now, and
-# a private repository on this plan cannot serve Pages — `deploy-pages` answers
-# 404 with "Ensure GitHub Pages has been enabled", which made every push to
-# `main` red for a reason that had nothing to do with the commit. A permanently
-# red workflow is worse than no workflow: it is the one people learn to skip,
-# and CLAUDE.md asks for a release on a commit where everything is green.
+# The deploy was removed while the repository was private: Pages cannot serve a
+# private repository on this plan, so `deploy-pages` answered 404 with "Ensure
+# GitHub Pages has been enabled" and made every push to `main` red for a reason
+# that had nothing to do with the commit. The repository is public now, so the
+# deploy works and is back.
 #
-# The build is kept because the build is the check. `npm run build` runs the
-# link check, so a docs edit whose link resolves to nothing fails here — that
-# outcome is unchanged by there being nowhere to publish, and it is the half
-# that ever caught anything.
+# The build is kept separate from any Go CI on purpose: the site is Astro, so
+# folding it into a Go gate would make Node a build dependency of a library
+# whose whole point is that it imposes none. A red site build should not be able
+# to say the library is broken.
+#
+# The build is also the check. `npm run build` runs the link check, so a docs
+# edit whose link resolves to nothing fails here — which is the half that ever
+# caught anything, and the reason this still runs on pull requests where there
+# is nothing to publish.
 name: site
 
 on:
@@ -29,12 +33,12 @@ on:
       - "site/**"
       - "docs/**"
       - ".github/workflows/site.yml"
-  # On pull requests too, which the deploying version could not do: a deploy
-  # belongs on `main` and a check belongs where the change is. This closes the
-  # trap CLAUDE.md carried for two releases — that `gh pr checks` showed one of
-  # the two workflows, so a docs break was invisible until after the merge.
-  # Keeping the push trigger as well is not redundant: two pull requests can be
-  # green on their own base and red as a pair, and only the merge sees that.
+  # On pull requests too: a deploy belongs on `main` and a check belongs where
+  # the change is. This closes the trap CLAUDE.md carried for two releases —
+  # that `gh pr checks` showed one of the two workflows, so a docs break was
+  # invisible until after the merge. Keeping the push trigger as well is not
+  # redundant: two pull requests can be green on their own base and red as a
+  # pair, and only the merge sees that.
   pull_request:
     paths:
       - "site/**"
@@ -44,13 +48,16 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
-# One build per ref, and a superseded one is cancelled: nothing is published, so
-# there is no half-written state to protect — which is what the deploying
-# version's `cancel-in-progress: false` was for.
+# One build per ref. A superseded pull-request build is cancelled — nothing is
+# published from one, so there is no half-written state to protect. A `main`
+# build is not, because it deploys: a cancelled deploy can leave the site
+# serving a half-published build.
 concurrency:
   group: site-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -68,3 +75,20 @@ jobs:
         working-directory: site
       - run: npm run build
         working-directory: site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    # Only from `main`. A pull request builds — that is the link check — but has
+    # nothing to publish, and publishing from one would serve an unmerged branch
+    # to everybody.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

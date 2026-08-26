@@ -39,8 +39,11 @@ Read in this order, and stop as soon as you have what you need:
    citations are held consistent by `adr-check` for as long as they last.
 
 Everything under `docs/` is prose for humans, readable straight from a
-checkout or on GitHub — there is no separate published site. The API
-reference is the Go doc comments.
+checkout or on GitHub. It is also the source of the published site at
+https://mind-vm.github.io/sqlb — `site/scripts/sync-docs.mjs` derives the
+Starlight pages from it on every build and commits nothing, so `docs/` stays
+the one copy to edit. `mise run site-check` says whether it can be published
+as it stands. The API reference is the Go doc comments.
 
 ## Layout
 
@@ -67,8 +70,11 @@ mise run heal   # everything the tooling can fix on its own
 mise run ci     # the gate: never rewrites, only fails
 ```
 
-There is no server-side CI — `mise run preflight` and `mise run ci` are the
-gate, full stop, run by hand before pushing and before tagging a release.
+There is no server-side CI for Go — `mise run preflight` and `mise run ci`
+are the gate, full stop, run by hand before pushing and before tagging a
+release. The one workflow that does run is `site`, which builds the docs and
+deploys them to Pages; it is deliberately not a Go gate, so a red site build
+never claims the library is broken.
 `mise run preflight` is the push path: heal, build, database-free tests, about
 fifteen seconds. `mise run ci` is the full fourteen-stage set — everything
 `preflight` skips, plus the database-backed and multi-toolchain suites — and

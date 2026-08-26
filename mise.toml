@@ -639,7 +639,7 @@ description = "Fail if the committed ejected package no longer matches what the 
 run = "go run ./cmd/sqlb eject -check ./example/blog/blogschema"
 
 [tasks.tagline-check]
-description = "Fail if the two hand-written copies of the project's one-line pitch have drifted apart. README.md and docs/start/README.md both state what sqlb is, neither is generated from the other, and nothing links them — so an edit to one leaves the other saying something the project stopped claiming. This is the same class as the mirroring CLAUDE.md already warns about for the emitter docs, caught the same way generate-check catches code that has drifted from the schema: cheaply, and before a reader does. It checks the claim rather than the wording, since the two are written for different contexts — a repo landing page and a documentation section opener. A third and fourth copy lived in the Astro site's frontmatter before it was removed as dead weight (the repo stays private, so nothing ever published it); this check shrank from four copies to two along with it."
+description = "Fail if the two hand-written copies of the project's one-line pitch have drifted apart. README.md and docs/start/README.md both state what sqlb is, neither is generated from the other, and nothing links them — so an edit to one leaves the other saying something the project stopped claiming. This is the same class as the mirroring CLAUDE.md already warns about for the emitter docs, caught the same way generate-check catches code that has drifted from the schema: cheaply, and before a reader does. It checks the claim rather than the wording, since the two are written for different contexts — a repo landing page and a documentation section opener. A third and fourth copy lived in the Astro site's frontmatter until the site's pages became generated from docs/ rather than hand-written; this check shrank from four copies to two along with that."
 run = '''
 set -e
 
@@ -1140,3 +1140,24 @@ mise run test-fx
 echo
 echo "ci: all gates passed"
 '''
+
+[tasks.site-dev]
+description = "Serve the documentation site with live reload. Regenerates the pages from docs/ first; edit the markdown there, not the copy under site/src."
+dir = "site"
+run = '''
+[ -d node_modules ] || npm install
+npm run dev
+'''
+
+[tasks.site-build]
+description = "Build the documentation site into site/dist, then verify every internal link in the output resolves. The link check is the load-bearing half: the docs' links are repo-relative and get rewritten for the web, so one can be valid markdown, survive the build, and still resolve to nothing in the output. This is what the `site` workflow runs before it deploys to GitHub Pages."
+dir = "site"
+run = '''
+[ -d node_modules ] || npm install
+npm run build
+'''
+
+[tasks.site-check]
+description = "Report whether docs/ can be published as it stands, without building. Fails on a link the rewriter has no rule for, on a page with no H1 to take a title from, and on a page missing from the sidebar order. Needs no npm install."
+dir = "site"
+run = "node scripts/sync-docs.mjs --check"

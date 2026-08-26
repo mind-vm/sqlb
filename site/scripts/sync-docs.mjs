@@ -34,7 +34,7 @@ const contentRoot = join(here, "../src/content/docs");
 // Trailing slash stripped so `${prefix}/start/...` is well-formed for base "/".
 const prefix = base.replace(/\/$/, "");
 
-const GITHUB = "https://github.com/jryannel/sqlb";
+const GITHUB = "https://github.com/mind-vm/sqlb";
 const BLOB = `${GITHUB}/blob/main`;
 const TREE = `${GITHUB}/tree/main`;
 
@@ -215,6 +215,47 @@ const SOURCES = [
     order(slug) {
       return this.files.indexOf(`${slug}.md`);
     },
+  },
+  {
+    // Hand-written MDX until the site was deleted; the pages were folded into
+    // docs/ as plain markdown at that point, so they generate from there now
+    // like every other section. That is strictly better than restoring the
+    // MDX: one copy, and it reads in a checkout too.
+    dir: "docs/examples",
+    route: "examples",
+    sequence: [
+      "index",
+      "blog",
+      "tasks",
+      "fxapp",
+      "library",
+      "library-sqlc-chi",
+      "library-sqlc-gin",
+      "exchange",
+    ],
+    order(slug) {
+      return this.sequence.indexOf(slug);
+    },
+    label: (slug) => (slug === "index" ? "Overview" : null),
+  },
+  {
+    // Same story as examples/ above.
+    dir: "docs/reference",
+    route: "reference",
+    sequence: [
+      "index",
+      "filter-grammar",
+      "column-types",
+      "capabilities",
+      "codegen",
+      "cli",
+      "rejections",
+      "glossary",
+    ],
+    order(slug) {
+      return this.sequence.indexOf(slug);
+    },
+    label: (slug) => (slug === "index" ? "Overview" : null),
   },
 ];
 
@@ -509,7 +550,12 @@ async function checkDocsRoot(problems) {
 }
 
 /** Directories under src/content/docs that are written by hand, not generated. */
-const HAND_WRITTEN = new Set(["examples", "reference"]);
+/**
+ * Directories under src/content/docs that are written by hand, not generated.
+ * Empty: examples/ and reference/ were the last two, and they now generate
+ * from docs/. Only index.mdx (a file, not a directory) is still hand-written.
+ */
+const HAND_WRITTEN = new Set();
 
 async function main() {
   const routes = await buildRouteIndex();
