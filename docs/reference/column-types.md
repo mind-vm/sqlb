@@ -188,6 +188,35 @@ would reach a table this module does not own. See
 | `ConstraintNamed(name)` | Names the constraint this field generates |
 | `OfType(t)` | Overrides the SQL type |
 | `OnDelete(a)` / `OnUpdate(a)` | Referential actions, on a `Ref` |
+| `Pattern(re)` | A regular expression a text value must match, checked on a request |
+| `Min(v)` / `Max(v)` | Inclusive bounds on a numeric value, checked on a request |
+
+### Format rules
+
+`Pattern`, `Min` and `Max` describe what a **request** may carry. They reach the
+generated request bodies as the struct tags Huma reads, and from there the
+OpenAPI document — so a caller with no compile step discovers the rule instead
+of learning it from a rejected request:
+
+```go
+schema.Varchar("pin", 4).Pattern(`^[0-9]{4}$`),
+schema.Int("quantity").Min(1).Max(999),
+```
+
+**They write no DDL.** A row inserted by a migration, a seed or a background job
+is not checked against them; `Check(name, expr)` on the table is the rule the
+database holds. The two are complementary, and a value that must never be wrong
+in the table wants both.
+
+The expression is [RE2](https://github.com/google/re2/wiki/Syntax), what Go's
+`regexp` accepts, and a schema whose pattern does not compile is refused by
+`Validate`. JSON Schema specifies ECMA-262, so the two disagree at the edges —
+RE2 has no backreferences or lookaround, and `(?i)` is RE2 spelling a browser
+will not read. Staying inside the common subset is what keeps the server and a
+generated client agreeing about the same string.
+
+Tightening a rule is a **wire break**: input that used to be accepted now gets a
+422, with no type change to give it away. `sqlb impact` reports it as one.
 
 A nullable column is typed as its base type in the
 [typed column facade](../queries/typed-columns.md) — `*time.Time` on the model

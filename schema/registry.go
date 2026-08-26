@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -263,6 +264,7 @@ func (r *Registry) Validate() error {
 			if d.Computed() || len(d.Needs) > 0 {
 				r.validateComputed(t, d, report)
 			}
+			r.validateConstraints(t.name, d, "", report)
 			if d.Searchable && (!isTextual(d.Type) || d.Array) {
 				report(t.name, d.Name, "Searchable requires a text column, got %s", describeType(d))
 			}
@@ -591,6 +593,68 @@ func isTextual(t Type) bool {
 		return true
 	}
 	return false
+}
+
+// isNumeric reports whether a Min or Max bound has anything to bound.
+//
+// Deliberately not TypeTimestamp or TypeDate, which are ordered and would take
+// a bound meaningfully: JSON Schema's minimum applies to numbers only, so a
+// bound on a date would have to be rendered some other way and would be a
+// second mechanism wearing the same name (#311).
+func isNumeric(t Type) bool {
+	switch t {
+	case TypeSmallInt, TypeInt, TypeBigInt, TypeReal, TypeFloat, TypeNumeric:
+		return true
+	}
+	return false
+}
+
+// validateConstraints refuses a Pattern or a bound that cannot mean anything.
+//
+// Shared between a column and a declared body property, because the vocabulary
+// is one vocabulary: a rule that fires for a column and not for an action's
+// body would be the drift the single validator exists to prevent. where is
+// empty for a column and names the declaration otherwise, so one message reads
+// correctly in both.
+func (r *Registry) validateConstraints(table string, d *FieldDesc, where string, report func(string, string, string, ...any)) {
+	prefix := ""
+	if where != "" {
+		prefix = where + ": "
+	}
+	if d.Pattern != "" {
+		switch {
+		case d.Array:
+			// The tag would land on the array, and Huma reads pattern against a
+			// string. Constraining the elements is a different tag that this
+			// does not emit, so accepting it here would silently check nothing.
+			report(table, d.Name, "%sPattern is not applied to an array; it would constrain the array itself rather than its elements", prefix)
+		case !isTextual(d.Type):
+			report(table, d.Name, "%sPattern requires a text value, got %s", prefix, describeType(d))
+		case d.Type == TypeEnum:
+			// An enum already states its value set exactly, and two overlapping
+			// statements of the same thing is a schema that can contradict
+			// itself — a pattern matching none of the declared values makes
+			// every request fail with the document claiming otherwise.
+			report(table, d.Name, "%sPattern is meaningless beside an Enum, whose values are already the value set", prefix)
+		default:
+			if _, err := regexp.Compile(d.Pattern); err != nil {
+				report(table, d.Name, "%sPattern does not compile: %v", prefix, err)
+			}
+		}
+	}
+	if d.Min == nil && d.Max == nil {
+		return
+	}
+	switch {
+	case d.Array:
+		report(table, d.Name, "%sMin and Max are not applied to an array; they would bound the array itself rather than its elements", prefix)
+	case !isNumeric(d.Type):
+		report(table, d.Name, "%sMin and Max require a numeric value, got %s", prefix, describeType(d))
+	case d.Min != nil && d.Max != nil && *d.Min > *d.Max:
+		// An empty range accepts nothing, and every request against it 422s
+		// while the document advertises a field that can be sent.
+		report(table, d.Name, "%sMin %v is above Max %v, so no value can satisfy both", prefix, *d.Min, *d.Max)
+	}
 }
 
 // isIdent reports whether s is a safe unquoted SQL identifier. The generator

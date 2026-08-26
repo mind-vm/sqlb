@@ -120,8 +120,16 @@ type ColumnManifest struct {
 	Comment    string   `json:"comment,omitempty"`
 	Enum       []string `json:"enum,omitempty"`
 	HasDefault bool     `json:"hasDefault,omitempty"`
-	ReadOnly   bool     `json:"readOnly,omitempty"`
-	Immutable  bool     `json:"immutable,omitempty"`
+
+	// Pattern, Min and Max are the declared format rules on the value: what a
+	// request must satisfy, checked at the API boundary and not by the
+	// database. Listed because the manifest's readers are assembling requests,
+	// and a rule a request must meet is exactly what they need.
+	Pattern   string   `json:"pattern,omitempty"`
+	Min       *float64 `json:"min,omitempty"`
+	Max       *float64 `json:"max,omitempty"`
+	ReadOnly  bool     `json:"readOnly,omitempty"`
+	Immutable bool     `json:"immutable,omitempty"`
 	// WriteOnly reports that the column is settable through create and update
 	// but never appears in a response. Unlike a Hidden column — omitted from
 	// the manifest entirely, because a name is itself information for a true
@@ -277,6 +285,11 @@ type BodyProperty struct {
 	Type     string   `json:"type"`
 	Nullable bool     `json:"nullable,omitempty"`
 	Enum     []string `json:"enum,omitempty"`
+	// The declared format rules, as on a column: what a request carrying this
+	// property must satisfy.
+	Pattern string   `json:"pattern,omitempty"`
+	Min     *float64 `json:"min,omitempty"`
+	Max     *float64 `json:"max,omitempty"`
 }
 
 // ActionProperty is the former name of [BodyProperty].
@@ -341,6 +354,9 @@ func (t *TableDef) manifest(inverses []InverseRelation, wire WireCase) TableMani
 			Comment:    d.Comment,
 			Enum:       d.EnumValues,
 			HasDefault: d.DatabaseSupplied(),
+			Pattern:    d.Pattern,
+			Min:        d.Min,
+			Max:        d.Max,
 			ReadOnly:   d.ReadOnly,
 			Immutable:  d.Immutable,
 			WriteOnly:  d.WriteOnly,
@@ -554,6 +570,9 @@ func bodyProperties(body []*Field) []BodyProperty {
 			Type:     string(d.Type),
 			Nullable: d.Nullable,
 			Enum:     d.EnumValues,
+			Pattern:  d.Pattern,
+			Min:      d.Min,
+			Max:      d.Max,
 		})
 	}
 	return out

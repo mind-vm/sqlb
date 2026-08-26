@@ -95,7 +95,7 @@ func renderQueryParams(b *bytes.Buffer, d queryDef) {
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range d.query.Params {
 		desc := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `query:\"%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name, enumTag(desc))
+		fmt.Fprintf(b, "\t%s %s `query:\"%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name, valueTags(desc))
 		if c := desc.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}

@@ -22,7 +22,8 @@ package schema
 // The vocabulary is the column vocabulary, deliberately: it is the one the
 // emitters already know how to turn into a TypeScript type, a Dart class, a CLI
 // flag and an OpenAPI schema. Only what describes a *value* applies here —
-// name, type, nullability, enum values, default and comment. The capabilities
+// name, type, nullability, enum values, default, comment, and the format rules
+// [Field.Pattern], [Field.Min] and [Field.Max]. The capabilities
 // that describe a column's place in a table (Filterable, PrimaryKey, Ref,
 // Computed, and the rest) have no meaning in a request body and are refused by
 // Validate rather than ignored.
@@ -62,6 +63,10 @@ func (r *Registry) validateBody(t *TableDef, where string, body []*Field, report
 			report(t.name, d.Name, "%s: property declared twice", where)
 		}
 		seen[d.Name] = true
+
+		// The format rules a property may carry, checked by the same function
+		// a column's are: one vocabulary, one validator.
+		r.validateConstraints(t.name, d, where, report)
 
 		// A body property is a value, not a column. Every capability below
 		// describes a column's place in a table, and silently ignoring one

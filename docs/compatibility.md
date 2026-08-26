@@ -272,6 +272,22 @@ Named in advance, so the break is a documented plan rather than a surprise.
   route that mounted cleanly, and the sibling route was safe only because a hook
   registered for its own `PATCH` happened to cover it.
 
+- **Format rules on a value narrow what a request may carry.** `Pattern`, `Min`
+  and `Max` are new and additive — a schema that declares none is unchanged —
+  but *declaring* one on an existing column is a wire break, and a quiet one:
+  the type does not move, so nothing about the column's shape gives it away
+  while every request carrying a value outside the rule starts getting a 422
+  ([#311](https://github.com/mind-vm/sqlb/issues/311)).
+
+  `sqlb impact` reports it, which is the point of recording the rules in the
+  contract snapshot rather than only in the generated tags. Tightening is
+  breaking; loosening is reported as *unknown* rather than neutral, because a
+  generated client still enforcing the old rule refuses input the server now
+  accepts.
+
+  These validate a request and write no DDL. A row arriving from a migration, a
+  seed or a job is unchecked, so a rule the table must hold is still `Check`.
+
 ### Five that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke

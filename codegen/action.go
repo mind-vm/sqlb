@@ -120,7 +120,7 @@ func renderActionInput(b *bytes.Buffer, d actionDef) {
 	for _, f := range d.action.Body {
 		desc := f.Desc()
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name,
-			omitEmpty(optionalOnCreate(desc)), enumTag(desc))
+			omitEmpty(optionalOnCreate(desc)), valueTags(desc))
 		if c := desc.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
@@ -154,7 +154,7 @@ func renderActionResult(b *bytes.Buffer, d actionDef) {
 	for _, f := range props {
 		desc := f.Desc()
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name,
-			omitEmpty(optionalOnCreate(desc)), enumTag(desc))
+			omitEmpty(optionalOnCreate(desc)), valueTags(desc))
 		if c := desc.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}

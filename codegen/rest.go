@@ -3,6 +3,7 @@ package codegen
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mind-vm/sqlb/schema"
@@ -258,6 +259,43 @@ func enumTag(d *schema.FieldDesc) string {
 	return fmt.Sprintf(" enum:%q", strings.Join(d.EnumValues, ","))
 }
 
+// valueTags renders every declared constraint on a value as the struct tags
+// Huma reads: the enum set, a Pattern, and the Min/Max bounds.
+//
+// One function rather than a call per tag at each of the six sites that build a
+// request-body field, because the set is going to grow and six places that each
+// remember a different subset is the drift `column-check` exists to prevent
+// elsewhere. The declaration is the only thing that reaches an emitter, so a
+// rule written in Go instead reaches neither the document nor a client, and a
+// caller with no compile step cannot discover it without sending a bad request
+// (#311).
+//
+// Nothing is rendered for a constraint the schema validator would have refused,
+// so an unvalidated registry — a hand-built one in a test — emits a tag that
+// says what it was told rather than a tag that lies.
+func valueTags(d *schema.FieldDesc) string {
+	var b strings.Builder
+	b.WriteString(enumTag(d))
+	if d.Pattern != "" {
+		fmt.Fprintf(&b, " pattern:%q", d.Pattern)
+	}
+	if d.Min != nil {
+		fmt.Fprintf(&b, " minimum:%q", formatBound(*d.Min))
+	}
+	if d.Max != nil {
+		fmt.Fprintf(&b, " maximum:%q", formatBound(*d.Max))
+	}
+	return b.String()
+}
+
+// formatBound renders a bound the way the declaration wrote it: 1 rather than
+// 1e+00, and 0.5 rather than 0.50000000000000000. 'g' with -1 precision is the
+// shortest form that reads back as the same float64, which is what keeps a
+// regenerated file byte-identical to the last one.
+func formatBound(v float64) string {
+	return strconv.FormatFloat(v, 'g', -1, 64)
+}
+
 // optionalOnCreate reports whether a create body may omit the column: a
 // nullable column is absent as NULL, and one the database supplies — a default,
 // a sequence or an identity — is absent so the database fills it.
@@ -280,7 +318,7 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire s
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range fields {
 		d := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), wire.WireName(d.Name), omitEmpty(optionalOnCreate(d)), enumTag(d))
+		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), wire.WireName(d.Name), omitEmpty(optionalOnCreate(d)), valueTags(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
@@ -417,7 +455,7 @@ func renderBodyProps(b *bytes.Buffer, props []*schema.Field) {
 	for _, f := range props {
 		d := f.Desc()
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), actionBodyType(d), d.Name,
-			omitEmpty(optionalOnCreate(d)), enumTag(d))
+			omitEmpty(optionalOnCreate(d)), valueTags(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
@@ -440,7 +478,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire s
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range fields {
 		d := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), wire.WireName(d.Name), enumTag(d))
+		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), wire.WireName(d.Name), valueTags(d))
 		if c := d.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}

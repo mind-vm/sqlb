@@ -105,6 +105,10 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// to be written into it verbatim — valid prose, invalid Go, and the
 		// only case in this list that the emitter's own format.Source rejected.
 		"prose": {Registry: proseFixture()},
+		// Declared format rules (#311), which reach every request body as
+		// struct tags — including a query parameter's `query:` tag, the one
+		// body shape whose field is not a JSON property.
+		"constraints": {Registry: constraintFixture()},
 	})
 }
 

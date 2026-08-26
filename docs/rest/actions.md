@@ -235,11 +235,34 @@ Body: schema.Body(
 The reason is that the emitters read the declaration. A body sqlb cannot see
 produces a TypeScript function typed `unknown`, which is most of what an action
 was supposed to remove. Only what describes a *value* applies — name, type,
-nullability, enum values, default, comment. A property claiming `Filterable` or
-`Hidden` is a schema validation error rather than something quietly ignored.
+nullability, enum values, default, comment, and the format rules below. A
+property claiming `Filterable` or `Hidden` is a schema validation error rather
+than something quietly ignored.
 
 Optionality follows the create body's rule: a nullable or defaulted property may
 be omitted, everything else is required.
+
+**Format rules are part of that vocabulary.** `Pattern` for text and `Min`/`Max`
+for numbers reach the generated body as the struct tags Huma reads, so the
+server rejects a malformed value with a 422 before the func runs, and the rule
+appears in the OpenAPI document:
+
+```go
+Body: schema.Body(
+    schema.Varchar("pin", 4).Pattern(`^[0-9]{4}$`),
+),
+```
+
+Written as a regexp inside the func instead, the same rule reaches no emitter:
+the document does not carry it, the generated clients do not know it, and a
+caller with no compile step discovers it by sending a bad request. That is the
+argument for declaring the body, applied to the rules about its values —
+see [the column reference](../reference/column-types.md#format-rules) for
+what they do not do, which is write any DDL.
+
+These are *format* rules, not domain rules. Whether this PIN is the one already
+in use is a question about the world rather than about the string, and it stays
+in the func with every other precondition.
 
 An action that declares no body still gets an input type on the Go side, empty,
 so that declaring the first property later does not change the signature of the

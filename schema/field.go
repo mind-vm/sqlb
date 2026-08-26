@@ -47,6 +47,25 @@ type FieldDesc struct {
 	Default    *Default
 	EnumValues []string
 
+	// Pattern is a regular expression a text value must match, and Min and Max
+	// bound a numeric one inclusively. All three are checked at the API
+	// boundary and nowhere else: they reach the generated request bodies as
+	// the struct tags Huma already reads, and from there the OpenAPI document.
+	//
+	// They are *format* rules about a value, which is what makes them belong
+	// in the same vocabulary as the type and the enum values. They are not
+	// database constraints — nothing writes a CHECK from them — so a row
+	// arriving by any path but a request is unconstrained by them. Use
+	// [TableDef.Check] for a rule the database must hold (#311).
+	//
+	// Min and Max are float64 because a JSON Schema bound is a JSON number,
+	// and the clients that enforce it hold one in a double. A bound beyond
+	// 2^53 cannot be stated exactly here for the same reason it cannot be
+	// stated exactly in the document; a range that wide wants a Check.
+	Pattern string
+	Min     *float64
+	Max     *float64
+
 	// SharedAs names the Go type codegen emits for an enum column, and
 	// declares that type shared: every other enum column in the registry
 	// carrying the same SharedAs name emits no type of its own and uses this
@@ -928,6 +947,54 @@ func (f *Field) Indexed() *Field {
 // the argument about what deferral buys, see [Unique.Deferrable].
 func (f *Field) Deferred() *Field {
 	f.d.UniqueDeferrable = DeferredCheck
+	return f
+}
+
+// Pattern constrains a text value to a regular expression, checked when a
+// request carries it.
+//
+//	schema.Varchar("pin", 4).Pattern(`^[0-9]{4}$`)
+//
+// The expression reaches the generated request bodies as Huma's `pattern` tag
+// and from there the OpenAPI document, so a caller with no compile step can
+// discover the rule instead of learning it from a rejected request. That is the
+// whole reason it is declared rather than checked in the func: a regexp in Go
+// code reaches no emitter, and what the emitters cannot see they cannot
+// describe (#311).
+//
+// It is RE2, the syntax Go's regexp package accepts, and [Registry.Validate]
+// refuses a schema whose pattern does not compile. JSON Schema specifies
+// ECMA-262 instead, so the two disagree on a handful of constructs — RE2 has no
+// backreferences or lookaround, which ECMA-262 does; conversely `(?i)` is RE2
+// spelling that a browser will not read. Staying inside the common subset is
+// what makes the server and a generated client agree about the same string.
+//
+// This validates a request and writes no DDL. A row inserted by a migration, a
+// seed or a job is not checked against it — see [TableDef.Check] for the rule a
+// database holds.
+func (f *Field) Pattern(expr string) *Field {
+	f.d.Pattern = expr
+	return f
+}
+
+// Min bounds a numeric value from below, inclusively.
+//
+//	schema.Int("quantity").Min(1)
+//
+// It is Huma's `minimum` tag on the generated request bodies, and JSON Schema's
+// `minimum` in the document. See [Field.Pattern] for why this is declared
+// rather than checked in application code, and for what it does not do.
+func (f *Field) Min(v float64) *Field {
+	f.d.Min = &v
+	return f
+}
+
+// Max bounds a numeric value from above, inclusively. It is [Field.Min]'s
+// counterpart and everything said there applies.
+//
+//	schema.Int("quantity").Min(1).Max(999)
+func (f *Field) Max(v float64) *Field {
+	f.d.Max = &v
 	return f
 }
 

@@ -381,6 +381,67 @@ func diffField(path string, o, n *fieldView, add func(Break)) {
 	if o.typ != n.typ || o.array != n.array || o.size != n.size || !sameEnum(o, n) {
 		diffType(path, o, n, add)
 	}
+
+	// The declared format rules, which narrow what a request may carry without
+	// changing the type at all — so a diff keyed on the type alone sees nothing
+	// (#311).
+	diffConstraints(path, o, n, add)
+}
+
+// diffConstraints reports a tightened or loosened format rule.
+//
+// Tightening is breaking on the write side, the same shape and the same
+// sentence as dropping an enum value: input that used to be accepted now 422s,
+// and no type changed to give it away. Loosening is not neutral either — a
+// generated client may enforce the old rule locally, so a value the server now
+// accepts can still be refused before it is sent — but that is a stale client
+// rather than a broken one, so it is reported as unknown rather than breaking.
+//
+// A bound arriving where there was none is a tightening; one disappearing is a
+// loosening. Both directions are compared with the pointers dereferenced, so a
+// bound merely restated is silent.
+func diffConstraints(path string, o, n *fieldView, add func(Break)) {
+	facet := FacetCreate
+	if n.filterable {
+		facet = FacetFilter
+	}
+	// Through the body-property comparison, so that a rule tightening on a
+	// column and on an action's body cannot be classified differently. The two
+	// declarations are one vocabulary; a diff that disagreed about them would
+	// be exactly the drift that vocabulary exists to prevent.
+	for _, d := range propConstraintDeltas(
+		BodyPropSnap{Pattern: o.pattern, Min: o.min, Max: o.max},
+		BodyPropSnap{Pattern: n.pattern, Min: n.min, Max: n.max},
+	) {
+		add(Break{d.level, path, facet, n.name, d.msg})
+	}
+}
+
+// tighterMin and tighterMax say which direction rejects more input, which is
+// the only thing that differs between the two bounds.
+func tighterMin(o, n float64) bool { return n > o }
+func tighterMax(o, n float64) bool { return n < o }
+
+// boundChange classifies one bound moving, appearing or disappearing.
+func boundChange(what string, o, n *float64, tighter func(o, n float64) bool) (Level, string, bool) {
+	switch {
+	case o == nil && n == nil:
+		return 0, "", false
+	case o == nil:
+		return LevelBreaking, fmt.Sprintf(
+			"gained a %s of %v; input outside it now 422s", what, *n), true
+	case n == nil:
+		return LevelUnknown, fmt.Sprintf(
+			"dropped its %s of %v; a generated client still enforcing it refuses input the server now accepts", what, *o), true
+	case *o == *n:
+		return 0, "", false
+	case tighter(*o, *n):
+		return LevelBreaking, fmt.Sprintf(
+			"tightened its %s from %v to %v; input that fit before now 422s", what, *o, *n), true
+	default:
+		return LevelUnknown, fmt.Sprintf(
+			"loosened its %s from %v to %v; a generated client still enforcing the old one refuses input the server now accepts", what, *o, *n), true
+	}
 }
 
 // diffWritable reports what a change to ReadOnly or Immutable does to the two
@@ -602,10 +663,16 @@ type FieldSnap struct {
 	// Capture that appends those) has none — it is a relation to another
 	// table, not a scalar column — and every real column's Type is always
 	// non-empty, so nothing that used to be recorded stops being recorded.
-	Type        string   `json:"type,omitempty"`
-	Array       bool     `json:"array,omitempty"`
-	Size        int      `json:"size,omitempty"`
-	Enum        []string `json:"enum,omitempty"`
+	Type  string   `json:"type,omitempty"`
+	Array bool     `json:"array,omitempty"`
+	Size  int      `json:"size,omitempty"`
+	Enum  []string `json:"enum,omitempty"`
+	// Pattern, Min and Max are the declared format rules on the value. They
+	// are part of the contract for the same reason the enum set is: they say
+	// what a request may carry, and tightening one rejects input that worked.
+	Pattern     string   `json:"pattern,omitempty"`
+	Min         *float64 `json:"min,omitempty"`
+	Max         *float64 `json:"max,omitempty"`
 	Nullable    bool     `json:"nullable,omitempty"`
 	HasDefault  bool     `json:"has_default,omitempty"`
 	Hidden      bool     `json:"hidden,omitempty"`
@@ -671,6 +738,9 @@ func Capture(r *schema.Registry) Snapshot {
 				Array:       d.Array,
 				Size:        d.Size,
 				Enum:        d.EnumValues,
+				Pattern:     d.Pattern,
+				Min:         d.Min,
+				Max:         d.Max,
 				Nullable:    d.Nullable,
 				HasDefault:  d.DatabaseSupplied(),
 				Hidden:      d.Hidden,
@@ -758,6 +828,9 @@ type fieldView struct {
 	array      bool
 	size       int
 	enumValues []string
+	pattern    string
+	min        *float64
+	max        *float64
 
 	nullable   bool
 	hasDefault bool
@@ -817,6 +890,9 @@ func index(s Snapshot) map[string]resource {
 				array:       fs.Array,
 				size:        fs.Size,
 				enumValues:  fs.Enum,
+				pattern:     fs.Pattern,
+				min:         fs.Min,
+				max:         fs.Max,
 				nullable:    fs.Nullable,
 				hasDefault:  fs.HasDefault,
 				hidden:      fs.Hidden,

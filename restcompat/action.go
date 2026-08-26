@@ -62,6 +62,12 @@ type BodyPropSnap struct {
 	Enum       []string `json:"enum,omitempty"`
 	Nullable   bool     `json:"nullable,omitempty"`
 	HasDefault bool     `json:"has_default,omitempty"`
+	// The declared format rules, recorded for the same reason the enum set is:
+	// they say what a request may carry, so tightening one rejects input that
+	// worked (#311).
+	Pattern string   `json:"pattern,omitempty"`
+	Min     *float64 `json:"min,omitempty"`
+	Max     *float64 `json:"max,omitempty"`
 }
 
 // ActionPropSnap is the former name of [BodyPropSnap].
@@ -105,6 +111,9 @@ func captureBodyProps(body []*schema.Field) []BodyPropSnap {
 			Enum:       d.EnumValues,
 			Nullable:   d.Nullable,
 			HasDefault: d.DatabaseSupplied(),
+			Pattern:    d.Pattern,
+			Min:        d.Min,
+			Max:        d.Max,
 		})
 	}
 	return out
@@ -239,8 +248,50 @@ func diffProps(path string, kind propKind, prefix string, oldBody, newBody []Bod
 				add(Break{levelForEnum(op.Enum, np.Enum), path, kind.facet, field,
 					fmt.Sprintf("%s values changed from %v to %v", kind.noun, op.Enum, np.Enum)})
 			}
+			// The format rules narrow what a request may carry without changing
+			// the type, so the comparison above sees none of it.
+			for _, d := range propConstraintDeltas(op, np) {
+				add(Break{d.level, path, kind.facet, field, kind.noun + " " + d.msg})
+			}
 		}
 	}
+}
+
+// constraintDelta is one format rule that moved, with what it does to a caller.
+type constraintDelta struct {
+	level Level
+	msg   string
+}
+
+// propConstraintDeltas reports the Pattern and bound changes between two
+// snapshots of one property.
+//
+// It shares boundChange with the column path so that a rule tightening on a
+// column and on an action's body cannot be classified differently — the two
+// declarations use one vocabulary, and a diff that disagreed about them would
+// be the drift the single vocabulary exists to prevent.
+func propConstraintDeltas(o, n BodyPropSnap) []constraintDelta {
+	var out []constraintDelta
+	if o.Pattern != n.Pattern {
+		switch {
+		case o.Pattern == "":
+			out = append(out, constraintDelta{LevelBreaking,
+				fmt.Sprintf("gained the pattern %q; input that did not match it now 422s", n.Pattern)})
+		case n.Pattern == "":
+			out = append(out, constraintDelta{LevelUnknown,
+				"dropped its pattern; a generated client still enforcing the old one refuses input the server now accepts"})
+		default:
+			out = append(out, constraintDelta{LevelUnknown,
+				fmt.Sprintf("changed its pattern from %q to %q; classify by hand, since neither expression contains the other", o.Pattern, n.Pattern)})
+		}
+	}
+	if lvl, msg, ok := boundChange("minimum", o.Min, n.Min, tighterMin); ok {
+		out = append(out, constraintDelta{lvl, msg})
+	}
+	if lvl, msg, ok := boundChange("maximum", o.Max, n.Max, tighterMax); ok {
+		out = append(out, constraintDelta{lvl, msg})
+	}
+	return out
 }
 
 // levelForEnum classifies a change to an accepted value set: strictly adding
