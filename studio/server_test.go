@@ -40,8 +40,9 @@ func testManifest() *schema.Manifest {
 				REST: &schema.RESTManifest{
 					Path:       "/widgets",
 					Operations: []string{"create", "read", "update", "list"},
-					Filterable: []string{"title"},
-					Sortable:   []string{"title"},
+					Filterable: []string{"title", "count", "note"},
+					Sortable:   []string{"title", "count"},
+					Searchable: []string{"note"},
 					Actions: []schema.ActionManifest{
 						{
 							Name:   "publish",
@@ -830,5 +831,133 @@ func TestNewRowCreatesAndRedirectsToItsDetailPage(t *testing.T) {
 	}
 	if !strings.Contains(string(body), "Brand new widget") {
 		t.Fatalf("new row's detail page missing its own title:\n%s", body)
+	}
+}
+
+// queryCapturingWidgetsAPI is a minimal stand-in for fakeAPI's own /widgets
+// route: it serves the same empty rest.Page[T] shape, but records the raw
+// query string /widgets was called with, which is what the tests below need
+// to assert on and fakeAPI has no way to report back through client.List's
+// decoded response.
+func queryCapturingWidgetsAPI(t *testing.T, wantToken string) (*httptest.Server, *string) {
+	t.Helper()
+	var lastQuery string
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /widgets", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+wantToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		lastQuery = r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{}, "page": 1, "per_page": 20, "has_more": false,
+		})
+	})
+	return httptest.NewServer(mux), &lastQuery
+}
+
+func TestRowsForwardsFilterSortSearch(t *testing.T) {
+	const token = "secret-token"
+	api, lastQuery := queryCapturingWidgetsAPI(t, token)
+	defer api.Close()
+	srv, err := NewServer(testManifest(), api.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	client := loggedInClient(t, ts.URL, token)
+
+	resp, err := client.Get(ts.URL + "/tables/widgets/rows?" +
+		"f_title_op=ilike&f_title_val=widget&" +
+		"f_count_op=gte&f_count_val=3&" +
+		"sort=-count&search=hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	got, err := url.ParseQuery(*lastQuery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := url.Values{
+		"title":  {"ilike.widget"},
+		"count":  {"gte.3"},
+		"sort":   {"-count"},
+		"search": {"hello"},
+		"page":   {"1"},
+	}
+	for k, v := range want {
+		if got.Get(k) != v[0] {
+			t.Errorf("query param %q = %q, want %q (full query: %s)", k, got.Get(k), v[0], *lastQuery)
+		}
+	}
+}
+
+func TestRowsOmitsBlankFilterValues(t *testing.T) {
+	const token = "secret-token"
+	api, lastQuery := queryCapturingWidgetsAPI(t, token)
+	defer api.Close()
+	srv, err := NewServer(testManifest(), api.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	client := loggedInClient(t, ts.URL, token)
+
+	resp, err := client.Get(ts.URL + "/tables/widgets/rows?f_title_op=eq&f_title_val=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	got, err := url.ParseQuery(*lastQuery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Has("title") {
+		t.Errorf("query carries %q for a blank filter value, want it omitted (full query: %s)", got.Get("title"), *lastQuery)
+	}
+}
+
+func TestPageURLPreservesFilters(t *testing.T) {
+	r := httptest.NewRequest("GET", "/tables/widgets/rows?f_title_op=ilike&f_title_val=widget&page=1", nil)
+	got := pageURL(r, 2)
+	q, err := url.ParseQuery(strings.TrimPrefix(got, "?"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Get("page") != "2" {
+		t.Errorf("pageURL page = %q, want 2", q.Get("page"))
+	}
+	if q.Get("f_title_val") != "widget" {
+		t.Errorf("pageURL dropped the applied filter: %s", got)
+	}
+}
+
+func TestOperatorsForColumn(t *testing.T) {
+	tests := []struct {
+		name string
+		col  schema.ColumnManifest
+		want []string
+	}{
+		{"text", schema.ColumnManifest{Type: "text"}, []string{"eq", "ne", "in", "nin", "contains", "startswith", "endswith", "like", "ilike"}},
+		{"ordered", schema.ColumnManifest{Type: "int"}, []string{"eq", "ne", "in", "nin", "gt", "gte", "lt", "lte", "between"}},
+		{"nullable ordered", schema.ColumnManifest{Type: "int", Nullable: true}, []string{"eq", "ne", "in", "nin", "gt", "gte", "lt", "lte", "between", "isnull", "notnull"}},
+		{"enum", schema.ColumnManifest{Type: "enum", Enum: []string{"a", "b"}}, []string{"eq", "ne", "in", "nin"}},
+		{"uuid", schema.ColumnManifest{Type: "uuid"}, []string{"eq", "ne", "in", "nin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := operatorsFor(tt.col)
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("operatorsFor(%+v) = %v, want %v", tt.col, got, tt.want)
+			}
+		})
 	}
 }

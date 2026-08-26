@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"maps"
 	"net/http"
 	"net/url"
 	"sort"
@@ -16,15 +17,13 @@ import (
 	"github.com/mind-vm/sqlb/schema"
 )
 
-//go:embed templates/base.html templates/index.html templates/table.html templates/login.html templates/rows.html templates/row.html templates/form.html templates/action.html
+//go:embed templates/base.html templates/index.html templates/table.html templates/login.html templates/rows.html templates/row.html templates/form.html templates/action.html templates/import.html
 var templateFS embed.FS
 
 //go:embed static
 var staticFS embed.FS
 
 var templateFuncs = template.FuncMap{
-	"add":          func(a, b int) int { return a + b },
-	"sub":          func(a, b int) int { return a - b },
 	"isCollection": func(path string) bool { return !strings.Contains(path, "{id}") },
 }
 
@@ -38,13 +37,14 @@ type Server struct {
 	apiBase  string
 	basePath string
 
-	index  *template.Template
-	table  *template.Template
-	login  *template.Template
-	rows   *template.Template
-	row    *template.Template
-	form   *template.Template
-	action *template.Template
+	index     *template.Template
+	table     *template.Template
+	login     *template.Template
+	rows      *template.Template
+	row       *template.Template
+	form      *template.Template
+	action    *template.Template
+	importTpl *template.Template
 }
 
 // NewServer parses the embedded templates and pairs them with m. apiBase is
@@ -88,6 +88,7 @@ func NewServer(m *schema.Manifest, apiBase string, basePath ...string) (*Server,
 	s.row = parse("templates/base.html", "templates/row.html")
 	s.form = parse("templates/base.html", "templates/form.html")
 	s.action = parse("templates/base.html", "templates/action.html")
+	s.importTpl = parse("templates/base.html", "templates/import.html")
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +145,9 @@ func (s *Server) Handler() http.Handler {
 		{"GET /tables/{name}/rows", s.handleRows},
 		{"GET /tables/{name}/rows/new", s.handleRowNewForm},
 		{"POST /tables/{name}/rows/new", s.handleRowNewSubmit},
+		{"GET /tables/{name}/rows/export", s.handleRowsExport},
+		{"GET /tables/{name}/rows/import", s.handleRowsImportForm},
+		{"POST /tables/{name}/rows/import", s.handleRowsImportSubmit},
 		{"GET /tables/{name}/rows/{id}", s.handleRowDetail},
 		{"GET /tables/{name}/rows/{id}/edit", s.handleRowEditForm},
 		{"POST /tables/{name}/rows/{id}/edit", s.handleRowEditSubmit},
@@ -270,6 +274,44 @@ type rowsPage struct {
 	Page, PerPage int
 	HasMore       bool
 	CanCreate     bool
+	CanExport     bool
+
+	Filters       []filterField
+	SortOptions   []string
+	CurrentSort   string
+	HasSearch     bool
+	CurrentSearch string
+	PrevURL       string
+	NextURL       string
+	ExportBase    string
+	ExportQuery   string
+}
+
+// pageURL clones the request's current query, points it at another page and
+// re-encodes it, so Previous/Next and a redisplayed filter form all carry
+// forward whatever filter/sort/search the grid is already showing rather
+// than resetting it.
+func pageURL(r *http.Request, page int) string {
+	q := cloneQuery(r.URL.Query())
+	q.Set("page", strconv.Itoa(page))
+	return "?" + q.Encode()
+}
+
+func cloneQuery(q url.Values) url.Values {
+	out := make(url.Values, len(q))
+	maps.Copy(out, q)
+	return out
+}
+
+// exportQuery is the request's own filter/sort/search params, re-encoded
+// without page, for the export links to append after their own format=
+// param — export.go's handleRowsExport reads it back through
+// combineFilters, the same function handleRows itself uses, so "export what
+// I'm looking at" reads the identical filter.
+func exportQuery(r *http.Request) string {
+	q := cloneQuery(r.URL.Query())
+	q.Del("page")
+	return q.Encode()
 }
 
 func (s *Server) handleRows(w http.ResponseWriter, r *http.Request) {
@@ -289,7 +331,8 @@ func (s *Server) handleRows(w http.ResponseWriter, r *http.Request) {
 			page = n
 		}
 	}
-	q := url.Values{"page": {strconv.Itoa(page)}}
+	q := combineFilters(t, r.URL.Query())
+	q.Set("page", strconv.Itoa(page))
 
 	result, err := client.List(r.Context(), t.REST.Path, q)
 	if err != nil {
@@ -298,13 +341,23 @@ func (s *Server) handleRows(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := rowsPage{
-		pageHeader: s.header(r),
-		Table:      *t,
-		Columns:    t.Columns,
-		Page:       result.Page,
-		PerPage:    result.PerPage,
-		HasMore:    result.HasMore,
-		CanCreate:  containsOp(t.REST.Operations, "create"),
+		pageHeader:    s.header(r),
+		Table:         *t,
+		Columns:       t.Columns,
+		Page:          result.Page,
+		PerPage:       result.PerPage,
+		HasMore:       result.HasMore,
+		CanCreate:     containsOp(t.REST.Operations, "create"),
+		CanExport:     true,
+		Filters:       buildFilterFields(t, r.URL.Query()),
+		SortOptions:   sortOptions(t),
+		CurrentSort:   r.URL.Query().Get("sort"),
+		HasSearch:     len(t.REST.Searchable) > 0,
+		CurrentSearch: r.URL.Query().Get("search"),
+		PrevURL:       pageURL(r, page-1),
+		NextURL:       pageURL(r, page+1),
+		ExportBase:    s.url("/tables/" + t.Name + "/rows/export"),
+		ExportQuery:   exportQuery(r),
 	}
 	for _, row := range result.Items {
 		dr := displayRow{}

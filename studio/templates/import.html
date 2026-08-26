@@ -1,0 +1,55 @@
+{{define "content"}}
+<div class="mb-3">
+  <a href="{{.Back}}" class="btn btn-link px-0">&larr; {{.Table.Name}}</a>
+  <h2 class="page-title mt-2">Import into {{.Table.Name}}</h2>
+</div>
+
+{{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+
+{{if .Results}}
+<div class="alert {{if .Failed}}alert-warning{{else}}alert-success{{end}} mb-3">
+  Created {{.Created}}, failed {{.Failed}}, of {{len .Results}} row(s).
+</div>
+<div class="card mb-3">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead><tr><th>Row</th><th>Result</th></tr></thead>
+      <tbody>
+        {{range .Results}}
+        <tr>
+          <td>{{.Row}}</td>
+          {{if .OK}}<td class="text-success">created</td>
+          {{else}}<td class="text-danger">{{.Error}}</td>{{end}}
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+<div class="card">
+  <div class="card-body">
+    <p class="text-secondary">
+      Each row is created independently — there is no transaction, so a
+      failure partway through leaves the earlier rows created. A JSON file is
+      the array this table's own JSON export writes; a CSV file is that same
+      export's header (column names) and rows.
+    </p>
+    <form method="post" action="" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label">Format</label>
+        <select class="form-select" name="format">
+          <option value="json">JSON</option>
+          <option value="csv">CSV</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">File</label>
+        <input type="file" class="form-control" name="file" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Import</button>
+    </form>
+  </div>
+</div>
+{{end}}

@@ -18,12 +18,17 @@
 //
 //   - Schema: every table, column, capability and declared action, browsable
 //     without an API — the -api flag is optional for this part alone.
-//   - Data: a paginated grid per exposed table, and a row detail page that
-//     follows an internal reference to the table it points at.
+//   - Data: a paginated grid per exposed table, filterable, sortable and
+//     searchable against exactly the columns RESTManifest.Filterable,
+//     Sortable and Searchable declare, and exportable as JSON, CSV or SQL —
+//     a row detail page follows an internal reference to the table it
+//     points at.
 //   - Writes: create and edit, generated from the same writable-column set
 //     the manifest already reports (ReadOnly and Computed excluded), plus —
 //     on the create form alone — the properties RESTManifest.CreateInput
-//     declares, which are part of the request and not of the row.
+//     declares, which are part of the request and not of the row. Import
+//     (JSON or CSV) is the same create path run once per row, with no
+//     transaction across them.
 //   - Actions: an invoke form per declared action, built from
 //     ActionManifest.Body the way ADR-0043 designed it to be read.
 //

@@ -78,6 +78,12 @@ don't carry," and the seam already exists
 for OpenTelemetry, Uptrace, or a Grafana dashboard, none of which this module
 needs to know about). No optimistic concurrency — a second operator's
 concurrent edit overwrites the first, same as calling `PATCH` by hand would.
+Import is not a transaction — each row is its own `POST`, so a failure
+partway through an upload leaves the earlier rows created, and the result
+page names which rows failed and why rather than rolling anything back. That
+is not the same gap as "No bulk actions" below: import is many independent
+creates through the same form-building path a single "New row" already
+uses, not an operation applied to many *existing* rows at once.
 
 **The gap to Django-admin parity, named rather than left implicit** (a
 real-consumer review is what surfaced the need to say this plainly — the

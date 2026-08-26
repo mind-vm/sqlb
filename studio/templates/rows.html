@@ -5,8 +5,59 @@
     <a href="{{url (printf "/tables/%s" $table)}}" class="btn btn-link px-0">&larr; {{$table}}</a>
     <h2 class="page-title mt-2">{{$table}} — data</h2>
   </div>
-  {{if .CanCreate}}<a href="{{url (printf "/tables/%s/rows/new" $table)}}" class="btn btn-primary mt-2">New row</a>{{end}}
+  <div class="mt-2">
+    {{if .CanExport}}
+    <div class="btn-group me-2">
+      <a href="{{.ExportBase}}?format=json&amp;{{.ExportQuery}}" class="btn btn-outline-secondary">Export JSON</a>
+      <a href="{{.ExportBase}}?format=csv&amp;{{.ExportQuery}}" class="btn btn-outline-secondary">CSV</a>
+      <a href="{{.ExportBase}}?format=sql&amp;{{.ExportQuery}}" class="btn btn-outline-secondary">SQL</a>
+    </div>
+    {{end}}
+    {{if .CanCreate}}<a href="{{url (printf "/tables/%s/rows/import" $table)}}" class="btn btn-outline-secondary me-2">Import</a>{{end}}
+    {{if .CanCreate}}<a href="{{url (printf "/tables/%s/rows/new" $table)}}" class="btn btn-primary">New row</a>{{end}}
+  </div>
 </div>
+
+{{if or .Filters .SortOptions .HasSearch}}
+<form method="get" class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      {{range .Filters}}
+      <div class="col-auto">
+        <label class="form-label mb-1">{{.Column.Name}}</label>
+        <div class="input-group input-group-sm">
+          <select name="f_{{.Column.Name}}_op" class="form-select">
+            {{$op := .Op}}
+            {{range .Operators}}<option value="{{.}}"{{if eq . $op}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+          <input type="text" name="f_{{.Column.Name}}_val" value="{{.Val}}" class="form-control">
+        </div>
+      </div>
+      {{end}}
+      {{if .SortOptions}}
+      <div class="col-auto">
+        <label class="form-label mb-1">sort</label>
+        {{$cur := .CurrentSort}}
+        <select name="sort" class="form-select form-select-sm">
+          <option value=""{{if eq $cur ""}} selected{{end}}>—</option>
+          {{range .SortOptions}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </div>
+      {{end}}
+      {{if .HasSearch}}
+      <div class="col-auto">
+        <label class="form-label mb-1">search</label>
+        <input type="text" name="search" value="{{.CurrentSearch}}" class="form-control form-control-sm">
+      </div>
+      {{end}}
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+        <a href="{{url (printf "/tables/%s/rows" $table)}}" class="btn btn-outline-secondary btn-sm">Reset</a>
+      </div>
+    </div>
+  </div>
+</form>
+{{end}}
 
 <div class="card">
   <div class="table-responsive">
@@ -34,8 +85,8 @@
   <div class="card-footer d-flex align-items-center">
     <span class="text-secondary">Page {{.Page}}</span>
     <div class="ms-auto">
-      {{if gt .Page 1}}<a href="?page={{sub .Page 1}}" class="btn btn-outline-secondary btn-sm me-2">Previous</a>{{end}}
-      {{if .HasMore}}<a href="?page={{add .Page 1}}" class="btn btn-outline-secondary btn-sm">Next</a>{{end}}
+      {{if gt .Page 1}}<a href="{{.PrevURL}}" class="btn btn-outline-secondary btn-sm me-2">Previous</a>{{end}}
+      {{if .HasMore}}<a href="{{.NextURL}}" class="btn btn-outline-secondary btn-sm">Next</a>{{end}}
     </div>
   </div>
 </div>
