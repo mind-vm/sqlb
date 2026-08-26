@@ -14,6 +14,78 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.19.0
+
+2026-08-26 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.19.0)
+
+Four independent additions, all additive. No API change moves or removes
+anything v0.18.0 exposed.
+
+### Right/full/cross joins, and a scoped SELECT CTE
+
+The builder gains `RightJoin`, `FullJoin` and `CrossJoin` beside the existing
+`Join`/`LeftJoin`, and `Builder[T].With` gives `SELECT` the single-named-CTE
+capability `Update[T].From` already had for the Postgres queue-claim idiom —
+one CTE, no recursion, referenced with `Join`. Comparing the builder against
+Drizzle is what surfaced both gaps. Drizzle's free choice of pgvector
+distance metric per query was compared too and deliberately not copied:
+[ADR-0026](architecture.md#vectors-declare-their-index) ties the metric to
+the index declaration specifically to close that footgun, not leave it open.
+
+### Read-only views, diffed and introspected
+
+`schema.View` declares a read-only view — the one genuinely unclaimed gap the
+same comparison named. It reuses `TableDef` rather than a second declaration
+type, so it carries none of a table's own DDL machinery and every
+codegen/rest emitter that already reads `Name`/`Fields`/`Rest` off a
+`*TableDef` needs no new type-handling; `Registry.Views()` is the new,
+additive accessor. `migrate` diffs a view in its own pass — `DROP VIEW IF
+EXISTS` + `CREATE VIEW`, unconditionally, since there is no `ALTER VIEW` in
+v1 and a view holds no rows of its own for one to preserve — and
+`introspect` reads it back with the `relkind='v'` queries table/column
+introspection never needed. Confirmed against a real Postgres 18: create,
+apply, introspect back, change the definition, drop and recreate, query the
+result.
+
+One open gap came out of that run and is named rather than silent, in
+`Diff`'s own doc comment: a view's query has no `shadow.Normalize`
+equivalent yet, so diffing a declared registry against an *introspected* one
+proposes recreating every view, every time, because `pg_get_viewdef`
+reformats the text. Two registries built from the same Go declaration are
+unaffected.
+
+### studio's grid uses its own filter grammar
+
+studio's grid now uses the filter/sort/search grammar its own manifest page
+already quoted but never wired up: a `Filterable` column gets an operator and
+value field, a `Sortable` one a place in the sort select, any `Searchable`
+column a search box — and the applied filter now carries across
+Previous/Next instead of resetting. Export (JSON/CSV/SQL) and import
+(JSON/CSV) round it out; import has no transaction across its rows, which the
+README now says next to the existing "No optimistic concurrency" line.
+
+### `go doc` doc-comment checks are on
+
+`go doc` is the API reference (CLAUDE.md says so), and golangci-lint's own
+default had quietly disabled the staticcheck checks that keep that promise
+true — a missing package comment, or an exported symbol's comment not
+starting with its own name, never failed the gate. They are back on
+(`ST1000`/`ST1020`/`ST1021`/`ST1022`; `ST1003` and `ST1016` stay off, being
+naming style rather than doc coverage). Eleven pre-existing violations came
+with them, all comment-form issues rather than missing prose — the more
+interesting one was in `sqlb eject`'s own generator, whose banner comment
+always sat a blank line above `package X`, which is exactly what stops
+go/doc from crediting a comment as the package doc. No ejected package has
+ever actually had one until now.
+
+**Housekeeping.** `ci.yml` and the rest of `.github` are gone — an earlier
+release already reduced it to a release-tag-only re-check of what `mise run
+preflight`/`mise run ci` already cover locally, and that was the whole of
+what it was still buying. A stale line in `docs/comparisons.md` crediting ent
+with an advantage sqlb no longer lacks — hooks applying to an expansion — is
+corrected, and `docs/superpowers/specs` carries a design memo on whether
+`?expand` should go past one hop, not a decision.
+
 ## v0.18.0
 
 2026-08-25 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.18.0)
