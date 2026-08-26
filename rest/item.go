@@ -232,7 +232,22 @@ func registerCreate[T any, C CreateBody[T]](api huma.API, w writer, b *binding[T
 			// and a resource that named none sends an INSERT over stored columns
 			// (#164). b.writeComputed is that list minus the ones a write cannot
 			// bind, which is why this cannot fail on a Needs column.
-			return sqlb.InsertRows(value).WithComputed(b.writeComputed...).One(ctx, db)
+			ins := sqlb.InsertRows(value).WithComputed(b.writeComputed...)
+			// The body knows which columns the request carried; Insert cannot
+			// tell a sent zero from an absent field. Handing the set over is
+			// what makes {"active": false} on a Default(true) column write
+			// false rather than answering 201 with true (#314).
+			//
+			// Explicit rather than Only: Only would restrict the statement to
+			// what the request named, dropping the columns a BeforeCreate hook
+			// fills in — the same failure clearReadOnly is written above to
+			// avoid.
+			if declared, ok := any(in.Body).(CreateExplicit); ok {
+				if set := b.writableOnly(declared.Explicit()); len(set) > 0 {
+					ins = ins.Explicit(set...)
+				}
+			}
+			return ins.One(ctx, db)
 		})
 		if err != nil {
 			return nil, asHumaError(ctx, err, opts.name())

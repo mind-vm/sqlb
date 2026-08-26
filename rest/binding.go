@@ -114,6 +114,30 @@ func (b *binding[T]) clearReadOnly(value *T) {
 	}
 }
 
+// writableOnly keeps the names of columns this resource lets a request write.
+//
+// [CreateExplicit] is implemented by the body, and a hand-written one can name
+// anything — including a read-only column, which clearReadOnly has just zeroed.
+// Passing that name to Insert.Explicit would write the zero it just cleared,
+// turning the read-only guarantee inside out. So the mount's own writable set
+// decides, the same way it decides what may be written at all.
+func (b *binding[T]) writableOnly(names []string) []string {
+	if len(names) == 0 {
+		return nil
+	}
+	writable := make(map[string]bool, len(b.writable))
+	for _, col := range b.writable {
+		writable[col.Name] = true
+	}
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		if writable[name] {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 // fieldAt walks a reflect index path, which may traverse embedded structs.
 //
 // It stops at a nil embedded pointer rather than allocating one: there is no

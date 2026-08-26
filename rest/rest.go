@@ -104,6 +104,28 @@ type CreateInput interface {
 	Input() any
 }
 
+// CreateExplicit is the second optional half of [CreateBody]: a create body
+// that can say which columns the request actually carried reports them here.
+//
+// It exists because [sqlb.Insert] omits a defaulted column holding its zero
+// value — which is what stops a generated id being overwritten with zero, and
+// is wrong for exactly the columns whose default disagrees with their zero.
+// `Bool(...).Default(Value(true))` is that shape: a request sending false was
+// answered with true, because false is also "not set" (#314). The body already
+// distinguishes absent from zero in order to build the row, and this is that
+// knowledge reaching the write instead of being dropped one line before it is
+// needed.
+//
+// A body type implementing it is type-asserted for, so nothing changes for the
+// bodies that do not. Codegen implements it on every body with an optional
+// column; a hand-written body implements it to reach the same seam.
+type CreateExplicit interface {
+	// Explicit names the columns the request set, whose zero values are
+	// therefore meant. Columns it does not name keep the default-omitting
+	// behaviour, so a BeforeCreate hook can still fill one in.
+	Explicit() []string
+}
+
 // UpdateBody is what a PATCH body must be able to do: report which columns the
 // request actually named.
 //

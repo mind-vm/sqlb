@@ -30,6 +30,7 @@ type Insert[T any] struct {
 	rows     []*T
 	only     map[string]bool
 	omit     map[string]bool
+	explicit map[string]bool
 	computed map[string]bool
 	conflict *conflictClause
 	err      error
@@ -77,6 +78,28 @@ func InsertRows[T any](rows ...*T) *Insert[T] {
 func (i *Insert[T]) Only(columns ...string) *Insert[T] {
 	i.checkColumns("Only", columns)
 	i.only = toSet(columns)
+	return i
+}
+
+// Explicit says the named columns carry a value the caller meant, so their zero
+// is written rather than left to the database default.
+//
+// It is [Insert.Only]'s effect on the default-omitting rule without Only's
+// restriction: the columns not named keep the ordinary behaviour, so a
+// BeforeCreate hook can still fill in a column nobody named and a generated id
+// still comes from the database. Only cannot serve this case, because naming
+// the columns a request carried would drop every column it did not — including
+// the ones a hook is about to supply (#314).
+//
+// The shape that needs it is a column whose default disagrees with its Go zero
+// value, which in practice means Bool(...).Default(Value(true)): false is both
+// "not set" and the interesting state, and without this the two are the same
+// statement.
+//
+//	sqlb.InsertRows(row).Explicit("active").One(ctx, db)
+func (i *Insert[T]) Explicit(columns ...string) *Insert[T] {
+	i.checkColumns("Explicit", columns)
+	i.explicit = toSet(columns)
 	return i
 }
 
@@ -365,9 +388,10 @@ func (i *Insert[T]) columns() []*ColumnInfo {
 //
 // Only when the caller did not name the columns. Only(...) is an explicit list,
 // and a column on it was asked for by name — writing its zero is what the caller
-// said.
+// said. Explicit(...) says the same thing about one column without restricting
+// the statement to it.
 func (i *Insert[T]) takesDefault(col *ColumnInfo) bool {
-	return col.HasDefault && i.only == nil
+	return col.HasDefault && i.only == nil && !i.explicit[col.Name]
 }
 
 func (i *Insert[T]) allZero(col *ColumnInfo) bool {

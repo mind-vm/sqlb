@@ -716,7 +716,9 @@ n, err := sqlb.DeleteRows[Post]().Where(sqlb.F("id").Eq(id)).Exec(ctx, db)
 
 Rows are passed as **pointers** so hooks and returned database values write back
 into them. A column with a database default is omitted when its Go value is the
-zero value. Every statement returns the stored rows.
+zero value — `Explicit(cols…)` says the zero was meant, which is what a
+`Bool(…).Default(Value(true))` needs to be written `false`. Every statement
+returns the stored rows.
 
 **An update or delete with no `Where` is refused** with `ErrUnscoped`; call
 `Everything()` when that is genuinely what you meant.
@@ -724,6 +726,7 @@ zero value. Every statement returns the stored rows.
 | | |
 |---|---|
 | `Only(cols…)` / `Omit(cols…)` | narrow the INSERT column list |
+| `Explicit(cols…)` | write these columns at their zero value, without narrowing |
 | `Set(col, v)` / `SetExpr(col, expr)` | assignment; `SetExpr` computes in the database |
 | `From(name, subquery)` | `UPDATE … FROM` |
 | `Clone()` / `Resolved(ctx, db)` | on `Update` and `Delete` (not `Insert`) |

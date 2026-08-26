@@ -61,6 +61,23 @@ func (c ListCreate) Row() (*List, error) {
 	return row, nil
 }
 
+// Explicit names the columns this request carried, so that a sent zero value
+// is written rather than being read as "absent, use the default". It satisfies
+// rest.CreateExplicit.
+func (c ListCreate) Explicit() []string {
+	var cols []string
+	if c.Color != nil {
+		cols = append(cols, "color")
+	}
+	if c.Position != nil {
+		cols = append(cols, "position")
+	}
+	if c.Archived != nil {
+		cols = append(cols, "archived")
+	}
+	return cols
+}
+
 // ListPatch is the request body for patching a List.
 //
 // Every field is a pointer and every field is optional, so a request writes
@@ -153,6 +170,17 @@ func (c MembershipCreate) Row() (*Membership, error) {
 	return row, nil
 }
 
+// Explicit names the columns this request carried, so that a sent zero value
+// is written rather than being read as "absent, use the default". It satisfies
+// rest.CreateExplicit.
+func (c MembershipCreate) Explicit() []string {
+	var cols []string
+	if c.Role != nil {
+		cols = append(cols, "role")
+	}
+	return cols
+}
+
 // ProfileCreate is the request body for creating a Profile.
 //
 // Read-only columns are absent: the database or a BeforeCreate hook owns them.
@@ -209,6 +237,26 @@ func (c TaskCreate) Row() (*Task, error) {
 		row.Position = *c.Position
 	}
 	return row, nil
+}
+
+// Explicit names the columns this request carried, so that a sent zero value
+// is written rather than being read as "absent, use the default". It satisfies
+// rest.CreateExplicit.
+func (c TaskCreate) Explicit() []string {
+	var cols []string
+	if c.Labels != nil {
+		cols = append(cols, "labels")
+	}
+	if c.Status != nil {
+		cols = append(cols, "status")
+	}
+	if c.Priority != nil {
+		cols = append(cols, "priority")
+	}
+	if c.Position != nil {
+		cols = append(cols, "position")
+	}
+	return cols
 }
 
 // TaskPatch is the request body for patching a Task.

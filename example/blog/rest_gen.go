@@ -118,6 +118,17 @@ func (c PostCreate) Row() (*Post, error) {
 	return row, nil
 }
 
+// Explicit names the columns this request carried, so that a sent zero value
+// is written rather than being read as "absent, use the default". It satisfies
+// rest.CreateExplicit.
+func (c PostCreate) Explicit() []string {
+	var cols []string
+	if c.Status != nil {
+		cols = append(cols, "status")
+	}
+	return cols
+}
+
 // PostPatch is the request body for patching a Post.
 //
 // Every field is a pointer and every field is optional, so a request writes

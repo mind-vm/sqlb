@@ -932,6 +932,19 @@ func (f *Field) Deferred() *Field {
 }
 
 // Default sets the column default.
+//
+// A default also makes the column optional in a generated create body, and
+// makes an [sqlb.Insert] omit it while its Go value is the zero value — so the
+// database supplies it rather than a zero overwriting it. That reads a zero as
+// "not set", which is what the caller meant whenever the default agrees with
+// the zero: a generated id, a timestamp, a defaulted string.
+//
+//	schema.Bool("active").Default(schema.Value(true))
+//
+// is the one common declaration where they disagree, and where "not set" and
+// "set to false" are therefore the same struct. A generated create resolves it
+// from the request body, which knows which fields it carried. A caller writing
+// the insert itself says so with [sqlb.Insert.Explicit] (#304, #314).
 func (f *Field) Default(d *Default) *Field {
 	f.d.Default = d
 	return f

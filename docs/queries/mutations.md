@@ -11,6 +11,27 @@ value is the zero value, so a generated uuid comes from the database rather than
 being overwritten with `""`. Every statement returns the stored rows, so
 generated values land back in your structs without a follow-up read.
 
+That rule reads a zero as "let the database decide", which is right whenever a
+column's default agrees with its zero — a generated id, a `created_at`, a
+defaulted string. It goes the other way on the one common declaration where the
+two disagree:
+
+```go
+schema.Bool("active").Default(schema.Value(true))
+```
+
+`false` is both "not set" and the interesting state, so an insert leaving it
+false wrote `true`. `Explicit` says the zero is meant:
+
+```go
+sqlb.InsertRows(&offering).Explicit("active").One(ctx, db)
+```
+
+It is `Only`'s effect on that rule without `Only`'s restriction: the columns it
+does not name keep the ordinary behaviour, so a `BeforeCreate` hook can still
+fill in a column nobody named. Generated creates do this for you — the request
+body knows which fields it carried, and it passes them through.
+
 `OnConflictDoNothing(target...)` and `OnConflictUpdate(target, update...)` cover
 upserts. A row skipped by do-nothing is simply absent from the result, so the
 terminal is `Exec`: an empty slice and a nil error are what "it was already

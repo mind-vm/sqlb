@@ -396,6 +396,68 @@ func TestInsertKeepsExplicitValueOverDefault(t *testing.T) {
 	}
 }
 
+// Offering is the shape #314 is about: a bool whose database default is true,
+// so its Go zero value and its default disagree. Every other common default
+// agrees with its zero — a generated id, a created_at, a defaulted string —
+// which is why the rule went unnoticed until a draft flag met it.
+type Offering struct {
+	ID     string `db:"id" sqlb:"pk,default"`
+	Title  string `db:"title"`
+	Active bool   `db:"active" sqlb:"default"`
+}
+
+func (Offering) TableName() string { return "offerings" }
+
+// Explicit is what makes a sent zero distinguishable from an unset field on
+// such a column.
+//
+// Both directions in one test, because each is only meaningful against the
+// other: naming the column writes its zero, and the columns not named keep the
+// ordinary behaviour — which is what Only could not have given, since Only
+// would have dropped the id as well.
+func TestInsertExplicitWritesAZeroWithoutRestrictingTheStatement(t *testing.T) {
+	o := &Offering{Title: "Draft"}
+
+	sql, _, err := sqlb.InsertRows(o).SQL()
+	if err != nil {
+		t.Fatalf("SQL() error: %v", err)
+	}
+	if contains(sql[:indexOf(sql, " RETURNING ")], `"active"`) {
+		t.Fatalf("precondition: a defaulted column holding its zero is omitted:\n%s", sql)
+	}
+
+	sql, _, err = sqlb.InsertRows(o).Explicit("active").SQL()
+	if err != nil {
+		t.Fatalf("SQL() error: %v", err)
+	}
+	written := sql[:indexOf(sql, " RETURNING ")]
+	if !contains(written, `"active"`) {
+		t.Errorf("a column named to Explicit must be written even at its zero:\n%s", sql)
+	}
+	// The rest of the statement is untouched: the id is still the database's
+	// to fill. That is the whole difference from Only("title", "active").
+	if contains(written, `"id"`) {
+		t.Errorf("Explicit must not make the other defaulted columns explicit too:\n%s", sql)
+	}
+	if !contains(written, `"title"`) {
+		t.Errorf("Explicit must not restrict the statement the way Only does:\n%s", sql)
+	}
+}
+
+// Explicit validates its names the way Only and Omit do. Without this an
+// Explicit("acive") is silently the old behaviour — which is the bug it was
+// added to fix, reintroduced by a typo.
+func TestInsertExplicitRefusesAnUnknownColumn(t *testing.T) {
+	o := &Offering{Title: "Draft"}
+	_, _, err := sqlb.InsertRows(o).Explicit("acive").SQL()
+	if err == nil {
+		t.Fatal("Explicit on an unknown column must fail the statement")
+	}
+	if !contains(err.Error(), "acive") {
+		t.Errorf("the error must name the column given: %v", err)
+	}
+}
+
 // The default-zero rule is per row, not per statement. A defaulted column no
 // row fills in leaves the statement, as above; but when one row in a batch sets
 // it, the column stays — and the rows that left it zero used to bind an

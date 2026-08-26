@@ -282,7 +282,7 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire s
 		d := f.Desc()
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forCreate, ov), wire.WireName(d.Name), omitEmpty(optionalOnCreate(d)), enumTag(d))
 		if c := d.Comment; c != "" {
-			fmt.Fprintf(b, " // %s", c)
+			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
 		fmt.Fprintln(b)
 	}
@@ -323,6 +323,8 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire s
 	}
 	fmt.Fprintln(b, "\treturn row, nil\n}")
 
+	renderCreateExplicit(b, name, typeName, t, fields, ov)
+
 	if len(props) == 0 {
 		return
 	}
@@ -337,6 +339,47 @@ func renderCreateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire s
 		fmt.Fprintf(b, "\t\t%s: c.%s,\n", field, field)
 	}
 	fmt.Fprintln(b, "\t}\n}")
+}
+
+// renderCreateExplicit writes the method that says which columns the request
+// actually carried.
+//
+// Only the pointer-bodied fields can say it: those are the ones where absent
+// and zero are different requests, and the pointer is what tells them apart. A
+// non-pointer body field is required, so it was always sent and Insert's
+// default-omitting never applied to it.
+//
+// Without this the handler has no way to distinguish the two, and Insert
+// resolves the ambiguity towards the database default — right for a generated
+// id, wrong for `Bool(...).Default(Value(true))`, where the sent value is false
+// and the row is created true (#314).
+func renderCreateExplicit(b *bytes.Buffer, name, typeName string, t *schema.TableDef, fields []*schema.Field, ov *overrides) {
+	var optional []*schema.FieldDesc
+	for _, f := range fields {
+		d := f.Desc()
+		if !optionalOnCreate(d) {
+			continue
+		}
+		// A pointer model field takes the body's pointer straight through, so
+		// there is no second pointer to read "was it sent" off — absent and
+		// null are the same request and both mean NULL. See Row above.
+		if strings.HasPrefix(goType(typeName, t.Name(), d, ov), "*") {
+			continue
+		}
+		optional = append(optional, d)
+	}
+	if len(optional) == 0 {
+		return
+	}
+	fmt.Fprintf(b, "\n// Explicit names the columns this request carried, so that a sent zero value\n")
+	fmt.Fprintf(b, "// is written rather than being read as \"absent, use the default\". It satisfies\n")
+	fmt.Fprintf(b, "// rest.CreateExplicit.\n")
+	fmt.Fprintf(b, "func (c %s) Explicit() []string {\n", name)
+	fmt.Fprintf(b, "\tvar cols []string\n")
+	for _, d := range optional {
+		fmt.Fprintf(b, "\tif c.%s != nil {\n\t\tcols = append(cols, %q)\n\t}\n", GoName(d.Name), d.Name)
+	}
+	fmt.Fprintf(b, "\treturn cols\n}\n")
 }
 
 // renderCreateInput writes the type the BeforeCreate hook reads.
@@ -376,7 +419,7 @@ func renderBodyProps(b *bytes.Buffer, props []*schema.Field) {
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(d.Name), actionBodyType(d), d.Name,
 			omitEmpty(optionalOnCreate(d)), enumTag(d))
 		if c := d.Comment; c != "" {
-			fmt.Fprintf(b, " // %s", c)
+			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
 		fmt.Fprintln(b)
 	}
@@ -399,7 +442,7 @@ func renderUpdateBody(b *bytes.Buffer, t *schema.TableDef, ov *overrides, wire s
 		d := f.Desc()
 		fmt.Fprintf(b, "\t%s %s `json:\"%s,omitempty\"%s`", GoName(d.Name), bodyType(typeName, t.Name(), d, forUpdate, ov), wire.WireName(d.Name), enumTag(d))
 		if c := d.Comment; c != "" {
-			fmt.Fprintf(b, " // %s", c)
+			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
 		fmt.Fprintln(b)
 	}

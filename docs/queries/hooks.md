@@ -184,7 +184,9 @@ above suggests.
 the database supplies it rather than a zero overwriting it, and a `BeforeCreate`
 that copies one column into another falls out correctly in the zero case
 without a special case. This is why "has a default" and "is optional in the
-create body" are the same question.
+create body" are the same question. A caller that means the zero says so with
+[`Explicit`](mutations.md), which changes nothing for the columns it does not
+name — so a hook still owns the ones nobody asked for.
 
 **Hooks reach the transaction.** `WithTx` hands `fn` a `*sqlb.DB` carrying the
 same registry, so hooks fire on statements issued inside it, and `TxFrom(ctx)`

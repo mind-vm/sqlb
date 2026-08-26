@@ -497,6 +497,38 @@ func TestGeneratedCreateBodyOmitsWhatAClientMayNotSet(t *testing.T) {
 	}
 }
 
+// A generated body reports which optional columns the request carried, so that
+// a sent zero is written rather than being read as "absent, use the default".
+//
+// The shape the report is for is Bool(...).Default(Value(true)) — false is both
+// the zero and the interesting state — but the emitter does not special-case
+// bools: any optional column has the same ambiguity, and the pointer that
+// resolves it is already there (#314).
+func TestGeneratedCreateBodyReportsTheColumnsTheRequestCarried(t *testing.T) {
+	src := generate(t, restFixture())["rest_gen.go"]
+
+	for _, want := range []string{
+		"func (c PostCreate) Explicit() []string {",
+		"\tif c.Status != nil {\n\t\tcols = append(cols, \"status\")\n\t}",
+	} {
+		if !contains(src, want) {
+			t.Errorf("create body missing %q:\n%s", want, src)
+		}
+	}
+	explicit := src[strings.Index(src, "func (c PostCreate) Explicit()"):]
+	explicit = explicit[:strings.Index(explicit, "\n}\n")]
+	// A required column was always sent, so there is nothing to report about
+	// it; naming it would be noise that also has to stay correct.
+	if contains(explicit, `"title"`) {
+		t.Errorf("a required column has no absent case to report:\n%s", explicit)
+	}
+	// A nullable column's body field is the model's pointer, so absent and
+	// null are the same request and neither is a zero to write.
+	if contains(explicit, `"published_at"`) {
+		t.Errorf("a pointer-modelled column cannot report what it cannot tell apart:\n%s", explicit)
+	}
+}
+
 // An enum column types as a string alias, which Huma documents as a plain
 // string — so without the tag an invalid value passed validation, reached the
 // INSERT and returned whatever the database said. The generated TypeScript
