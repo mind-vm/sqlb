@@ -103,6 +103,20 @@ type obligation struct {
 // the arrangement example/tasks arrived at by hand, and this is that
 // arrangement made compulsory.
 func checkObligations[T any](m *sqlb.Model, exec sqlb.Executor, opts Options) error {
+	return checkObligationsAs[T](m, exec, opts, opts.Ops.String())
+}
+
+// checkObligationsAs is checkObligations with the headline's description of the
+// surface supplied separately.
+//
+// A resource is described by the operations it exposes, and for a resource that
+// is the same string the requirements are derived from. An action is not: it is
+// one POST whose obligations are a read's plus, when it declares a write set, an
+// update's — so `Ops` there is a statement about what the envelope *does*, and
+// saying "exposes read|update" of a verb route would describe a surface that is
+// not mounted. The requirement and the sentence part company, so they are two
+// arguments (#308).
+func checkObligationsAs[T any](m *sqlb.Model, exec sqlb.Executor, opts Options, exposes string) error {
 	bound := computedNeeds(m, opts.Computed)
 	if m.Scope == nil && m.Soft == nil && len(bound) == 0 {
 		return nil
@@ -204,7 +218,7 @@ func checkObligations[T any](m *sqlb.Model, exec sqlb.Executor, opts Options) er
 	if onlyBinds(missing) {
 		what = "nothing supplies the computed binds of"
 	}
-	fmt.Fprintf(&b, "rest: %s exposes %s, and %s %s", opts.Path, opts.Ops, what, m.Type)
+	fmt.Fprintf(&b, "rest: %s exposes %s, and %s %s", opts.Path, exposes, what, m.Type)
 	for _, o := range missing {
 		fmt.Fprintf(&b, "\n  %s: %s is not registered (%s)",
 			o.ops, o.hook, strings.Join(dedupe(o.because), "; "))

@@ -302,16 +302,57 @@ func TestAnActionOnAScopedModelObligesTheReadHook(t *testing.T) {
 		}
 	}
 
-	// A BeforeQuery is enough, and deliberately so: the row this writes is one
-	// the envelope fetched under that predicate. A PATCH needs its own
-	// BeforeUpdate because its id comes from the request; this does not.
+	// A BeforeQuery alone is not enough for an action that writes. It answers
+	// "whose row is this", which the fetch settles; the write set makes the
+	// envelope persist through UpdateRows, and "who may write it" is a
+	// different question wherever a tenant has more than one kind of member
+	// (#308).
+	readOnly := sqlb.NewRegistry()
+	sqlb.On[Scoped](readOnly).BeforeQuery(func(context.Context, *sqlb.Builder[Scoped]) error { return nil })
+	confinedOnly := sqlb.New(newFakeDB(t).db).WithHooks(readOnly)
+
+	_, api2 := humatest.New(t, huma.DefaultConfig("Test", "1.0.0"))
+	err = rest.Action[Scoped, CompletePost](api2, confinedOnly, scopedOptions(), spec, do)
+	if err == nil {
+		t.Fatal("an action declaring a write set mounted with no write rule behind it")
+	}
+	for _, want := range []string{"BeforeUpdate", `writes "title"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %v\nwant it to mention %q", err, want)
+		}
+	}
+
+	// Both registered, and it mounts.
+	both := sqlb.NewRegistry()
+	sqlb.On[Scoped](both).BeforeQuery(func(context.Context, *sqlb.Builder[Scoped]) error { return nil })
+	sqlb.On[Scoped](both).BeforeUpdate(func(context.Context, *sqlb.Update[Scoped]) error { return nil })
+	hooked := sqlb.New(newFakeDB(t).db).WithHooks(both)
+
+	_, api3 := humatest.New(t, huma.DefaultConfig("Test", "1.0.0"))
+	if err := rest.Action[Scoped, CompletePost](api3, hooked, scopedOptions(), spec, do); err != nil {
+		t.Fatalf("mounting an action whose read and write hooks are both registered: %v", err)
+	}
+}
+
+// The other direction, and the reason the rule is keyed on the write set rather
+// than on "is an action": a verb that declares no writes persists nothing, so
+// the fetch is the whole of its contact with the row and a BeforeQuery is
+// exactly the obligation. Without this half the fix above would be "actions now
+// need two hooks", which would cost every read-only verb a rule it has no use
+// for.
+func TestAnActionThatWritesNothingObligesOnlyTheReadHook(t *testing.T) {
+	spec := rest.ActionSpec{
+		Name: "notify", Path: "/scoped/{id}/notify", Field: "NotifyScoped",
+	}
+	do := func(context.Context, *Scoped, CompletePost) error { return nil }
+
 	reg := sqlb.NewRegistry()
 	sqlb.On[Scoped](reg).BeforeQuery(func(context.Context, *sqlb.Builder[Scoped]) error { return nil })
 	hooked := sqlb.New(newFakeDB(t).db).WithHooks(reg)
 
-	_, api2 := humatest.New(t, huma.DefaultConfig("Test", "1.0.0"))
-	if err := rest.Action[Scoped, CompletePost](api2, hooked, scopedOptions(), spec, do); err != nil {
-		t.Fatalf("mounting an action whose read hook is registered: %v", err)
+	_, api := humatest.New(t, huma.DefaultConfig("Test", "1.0.0"))
+	if err := rest.Action[Scoped, CompletePost](api, hooked, scopedOptions(), spec, do); err != nil {
+		t.Fatalf("a verb that persists nothing should need only the read hook: %v", err)
 	}
 }
 

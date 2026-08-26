@@ -350,14 +350,31 @@ func prepareItemAction[T, In, Out any](api huma.API, db sqlb.Executor, opts Opti
 		return nil, err
 	}
 
-	// The envelope's fetch is a read, so a confined table's obligations are the
-	// read ones. Only the read ones: the row this writes is one the envelope
-	// itself fetched under that predicate, unlike a PATCH, whose id comes from
-	// the request and which therefore needs its own BeforeUpdate.
-	readOnly := opts
-	readOnly.Path = spec.Path
-	readOnly.Ops = OpRead
-	if err := checkObligations[T](b.model, db, readOnly); err != nil {
+	// The envelope's fetch is a read, so a confined table owes a BeforeQuery
+	// here: the row this touches is one the envelope itself fetched under that
+	// predicate, unlike a PATCH, whose id comes from the request.
+	//
+	// That answers "whose row is this" and nothing else. When the action also
+	// declares a write set, the envelope persists through sqlb.UpdateRows, and
+	// "who may write it" is a different question — one that only differs from
+	// the first when a tenant has more than one kind of member, which is most
+	// products with roles. Checking the read obligations alone let a route that
+	// mutates a confined row mount with no write rule behind it at all: in the
+	// reported case a child set the parent's PIN, and the sibling route was
+	// safe only because a hook registered for its PATCH happened to cover it
+	// (#308). That is luck, not obligation.
+	//
+	// So a declared write set obliges the write hook, in the same call rather
+	// than a second one — every unmet obligation belongs in one message.
+	confined := opts
+	confined.Path = spec.Path
+	confined.Ops = OpRead
+	exposes := fmt.Sprintf("the action %q", spec.Name)
+	if len(writes) > 0 {
+		confined.Ops |= OpUpdate
+		exposes = fmt.Sprintf("the action %q, which writes %s", spec.Name, quoteAll(columnNames(writes)))
+	}
+	if err := checkObligationsAs[T](b.model, db, confined, exposes); err != nil {
 		return nil, err
 	}
 
@@ -583,6 +600,15 @@ func prepareCollectionAction[In, Out any](api huma.API, db sqlb.Executor, opts O
 		return nil, huma.Operation{}, err
 	}
 	return run, op, nil
+}
+
+// columnNames is the write set as plain names, for a diagnostic.
+func columnNames(cols []*sqlb.ColumnInfo) []string {
+	out := make([]string, len(cols))
+	for i, c := range cols {
+		out[i] = c.Name
+	}
+	return out
 }
 
 // writeSet resolves an action's declared write set against the model.

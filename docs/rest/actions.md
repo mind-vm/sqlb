@@ -172,7 +172,7 @@ application owns — which is where deadlocks between two wide verbs come from,
 and which no declaration can arrange for you. The lock is a guarantee about the
 transition on one row, not about the transaction around it.
 
-## Scoping comes with the fetch
+## Scoping comes with the fetch, authorisation does not
 
 The envelope's fetch runs the model's `BeforeQuery` hooks, so an action on a
 `Scoped` model is confined by the same registration its list and read endpoints
@@ -182,6 +182,26 @@ application's routes.
 
 A request for another tenant's row gets a **404**, not a 403: the row was never
 in the query.
+
+That settles *whose row this is* and nothing more. **An action that declares
+`Writes` also obliges a `BeforeUpdate`**, because the envelope persists through
+`sqlb.UpdateRows` and "who may write this row" is a different question — one
+that only differs from the first when a tenant has more than one kind of member,
+which is most products with roles. A family is one tenant; a parent and a child
+resolve to it alike, and only one of them may set the PIN.
+
+```
+rest: /family/{id}/set-parent-pin exposes the action "set-parent-pin", which
+writes "parent_pin", and nothing confines Family
+  update: BeforeUpdate is not registered (family_id is Scoped)
+```
+
+A verb that declares no `Writes` persists nothing, so the fetch is the whole of
+its contact with the row and `BeforeQuery` remains the entire obligation.
+
+The hook is what the library can oblige, not what it can check: it demands a
+write rule exists, not that the rule is the right one. Whether *this* caller may
+perform *this* transition stays in the func, where preconditions live.
 
 ## Collection actions
 

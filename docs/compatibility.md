@@ -255,6 +255,23 @@ Named in advance, so the break is a documented plan rather than a surprise.
   it — the entry is owed either way, and the break is the cheap kind, a compile
   error at one line in one function per application.
 
+- **A declared action that writes obliges a `BeforeUpdate`.** An action on a
+  `Scoped` model whose `Writes` is non-empty now refuses to mount unless a write
+  rule is registered, where it previously needed only the `BeforeQuery` its
+  fetch runs
+  ([#308](https://github.com/mind-vm/sqlb/issues/308)).
+
+  The mechanical edit is registering the hook — the same one such a schema
+  already has when it exposes a `PATCH`, which is why the break is invisible to
+  most tables and loud on exactly the ones it is about. A verb declaring no
+  `Writes` is unaffected, and so is any model that is not confined.
+
+  It broke because the fetch's confinement answers "whose row is this" and was
+  read as answering "who may write it". Those differ wherever a tenant has more
+  than one kind of member: a consumer's child set the parent's PIN through a
+  route that mounted cleanly, and the sibling route was safe only because a hook
+  registered for its own `PATCH` happened to cover it.
+
 ### Five that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke

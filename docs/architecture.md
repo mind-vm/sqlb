@@ -2640,7 +2640,29 @@ returns a typed problem answered with its own status — refusing "cannot
 complete an archived task" is one line, deliberately the whole of what
 this feature offers for preconditions, since a DSL that could express
 *when* a transition is legal would be expressing the transition itself,
-exactly the failure mode this design exists to avoid. A collection action
+exactly the failure mode this design exists to avoid. The fetch's confinement was at first taken to be the whole
+of a row-addressed action's obligation, on the reasoning that the row it
+writes is one the envelope itself fetched under the read predicate —
+unlike a `PATCH`, whose id comes from the request. That reasoning is
+sound and answers the wrong question: confinement establishes *whose row
+this is*, and a write rule establishes *who may write it*, and the two
+part company wherever a tenant has more than one kind of member, which is
+most products with roles. An independent consumer found it by testing a
+running server — in a schema where the tenant is a family, a child set the
+parent's PIN through a verb that mounted cleanly, while the sibling route
+was safe only because a hook registered for its own `PATCH` happened to
+cover it, which is luck rather than obligation. So an action declaring a
+non-empty `Writes` now obliges the write hook as well, keyed on the write
+set rather than on being an action: a verb that persists nothing still
+owes only the read hook, and an unconfined model still owes neither. This
+is a real pre-1.0 break — a writing verb on a scoped table that mounted
+yesterday refuses today, naming the registration to add — accepted
+because the alternative is a route that mutates a confined row with no
+rule behind it, and because the obliged hook is exactly the one such a
+schema already has for its `PATCH` when it has one. What is obliged is
+that a rule exist, not that it be correct; whether this caller may make
+this transition stays in the func, where every other precondition lives.
+A collection action
 — no `{id}` in the path — gets none of this generated fetch, and
 therefore none of the scoping safety a row-addressed action inherits from
 the query hooks; it's plain Go with a transaction, the same position a
