@@ -6,18 +6,10 @@ import (
 	"strings"
 )
 
-// Lint reports schemas that are correct but operationally unwise.
-//
-// Validate answers "is this schema well-formed?" and returns errors. Lint
-// answers "will this schema behave badly in production?" and returns advice.
-// The distinction matters: a table can pass validation completely and still
-// expose an unindexed filter that sequential-scans a large table on every
-// request, which is the kind of mistake that is invisible in review and obvious
-// at three in the morning.
-//
-// Diagnostics are advisory. Nothing fails because of them, and a schema may
-// have good reasons to keep one — a filterable column on a table of twenty rows
-// does not need an index.
+// Diagnostic is one finding from [Registry.Lint]: a schema that is correct but
+// operationally unwise. Diagnostics are advisory — nothing fails because of
+// one, and a schema may have good reasons to keep one, such as a filterable
+// column on a table of twenty rows that does not need an index.
 type Diagnostic struct {
 	Rule     string
 	Table    string
@@ -89,7 +81,14 @@ func alreadyNamed(ds Diagnostics, table, column string) bool {
 	return false
 }
 
-// Lint checks the registry.
+// Lint reports schemas that are correct but operationally unwise.
+//
+// Validate answers "is this schema well-formed?" and returns errors. Lint
+// answers "will this schema behave badly in production?" and returns advice.
+// The distinction matters: a table can pass validation completely and still
+// expose an unindexed filter that sequential-scans a large table on every
+// request, which is the kind of mistake that is invisible in review and obvious
+// at three in the morning.
 func (r *Registry) Lint() Diagnostics {
 	var out Diagnostics
 	add := func(d Diagnostic) { out = append(out, d) }

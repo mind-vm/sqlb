@@ -1,13 +1,15 @@
-// This file is hand-written; everything else in this package is generated,
-// wiring_gen.go included (ADR-0059).
+// Package store is the generated data layer for the fxapp example.
 //
-// It used to carry provideMigrations and provideOperations — the migration
-// history wrapped for fxkit's group, and the resource mount wrapped for
-// fxkit's other one, both properties of the schema and neither more than a
-// fixed shape around what noteschema/sqlb.go already configures. That shape
-// is what FxModule now generates: this file is what is left once the
-// mechanical part is gone, which is naming the module and composing the one
-// value the generated package hands it.
+// Every file here is generated except module.go, which is what is left once
+// the mechanical part is gone: naming the fx module and composing the one
+// value FxModule — also generated, alongside wiring_gen.go — already builds
+// from noteschema/sqlb.go (ADR-0059).
+//
+// module.go used to carry provideMigrations and provideOperations — the
+// migration history wrapped for fxkit's group, and the resource mount wrapped
+// for fxkit's other one, both properties of the schema and neither more than a
+// fixed shape around what noteschema/sqlb.go already configures. FxModule now
+// generates that shape.
 package store
 
 import "go.uber.org/fx"

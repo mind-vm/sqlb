@@ -7,7 +7,7 @@ import (
 )
 
 // Hand-written domain rules, in a file the generator does not touch.
-//
+
 // RegisterHooks installs the predicate that makes schema.SoftDelete mean
 // something. The schema adds posts.deleted_at and stops there — nothing in the
 // runtime reads the column — so hiding the deleted rows is a registration, and

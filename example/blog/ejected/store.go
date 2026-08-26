@@ -2,6 +2,8 @@
 // edit it, delete parts of it, or keep regenerating it — `sqlb eject -check`
 // reports drift for as long as you want it to and is meant to be dropped
 // from CI on the day you stop.
+//
+// One function per statement. The SQL is written out.
 
 package ejected
 

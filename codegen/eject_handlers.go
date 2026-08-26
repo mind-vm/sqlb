@@ -33,7 +33,7 @@ func ejectHandlers(opts EjectOptions, exposed []*schema.TableDef) ([]byte, error
 	for _, t := range exposed {
 		ejectResource(b, t, wire)
 	}
-	return ejectFile("handlers.go", opts.pkg(), b)
+	return ejectFile("handlers.go", opts.pkg(), "net/http handlers, one per exposed operation.", b)
 }
 
 // resourceName is the Go name a resource is known by in Options.

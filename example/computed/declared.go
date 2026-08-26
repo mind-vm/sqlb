@@ -17,13 +17,11 @@ import (
 // REST client is allowed to use. That was the gap [ADR-0041] set out to close,
 // and this file is the closed version of the same three values.
 //
-// # The declaration
-//
-// Declared is the schema half. A computed column emits no DDL — the CREATE
-// TABLE this registry produces is the one in Schema minus the three
-// expressions — and it reaches every emitter that describes a row.
-//
 // [ADR-0041]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#computed-fields
+
+// Declared is the schema half of the closed gap: a computed column emits no
+// DDL — the CREATE TABLE this registry produces is the one in Schema minus the
+// three expressions — and it reaches every emitter that describes a row.
 var Declared = declaredRegistry()
 
 func declaredRegistry() *schema.Registry {

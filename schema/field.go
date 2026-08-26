@@ -254,8 +254,9 @@ func Float(name string) *Field  { return newField(name, TypeFloat) }
 // semantics of its own.
 func SmallInt(name string) *Field { return newField(name, TypeSmallInt) }
 
-// Serial, BigSerial and SmallSerial are the auto-incrementing integer columns:
-// `serial`, `bigserial` and `smallserial`, Go int32, int64 and int16.
+// Serial is the 4-byte auto-incrementing integer, Go int32, `serial` — one of
+// three alongside [BigSerial] (`bigserial`, Go int64) and [SmallSerial]
+// (`smallserial`, Go int16).
 //
 //	schema.BigSerial("id").PrimaryKey()
 //

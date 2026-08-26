@@ -17,6 +17,19 @@ linters:
     - misspell
 
   settings:
+    staticcheck:
+      # golangci-lint's own default disables the doc-comment checks
+      # (ST1000/ST1020/ST1021/ST1022) that staticcheck ships enabled. Turning
+      # them back on is what makes `go doc` a trustworthy map of the exported
+      # surface — every exported symbol's comment starts with its name, and
+      # every package has one — which matters here because the API reference
+      # *is* the Go doc comments (CLAUDE.md). ST1003 (naming) and ST1016
+      # (receiver-name consistency) stay off: they are style opinions
+      # unrelated to doc coverage, not what this is for.
+      checks:
+        - all
+        - -ST1003
+        - -ST1016
     errcheck:
       # A bad type assertion panics with a message that says nothing about
       # which invariant broke, so require the comma-ok form.

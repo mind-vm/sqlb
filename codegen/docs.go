@@ -29,6 +29,7 @@
 // class of endpoint a checklist is most needed for — no Describe() to fall
 // back on. Project.HandwrittenOps is how a project hands those over; see
 // #211.
+
 package codegen
 
 import (

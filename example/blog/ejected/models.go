@@ -2,7 +2,11 @@
 // edit it, delete parts of it, or keep regenerating it — `sqlb eject -check`
 // reports drift for as long as you want it to and is meant to be dropped
 // from CI on the day you stop.
+//
+// The row structs, with the sqlb tags removed.
 
+// Package ejected is the exit `sqlb eject` wrote: pgx and the standard
+// library, and nothing else.
 package ejected
 
 import "time"

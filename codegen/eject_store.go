@@ -119,7 +119,7 @@ func ejectStore(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 		ejectUpdate(b, t, typeName, lower)
 		ejectDelete(b, t, typeName, lower)
 	}
-	return ejectFile("store.go", opts.pkg(), b)
+	return ejectFile("store.go", opts.pkg(), "One function per statement. The SQL is written out.", b)
 }
 
 // ejectColumnTable emits what a request is allowed to name.

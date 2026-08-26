@@ -2,6 +2,8 @@
 // edit it, delete parts of it, or keep regenerating it — `sqlb eject -check`
 // reports drift for as long as you want it to and is meant to be dropped
 // from CI on the day you stop.
+//
+// net/http handlers, one per exposed operation.
 
 package ejected
 

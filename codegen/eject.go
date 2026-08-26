@@ -270,7 +270,7 @@ func ejectModels(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 		}
 		fmt.Fprintln(b, "}")
 	}
-	return ejectFile("models.go", opts.pkg(), b)
+	return ejectFile("models.go", opts.pkg(), "The row structs, with the sqlb tags removed.", b)
 }
 
 // ejectGoType is the Go type a column takes in the ejected models.
@@ -306,8 +306,14 @@ func ejectGoType(d *schema.FieldDesc) string {
 // neither Scoped nor SoftDelete emitted a `fmt` that nothing used, which is an
 // exit that does not compile. Asking the finished text closes that off for
 // every package at once, including the next one a handler grows a use of.
-func ejectFile(name, pkg string, body *bytes.Buffer) ([]byte, error) {
-	b := ejectHeader(pkg, ejectImports(body.String()))
+func ejectFile(name, pkg, desc string, body *bytes.Buffer) ([]byte, error) {
+	// Only models.go carries the real "Package pkg is ..." line (pkgDoc),
+	// because ejectHeader is called once per file and go/doc concatenates
+	// every file's package comment into `go doc`'s output: three identical
+	// copies read as a stutter, and one file is enough for the package to
+	// have a comment at all. models.go rather than handlers.go or store.go
+	// because it exists even for a schema that exposes nothing over REST.
+	b := ejectHeader(pkg, desc, name == "models.go", ejectImports(body.String()))
 	b.Write(body.Bytes())
 	return gofmt(name, b.Bytes())
 }
@@ -374,13 +380,30 @@ func ejectImports(src string) []string {
 // ejectHeader is the file banner. It says the file was generated *and* that
 // editing it is the point, which is the opposite of what every other emitted
 // file in this project says.
-func ejectHeader(pkg string, imports []string) *bytes.Buffer {
+//
+// desc is the file-specific line under the banner. The banner and desc sit a
+// blank comment line above `package`, which is deliberate and costs the
+// package its doc comment: go/doc only credits a comment immediately adjacent
+// to the package clause, with nothing in between, so a banner meant to read as
+// a note rather than documentation must not also be read as the latter.
+//
+// pkgDoc adds that adjacent comment — "// Package pkg is ..." — for the one
+// caller that should carry it. Every caller could, since each already gets
+// its own ejectHeader call, but `go doc` concatenates every file's package
+// comment into one page, and three identical copies would just be a stutter.
+func ejectHeader(pkg, desc string, pkgDoc bool, imports []string) *bytes.Buffer {
 	var b bytes.Buffer
 	fmt.Fprintln(&b, "// Ejected from a sqlb schema by `sqlb eject`. This file is yours now:")
 	fmt.Fprintln(&b, "// edit it, delete parts of it, or keep regenerating it — `sqlb eject -check`")
 	fmt.Fprintln(&b, "// reports drift for as long as you want it to and is meant to be dropped")
 	fmt.Fprintln(&b, "// from CI on the day you stop.")
+	fmt.Fprintln(&b, "//")
+	fmt.Fprintf(&b, "// %s\n", desc)
 	fmt.Fprintln(&b)
+	if pkgDoc {
+		fmt.Fprintf(&b, "// Package %s is the exit `sqlb eject` wrote: pgx and the standard\n", pkg)
+		fmt.Fprintln(&b, "// library, and nothing else.")
+	}
 	fmt.Fprintf(&b, "package %s\n", pkg)
 	if len(imports) > 0 {
 		fmt.Fprintln(&b)
