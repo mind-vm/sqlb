@@ -438,6 +438,14 @@ func (d *differ) run() error {
 	d.tableRenames = map[string]string{}
 	d.pendingColumns = map[string]bool{}
 	d.extensionsNeeded()
+	// Before anything is rendered: a table carrying two constraints with one
+	// name produces DDL Postgres rejects on the create path and silently drops
+	// one on the alter path, and neither is worth writing to a file (#303).
+	for _, t := range d.target.Tables() {
+		if err := duplicateConstraint(t); err != nil {
+			return err
+		}
+	}
 	claimed := map[string]bool{}
 	for _, t := range d.target.Tables() {
 		cur := d.currentFor(t)

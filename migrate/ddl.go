@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -754,6 +755,88 @@ func constraints(t *schema.TableDef) []constraint {
 	}
 
 	return out
+}
+
+// duplicateConstraint reports two constraints on one table sharing a name.
+//
+// Postgres refuses `CREATE TABLE` carrying two constraints with the same name,
+// and the collision is easy to write because half of it is invisible: an Enum
+// column's CHECK is named `<table>_<column>_check` with nothing in the Go
+// source saying so, and that is exactly the name somebody writing a second
+// constraint about the same column reaches for (#303).
+//
+// It has to be caught here rather than by the shadow database, which replays
+// the committed history and diffs the result — the file about to be written is
+// not itself applied, so generation was clean and the failure surfaced on the
+// next migrate run, in CI, or at deploy. The whole cost is that distance; the
+// DDL is wrong the moment it is written.
+//
+// The diff path loses the second one silently instead, because it keys
+// constraints by name (byName) — same mistake, no error at all.
+func duplicateConstraint(t *schema.TableDef) error {
+	seen := make(map[string]constraint, 8)
+	for _, c := range constraints(t) {
+		first, ok := seen[c.name]
+		if !ok {
+			seen[c.name] = c
+			continue
+		}
+		// Byte-identical definitions are one constraint declared twice, which
+		// is still a refusal — Postgres rejects the DDL either way — but the
+		// advice is different, so the message says which it is.
+		if first.def == c.def {
+			return fmt.Errorf("migrate: %s declares the constraint %q twice, with the same definition %s; remove one",
+				t.Name(), c.name, first.def)
+		}
+		return fmt.Errorf("migrate: %s has two constraints named %q — %s and %s — and Postgres accepts one; %s",
+			t.Name(), c.name, constraintSource(first), constraintSource(c), renameAdvice(first, c))
+	}
+	return nil
+}
+
+// constraintSource says where a constraint came from, in the terms the schema
+// is written in. The generated ones have no name in the Go source at all, so
+// naming the column and the constructor is the only way to point at them.
+func constraintSource(c constraint) string {
+	switch {
+	case c.pk:
+		return "the primary key"
+	case c.fk:
+		return "a reference on " + quoteList(c.covers)
+	case c.unique:
+		return "a uniqueness constraint on " + quoteList(c.cols)
+	case len(c.enum) > 0:
+		return "an Enum column's generated check on " + quoteList(c.covers)
+	case c.handWritten:
+		return "an explicit Check"
+	}
+	return "a check on " + quoteList(c.covers)
+}
+
+// renameAdvice names the half that can be moved. A generated constraint has no
+// name to change without changing the schema's shape, so the explicit one is
+// what gets renamed — and naming it for what it asserts rather than for its
+// column is what keeps it from colliding again.
+func renameAdvice(a, b constraint) string {
+	if a.handWritten || b.handWritten {
+		return "name the explicit Check for what it asserts rather than for its column"
+	}
+	return "give one of them a name of its own"
+}
+
+// quoteList renders column names for a diagnostic: `"a"`, `"a" and "b"`.
+func quoteList(cols []string) string {
+	if len(cols) == 0 {
+		return "this table"
+	}
+	quoted := make([]string, len(cols))
+	for i, c := range cols {
+		quoted[i] = strconv.Quote(c)
+	}
+	if len(quoted) == 1 {
+		return quoted[0]
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1]
 }
 
 func foreignKeyRef(d *schema.FieldDesc) fkRef {
