@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/mind-vm/sqlb.svg)](https://pkg.go.dev/github.com/mind-vm/sqlb)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/mind-vm/sqlb)](go.mod)
-[![License: Proprietary](https://img.shields.io/badge/license-proprietary-lightgrey.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Declarative Postgres for Go. A schema is ordinary Go, and everything else is
 derived from it: migrations, typed models, composable queries, REST handlers,
@@ -213,5 +213,4 @@ where to argue with a decision record rather than around it.
 
 ## License
 
-Proprietary. All rights reserved — see [LICENSE](LICENSE). Use requires a
-separate written agreement with the copyright holder.
+MIT — see [LICENSE](LICENSE).

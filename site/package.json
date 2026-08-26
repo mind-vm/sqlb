@@ -1,0 +1,19 @@
+{
+  "name": "sqlb-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@astrojs/starlight": "^0.41.4",
+    "astro": "^7.1.4"
+  },
+  "scripts": {
+    "sync": "node scripts/sync-docs.mjs",
+    "sync:check": "node scripts/sync-docs.mjs --check",
+    "dev": "npm run sync && astro dev",
+    "build": "npm run sync && astro build && node scripts/check-links.mjs",
+    "preview": "astro preview",
+    "check": "npm run sync && astro check",
+    "check:links": "node scripts/check-links.mjs"
+  }
+}
