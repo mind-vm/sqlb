@@ -83,12 +83,35 @@ func (r *Registry) Add(t *TableDef) {
 }
 
 // Tables returns every registered table, sorted by name so that generated
-// output is deterministic across runs.
+// output is deterministic across runs. A view (declared with [View], not
+// [Table]) is never among them — see [Registry.Views] — so that every
+// existing caller of Tables, which assumes a table's DDL machinery
+// (columns with types, a primary key, indexes), does not have to become
+// view-aware just because one exists somewhere in the schema.
 func (r *Registry) Tables() []*TableDef {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	out := make([]*TableDef, len(r.tables))
-	copy(out, r.tables)
+	out := make([]*TableDef, 0, len(r.tables))
+	for _, t := range r.tables {
+		if !t.isView {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })
+	return out
+}
+
+// Views returns every registered view, sorted by name. Declared with
+// [View] rather than [Table]; see [TableDef.IsView].
+func (r *Registry) Views() []*TableDef {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*TableDef, 0, len(r.tables))
+	for _, t := range r.tables {
+		if t.isView {
+			out = append(out, t)
+		}
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })
 	return out
 }

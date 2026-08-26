@@ -427,6 +427,13 @@ type TableDef struct {
 	actions  []Action
 	queries  []Query
 	typeName string // TypeName override; "" means derive it from local
+
+	// isView and viewQuery are set by View rather than Table. A view has none
+	// of the DDL machinery above — no indexes, checks, uniques, exclusions or
+	// composite key — because those describe how a table stores its own rows,
+	// and a view has none; its rows are viewQuery's, read fresh every time.
+	isView    bool
+	viewQuery string
 }
 
 // Table declares a table and registers it in the default registry. This is the
@@ -448,6 +455,45 @@ func (r *Registry) Table(name string, specs ...FieldSpec) *TableDef {
 	r.Add(t)
 	return t
 }
+
+// View declares a read-only view and registers it in the default registry.
+//
+// query is the view's own SELECT, written by hand — sqlb does not derive a
+// view's query from a builder expression, the same way a table's DDL is
+// derived from its fields but a computed column's FromSQL expression is
+// still written by hand (schema/field.go). cols describes the view's own
+// output columns the same way a table's do, so the columns need to be typed
+// even though nothing here checks them against query: a view's shape is a
+// contract with the database, and a mismatch surfaces as a scan error at
+// query time, not at declaration time.
+//
+// A view has no primary key requirement of its own. Give it one with
+// PrimaryKeyColumns/PrimaryKeyNamed if it has a natural key a REST resource
+// can address rows by; without one, Expose can still list it
+// (schema.OpList alone) but not read or update a single row by key, the
+// same rule rest.Resource already enforces for a keyless table.
+func View(name, query string, cols ...FieldSpec) *TableDef {
+	return defaultRegistry.View(name, query, cols...)
+}
+
+// View declares a view in a specific registry. See [View].
+func (r *Registry) View(name, query string, cols ...FieldSpec) *TableDef {
+	t := &TableDef{name: r.Qualify(name), local: name, module: r.module, isView: true, viewQuery: query}
+	for _, s := range cols {
+		if s == nil {
+			continue
+		}
+		t.fields = append(t.fields, s.fields()...)
+	}
+	r.Add(t)
+	return t
+}
+
+// IsView reports whether this declaration is a view rather than a table.
+func (t *TableDef) IsView() bool { return t.isView }
+
+// ViewQuery is the SELECT a view was declared with. Empty for a table.
+func (t *TableDef) ViewQuery() string { return t.viewQuery }
 
 // columnIndexes are the indexes a column asked for with [Field.Indexed] rather
 // than by naming one at the table level.

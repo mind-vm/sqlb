@@ -18,7 +18,13 @@ import (
 // property the REST layer serialises it as. Everything the engine knows about a
 // model at runtime comes from here.
 func renderModels(opts Options) ([]byte, error) {
-	tables := opts.Registry.Tables()
+	// A view (schema.View) gets a struct the same way a table does — every
+	// field below reads Name/Fields/Comment, none of which a view lacks —
+	// appended after the tables so declaration order stays table-then-view
+	// rather than interleaved by name, which would put a view's struct in
+	// the middle of an unrelated table's block for no reason a reader could
+	// see.
+	tables := append(opts.Registry.Tables(), opts.Registry.Views()...)
 
 	ov, err := newOverrides(opts.Types, opts.Registry)
 	if err != nil {

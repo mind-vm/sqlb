@@ -50,6 +50,18 @@ import (
 // Enums are unaffected: an enum is text plus a CHECK (ADR-0017), and introspect
 // reads the values back out of the normalised form rather than comparing it.
 //
+// A view's query has the same problem and, unlike a CHECK or a partial
+// index's WHERE, no shadow.Normalize fix yet: pg_get_viewdef reformats
+// whitespace and adds a trailing semicolon, so a declared
+// `SELECT id, email FROM users WHERE active` reads back as
+// `SELECT id,\n    email\n   FROM users\n  WHERE active;`, and viewsEqual
+// compares the text verbatim (trimmed only). Diffing a declared registry
+// against an introspected one therefore proposes recreating every view,
+// every time, confirmed against a real Postgres rather than assumed. Two
+// registries built from the same Go declaration are unaffected — the text
+// is identical on both sides — so this only bites the introspected half,
+// the same asymmetry the CHECK-constraint issue above has.
+//
 // # What Destructive means here
 //
 // A change is marked Destructive when applying it can lose data that cannot be
@@ -160,6 +172,7 @@ func Diff(current, target *schema.Registry, opts ...Option) ([]Change, error) {
 	if err := d.run(); err != nil {
 		return nil, err
 	}
+	d.runViews()
 	return d.changes(), nil
 }
 
@@ -287,7 +300,15 @@ type differ struct {
 	addOther       []Change
 	addForeignKey  []Change
 	createIndexes  []Change
-	dropTables     []Change
+	// dropViews and changedOrCreatedViews are ordered around dropTables
+	// rather than alongside the table phases above: a dropped view may
+	// still be selecting from a table this same migration also drops, so it
+	// has to go first; a created or changed view may select from a table or
+	// column this migration just added, so it has to run once every table
+	// phase above has already settled. See viewCreated/viewDropped.
+	dropViews             []Change
+	changedOrCreatedViews []Change
+	dropTables            []Change
 }
 
 func (d *differ) changes() []Change {
@@ -304,6 +325,8 @@ func (d *differ) changes() []Change {
 		d.addOther,
 		d.addForeignKey,
 		d.createIndexes,
+		d.dropViews,
+		d.changedOrCreatedViews,
 		d.dropTables,
 	} {
 		out = append(out, phase...)
@@ -557,6 +580,90 @@ func (d *differ) tableAltered(cur, tgt *schema.TableDef) error {
 	d.constraints(cur, tgt, cols)
 	d.indexes(cur, tgt, cols)
 	return nil
+}
+
+// runViews is [differ.run]'s counterpart for views: matched by name only, no
+// rename hint (a view has no RenamedFrom of its own in v1, so a renamed view
+// diffs as a drop and a create — the same rule a table follows without a
+// hint). There is no per-column ALTER path: any difference, in the query
+// text or in the declared output columns, is viewCreated's DROP-then-CREATE,
+// since a view has no rows of its own for an ALTER to preserve.
+func (d *differ) runViews() {
+	target := map[string]*schema.TableDef{}
+	for _, v := range d.target.Views() {
+		target[v.Name()] = v
+	}
+	current := map[string]*schema.TableDef{}
+	for _, v := range d.current.Views() {
+		current[v.Name()] = v
+	}
+
+	for _, name := range sortedKeys(target) {
+		tgt := target[name]
+		cur := current[name]
+		if cur != nil && viewsEqual(cur, tgt) {
+			continue
+		}
+		d.viewCreated(cur, tgt)
+	}
+	for _, name := range sortedKeys(current) {
+		if _, ok := target[name]; ok {
+			continue
+		}
+		d.viewDropped(current[name])
+	}
+}
+
+// viewsEqual compares the two things a view's shape is made of: the query
+// text, verbatim (the same reason CHECK-expression comparison needs
+// shadow.Normalize first for a table, this does not get — there is no
+// introspected canonical form for a view's defining query to normalise
+// against, so a view declared identically to how introspect would spell it
+// back is the caller's job, not this function's), and the declared output
+// columns' names and types, in order.
+func viewsEqual(cur, tgt *schema.TableDef) bool {
+	if strings.TrimSpace(cur.ViewQuery()) != strings.TrimSpace(tgt.ViewQuery()) {
+		return false
+	}
+	curFields, tgtFields := cur.StoredFields(), tgt.StoredFields()
+	if len(curFields) != len(tgtFields) {
+		return false
+	}
+	for i, f := range curFields {
+		cd, td := f.Desc(), tgtFields[i].Desc()
+		if cd.Name != td.Name || cd.Type != td.Type || cd.Array != td.Array {
+			return false
+		}
+	}
+	return true
+}
+
+// viewCreated covers both "the view is new" (cur is nil) and "the view
+// changed" (cur is the previous declaration) — createView's DROP IF
+// EXISTS/CREATE pair is correct unconditionally, so the differ does not
+// have to tell the two cases apart beyond what Down recreates on rollback.
+func (d *differ) viewCreated(cur, tgt *schema.TableDef) {
+	down := dropView(tgt)
+	if cur != nil {
+		down = createView(cur)
+	}
+	comment := "create view " + tgt.Name()
+	if cur != nil {
+		comment = "recreate view " + tgt.Name() + " (definition changed)"
+	}
+	d.changedOrCreatedViews = append(d.changedOrCreatedViews, Change{
+		Comment: comment,
+		Up:      createView(tgt),
+		Down:    down,
+	})
+}
+
+func (d *differ) viewDropped(cur *schema.TableDef) {
+	d.dropViews = append(d.dropViews, Change{
+		Comment: "drop view " + cur.Name(),
+		Up:      dropView(cur),
+		Down:    createView(cur),
+	})
 }
 
 // columnRenames resolves a table's rename hints into old name → new name.

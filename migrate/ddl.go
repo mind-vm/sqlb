@@ -838,6 +838,12 @@ func commentOnTable(table, comment string) string {
 	return "COMMENT ON TABLE " + quoteIdent(table) + " IS " + commentValue(comment) + ";"
 }
 
+// commentOnView is commentOnTable's counterpart for a view — Postgres
+// refuses COMMENT ON TABLE against a relation of kind 'v'.
+func commentOnView(view, comment string) string {
+	return "COMMENT ON VIEW " + quoteIdent(view) + " IS " + commentValue(comment) + ";"
+}
+
 func commentOnColumn(table, column, comment string) string {
 	return "COMMENT ON COLUMN " + quoteIdent(table) + "." + quoteIdent(column) +
 		" IS " + commentValue(comment) + ";"
@@ -852,6 +858,39 @@ func commentValue(s string) string {
 
 func dropTable(t *schema.TableDef) string {
 	return "DROP TABLE " + quoteIdent(t.Name()) + ";"
+}
+
+// createView renders CREATE VIEW. There is no CREATE OR REPLACE here — a
+// replace only works when the new definition keeps every existing output
+// column, in the same order, with the same type, which a diff would have to
+// verify to rely on; DROP then CREATE is correct unconditionally, at the
+// cost of a view briefly not existing mid-migration, which is fine for
+// something with no rows and (in v1) no dependents recorded to preserve
+// across the gap. IF EXISTS on the drop half is what lets one Change cover
+// both "the view is new" and "the view changed" without the differ having
+// to tell them apart.
+func createView(t *schema.TableDef) string {
+	var b strings.Builder
+	b.WriteString("DROP VIEW IF EXISTS " + quoteIdent(t.Name()) + ";\n")
+	b.WriteString("CREATE VIEW " + quoteIdent(t.Name()) + " AS\n" + t.ViewQuery() + ";")
+	// Not commentStatements: that renders COMMENT ON TABLE, which Postgres
+	// refuses for a view ("... is not a table") — the relation-level comment
+	// needs its own COMMENT ON VIEW, and only that one line differs; a
+	// column's own comment uses the same COMMENT ON COLUMN either kind of
+	// relation accepts.
+	if t.Comment() != "" {
+		b.WriteString("\n" + commentOnView(t.Name(), t.Comment()))
+	}
+	for _, f := range t.StoredFields() {
+		if d := f.Desc(); d.Comment != "" {
+			b.WriteString("\n" + commentOnColumn(t.Name(), d.Name, d.Comment))
+		}
+	}
+	return b.String()
+}
+
+func dropView(t *schema.TableDef) string {
+	return "DROP VIEW IF EXISTS " + quoteIdent(t.Name()) + ";"
 }
 
 func addColumn(table string, d *schema.FieldDesc, opts diffOptions) (string, error) {

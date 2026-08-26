@@ -90,6 +90,26 @@ type catalog struct {
 	// both said "everything is represented" about a schema that could not be
 	// created at all (issue #115).
 	extensions []extensionRow
+
+	// views and viewColumns are relkind='v' — read separately from tables
+	// and columns above (relkind='r') rather than folded into them, because
+	// a view has none of a table's constraints, indexes or dependency
+	// ordering, and merging the two catalogs would mean every table-shaped
+	// reader had to start checking a relkind it never used to see.
+	views       []viewRow
+	viewColumns []viewColumnRow
+}
+
+type viewRow struct {
+	Name    string
+	Comment string
+	Query   string // pg_get_viewdef's own reconstruction of the view's SELECT
+}
+
+type viewColumnRow struct {
+	View string
+	Name string
+	Type string // format_type, same spelling columnRow.Type uses
 }
 
 type extensionRow struct {
@@ -206,6 +226,29 @@ JOIN pg_class c ON c.oid = a.attrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
 LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
 WHERE n.nspname = $1 AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped
+ORDER BY c.relname, a.attnum`
+
+// viewQuery reads relkind='v' only — never 'm' (a materialized view), which
+// is out of scope until refresh has a DDL/DSL story of its own (v1 doc
+// note). pg_get_viewdef's second argument asks for pretty-printed output,
+// since the alternative is whatever single-line form Postgres happens to
+// store, and a human reviewing a generated migration reads the pretty one.
+const viewQuery = `
+SELECT c.relname, COALESCE(obj_description(c.oid, 'pg_class'), ''), pg_get_viewdef(c.oid, true)
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = $1 AND c.relkind = 'v'
+ORDER BY c.relname`
+
+// viewColumnQuery carries none of columnQuery's default/identity/generated
+// columns — a view's output column has no default of its own to read back,
+// and Postgres reports attidentity/attgenerated as always-empty for one.
+const viewColumnQuery = `
+SELECT c.relname, a.attname, format_type(a.atttypid, a.atttypmod)
+FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = $1 AND c.relkind = 'v' AND a.attnum > 0 AND NOT a.attisdropped
 ORDER BY c.relname, a.attnum`
 
 // constraintQuery keeps conkey and confkey in their declared order. Postgres
@@ -328,6 +371,28 @@ func read(ctx context.Context, db sqlb.Executor, nspname string) (*catalog, erro
 		return nil
 	}); err != nil {
 		return nil, fmt.Errorf("introspect: reading extensions: %w", err)
+	}
+
+	if err := query(ctx, db, viewQuery, func(rows pgx.Rows) error {
+		var r viewRow
+		if err := rows.Scan(&r.Name, &r.Comment, &r.Query); err != nil {
+			return err
+		}
+		cat.views = append(cat.views, r)
+		return nil
+	}, nspname); err != nil {
+		return nil, fmt.Errorf("introspect: reading views: %w", err)
+	}
+
+	if err := query(ctx, db, viewColumnQuery, func(rows pgx.Rows) error {
+		var r viewColumnRow
+		if err := rows.Scan(&r.View, &r.Name, &r.Type); err != nil {
+			return err
+		}
+		cat.viewColumns = append(cat.viewColumns, r)
+		return nil
+	}, nspname); err != nil {
+		return nil, fmt.Errorf("introspect: reading view columns: %w", err)
 	}
 
 	if err := query(ctx, db, indexQuery, func(rows pgx.Rows) error {

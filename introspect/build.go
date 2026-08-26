@@ -58,11 +58,98 @@ func build(cat *catalog, opts Options) (*schema.Registry, *Report, error) {
 		built[name] = t
 	}
 
+	buildViews(r, cat, opts, rep)
+
 	if err := r.Validate(); err != nil {
 		return nil, rep, fmt.Errorf("introspect: the imported schema does not validate, "+
 			"which means this package built something the DSL considers impossible: %w", err)
 	}
 	return r, rep, nil
+}
+
+// buildViews declares every readable view, after every table is built —
+// unlike a table, a view has no dependency order of its own to resolve
+// (dependencyOrder above is entirely about foreign keys, which a view
+// cannot carry), so there is nothing to do before this but have the tables
+// a view might select from already exist in r for schema.View's duplicate-
+// name check to run against.
+func buildViews(r *schema.Registry, cat *catalog, opts Options, rep *Report) {
+	columnsByView := map[string][]viewColumnRow{}
+	for _, c := range cat.viewColumns {
+		columnsByView[c.View] = append(columnsByView[c.View], c)
+	}
+
+	for _, v := range cat.views {
+		local, ok := localName(v.Name, opts.Module)
+		if !ok {
+			rep.add(v.Name, "", "view is not prefixed with the module name, and a module "+
+				"registry would rename it on the way back out", "")
+			continue
+		}
+		if err := schema.CheckIdent(local); err != nil {
+			rep.add(v.Name, "", "view name cannot be declared: "+err.Error(), "")
+			continue
+		}
+
+		var fields []schema.FieldSpec
+		ok = true
+		for _, c := range columnsByView[v.Name] {
+			f := buildViewColumn(v.Name, c, rep)
+			if f == nil {
+				ok = false
+				continue
+			}
+			fields = append(fields, f)
+		}
+		if !ok {
+			// One or more columns already explained themselves in rep; the
+			// view as a whole is unrepresentable rather than declared with a
+			// silently narrower column set a later Diff would call drift.
+			continue
+		}
+
+		vd := r.View(local, v.Query, fields...)
+		if v.Comment != "" {
+			vd.Describe(v.Comment)
+		}
+	}
+}
+
+// buildViewColumn maps a view's output column the same way buildColumn maps
+// a table's — columnType/splitArrayType are the same functions, so the two
+// agree on every type by construction — but skips every table-only concern
+// buildColumn has: a view column has no default, no identity, no generated
+// expression and (in v1) no foreign key of its own to detect, so newField is
+// called with an empty *constraints and no built-tables map rather than
+// buildColumn's full machinery.
+func buildViewColumn(view string, c viewColumnRow, rep *Report) *schema.Field {
+	if err := schema.CheckIdent(c.Name); err != nil {
+		rep.add(view, c.Name, "column name cannot be declared: "+err.Error(), c.Type)
+		return nil
+	}
+	elemType, isArray := splitArrayType(c.Type)
+	t, typeArg, scale, ok := columnType(elemType)
+	if !ok {
+		rep.add(view, c.Name, "column type "+c.Type+" has no equivalent in the DSL; "+
+			"importing it as anything else would misdescribe the view", c.Type)
+		return nil
+	}
+	if isArray && !schema.IsArrayElement(t) {
+		rep.add(view, c.Name, "an array of "+string(t)+" is not an element type the DSL declares; "+
+			"arrays hold scalars and have one dimension", c.Type)
+		return nil
+	}
+	f := newField(columnRow{Name: c.Name}, t, typeArg, scale, isArray, &constraints{}, nil, rep, view)
+	if isArray {
+		f.Array()
+	}
+	// A view's own NOT NULL-ness is not read: Postgres reports it based on
+	// what the underlying query happens to prove today, which can change
+	// with the query's own logic rather than with any declaration here, so
+	// treating every view column as nullable is the only answer that cannot
+	// go stale.
+	f.Nullable()
+	return f
 }
 
 // tableParts is one table's rows, gathered from the flat catalog.
