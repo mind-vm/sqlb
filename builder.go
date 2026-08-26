@@ -56,6 +56,10 @@ type Builder[T any] struct {
 	// [Subquery]. It survives Clone because the predicates the hooks added do.
 	resolved bool
 	err      error
+	// withName and withQuery are the single named CTE With adds, mirroring
+	// Update.fromName/fromQuery. See With.
+	withName  string
+	withQuery Subquery
 }
 
 type joinClause struct {
@@ -304,6 +308,59 @@ func (b *Builder[T]) LeftJoin(table, alias string, on Pred) *Builder[T] {
 	return b.join("LEFT JOIN", table, alias, on)
 }
 
+// RightJoin adds a right outer join.
+func (b *Builder[T]) RightJoin(table, alias string, on Pred) *Builder[T] {
+	return b.join("RIGHT JOIN", table, alias, on)
+}
+
+// FullJoin adds a full outer join.
+func (b *Builder[T]) FullJoin(table, alias string, on Pred) *Builder[T] {
+	return b.join("FULL JOIN", table, alias, on)
+}
+
+// CrossJoin adds a cross join: every row of table paired with every row this
+// statement already has. There is no ON condition — a cross join is the one
+// join kind where "no predicate" is the point rather than a mistake, which is
+// why it does not go through join(), whose zero-on check exists precisely to
+// catch that mistake for every other kind.
+func (b *Builder[T]) CrossJoin(table, alias string) *Builder[T] {
+	b.joins = append(b.joins, joinClause{kind: "CROSS JOIN", table: table, alias: alias})
+	return b
+}
+
+// With adds a single named CTE ahead of the statement: `WITH name AS (query)
+// SELECT …`. Reference it like any other table — Join(name, alias, on) or
+// LeftJoin(name, alias, on) — the same way [Update.From]'s CTE is joined
+// against the table being updated rather than replacing it.
+//
+// This is not a general CTE facility, for the same reason [Update.From]'s doc
+// comment gives: a second With call replaces the first rather than adding a
+// second CTE, and there is no WITH RECURSIVE. It exists so a SELECT can name
+// and reuse a subquery result the way UPDATE already can, without the
+// surrounding statement needing to say what several arbitrary CTEs would mean
+// together.
+//
+// query compiles straight into the surrounding statement, sharing its bind
+// numbering, rather than being run — so it needs to arrive already resolved:
+// call query.Resolved(ctx, db) first if its model has a registered
+// BeforeQuery hook, and pass the result. An unresolved query is refused by
+// [Builder.Resolved] rather than silently compiled with its scope missing,
+// for the reason [Subquery]'s own doc comment gives.
+func (b *Builder[T]) With(name string, query Subquery) *Builder[T] {
+	if name == "" {
+		return b.fail("sqlb: With needs a CTE name")
+	}
+	if query == nil {
+		return b.fail("sqlb: With(%q) needs a query", name)
+	}
+	if err := query.Err(); err != nil {
+		return b.fail("sqlb: With(%q): %s", name, err)
+	}
+	b.withName = name
+	b.withQuery = query
+	return b
+}
+
 func (b *Builder[T]) join(kind, table, alias string, on Pred) *Builder[T] {
 	if on.IsZero() {
 		return b.fail("sqlb: %s %s has no ON condition, which would produce a cross join", kind, table)
@@ -429,6 +486,17 @@ func (b *Builder[T]) SQL() (string, []any, error) {
 }
 
 func (b *Builder[T]) compile(c *compiler) {
+	// The CTE compiles first, so its own binds take the earlier positions and
+	// the rest of the statement's binds continue the numbering rather than the
+	// two colliding — the same reason [Update.SQL] orders it first. compileSub
+	// shares this compiler for exactly that reason; see [Subquery].
+	if b.withQuery != nil {
+		c.write("WITH ")
+		c.ident(b.withName)
+		c.write(" AS (")
+		b.withQuery.compileSub(c)
+		c.write(") ")
+	}
 	// Once a second table is in the statement, an unqualified column is a
 	// coin toss Postgres refuses to make. Everything a caller can name — the
 	// projection, a filter, a sort — is a column of T, so T's table is the
@@ -463,8 +531,10 @@ func (b *Builder[T]) compile(c *compiler) {
 			c.write(" AS ")
 			c.ident(j.alias)
 		}
-		c.write(" ON ")
-		c.expr(j.on.Expr())
+		if !j.on.IsZero() {
+			c.write(" ON ")
+			c.expr(j.on.Expr())
+		}
 	}
 	b.compileExpansions(c)
 

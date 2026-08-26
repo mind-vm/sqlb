@@ -130,6 +130,13 @@ func (b *Builder[T]) Resolved(ctx context.Context, db Executor) (*Builder[T], er
 	if err := w.check(ctx, db); err != nil {
 		return nil, err
 	}
+	// With's query is compiled straight into this statement rather than run,
+	// the same reason a nested Subquery is; see guardFrom.
+	if q.withQuery != nil {
+		if err := guardFrom(ctx, db, q.withName, q.withQuery); err != nil {
+			return nil, err
+		}
+	}
 	q.resolved = true
 	return q, nil
 }
