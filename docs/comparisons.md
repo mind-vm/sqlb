@@ -123,12 +123,20 @@ and a `json_build_object` per relation
 ([ADR-0025](architecture.md#expansion-is-one-statement)).
 
 sqlb's version is consistent by construction — one snapshot, so a foreign key
-and its expansion cannot contradict each other. **ent's version inherits its
-privacy rules on the target for free**, because the second query is an ordinary
-read of that type. sqlb's does not: a `BeforeQuery` hook on the target does not
-apply to an expansion of it, which ADR-0025 concedes as the cost of the design.
-If your boundary is enforced by a hook rather than by the schema, that is a real
-difference and it is not in sqlb's favour.
+and its expansion cannot contradict each other. That used to come at a real
+cost: an early version did not run the target's `BeforeQuery` hooks on an
+expansion of it, which is the shape of ent's advantage — **ent's second query
+inherits its privacy rules on the target for free**, because it is an ordinary
+read of that type. sqlb has since closed that gap rather than accepted it:
+the target's hooks now run, requalified onto the join's alias before they
+splice into its `ON` clause (or into the collected subquery's `WHERE`, for a
+reverse relation) — a scoped-out target nulls out rather than silently
+returning unscoped data, and a predicate that can't be requalified with
+certainty (raw SQL, one naming a table outside the join) fails the query
+rather than being dropped. So this is no longer a trade sqlb makes: one
+statement and the target's own policy, together, which ent's N+1 approach
+does not get at the same time — its second query is consistent with its own
+policy but not with the first query's snapshot.
 
 ## PostgREST
 
