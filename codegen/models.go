@@ -145,7 +145,7 @@ func renderModels(opts Options) ([]byte, error) {
 
 		fmt.Fprintln(b)
 		if c := t.Comment(); c != "" {
-			fmt.Fprintf(b, "// %s %s\n", typeName, lowerFirst(c))
+			docLines(b, "", typeName+" "+lowerFirst(c))
 		} else {
 			fmt.Fprintf(b, "// %s is a row of %s.\n", typeName, t.Name())
 		}
@@ -161,7 +161,7 @@ func renderModels(opts Options) ([]byte, error) {
 				GoName(d.Name), goType(typeName, t.Name(), d, ov), d.Name,
 				jsonTag(d, wire), capTag(d, wire))
 			if c := d.Comment; c != "" {
-				fmt.Fprintf(b, " // %s", c)
+				fmt.Fprintf(b, " // %s", oneLine(c))
 			}
 			fmt.Fprintln(b)
 

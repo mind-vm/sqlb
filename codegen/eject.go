@@ -251,7 +251,7 @@ func ejectModels(opts EjectOptions, tables []*schema.TableDef) ([]byte, error) {
 		typeName := TypeName(t)
 		fmt.Fprintln(b)
 		if c := t.Comment(); c != "" {
-			fmt.Fprintf(b, "// %s %s\n", typeName, lowerFirst(c))
+			docLines(b, "", typeName+" "+lowerFirst(c))
 		} else {
 			fmt.Fprintf(b, "// %s is a row of %s.\n", typeName, t.Name())
 		}

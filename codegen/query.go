@@ -97,7 +97,7 @@ func renderQueryParams(b *bytes.Buffer, d queryDef) {
 		desc := f.Desc()
 		fmt.Fprintf(b, "\t%s %s `query:\"%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name, enumTag(desc))
 		if c := desc.Comment; c != "" {
-			fmt.Fprintf(b, " // %s", c)
+			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
 		fmt.Fprintln(b)
 	}
@@ -136,7 +136,8 @@ func renderQueries(b *bytes.Buffer, defs []queryDef) {
 		}
 		fmt.Fprintf(b, "\t// %s runs GET %s.\n", d.goName(), d.fullPath())
 		if desc := d.query.Description; desc != "" {
-			fmt.Fprintf(b, "\t//\n\t// %s\n", desc)
+			fmt.Fprintf(b, "\t//\n")
+			docLines(b, "\t", desc)
 		}
 		if reads := d.query.Reads; len(reads) > 0 {
 			names := make([]string, len(reads))

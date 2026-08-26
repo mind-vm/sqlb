@@ -100,6 +100,11 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// actions case — imports earned by a property rather than by a column,
 		// on a table whose own columns need none.
 		"createinput": {Registry: createInputCompileFixture()},
+		// Multi-paragraph descriptions and column comments (#326). Every
+		// declared string here reaches a doc comment, and a newline in one used
+		// to be written into it verbatim — valid prose, invalid Go, and the
+		// only case in this list that the emitter's own format.Source rejected.
+		"prose": {Registry: proseFixture()},
 	})
 }
 

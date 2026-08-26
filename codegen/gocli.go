@@ -302,7 +302,10 @@ func cliResourceSection(b *bytes.Buffer, r cliResource) {
 	fmt.Fprintf(b, "func new%sCommand(c *client.Client) *cobra.Command {\n", r.goPlural)
 	fmt.Fprintln(b, "\tcmd := &cobra.Command{")
 	fmt.Fprintf(b, "\t\tUse:   %q,\n", r.command)
-	fmt.Fprintf(b, "\t\tShort: %q,\n", strings.TrimSuffix(short, "."))
+	// Cobra prints Short beside the command name in one line of a listing, so
+	// a description written as a paragraph is flattened rather than carried
+	// through; cliListLong below is where its shape survives (#326).
+	fmt.Fprintf(b, "\t\tShort: %q,\n", oneLine(strings.TrimSuffix(short, ".")))
 	fmt.Fprintln(b, "\t}")
 	if r.ops.Has(schema.OpList) {
 		fmt.Fprintf(b, "\tcmd.AddCommand(new%sListCommand(c))\n", r.goPlural)

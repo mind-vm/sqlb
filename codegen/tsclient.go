@@ -1258,7 +1258,25 @@ func tsDoc(b *bytes.Buffer, indent, comment string) {
 	if comment == "" {
 		return
 	}
-	fmt.Fprintf(b, "%s/** %s */\n", indent, comment)
+	// A declared comment can be a paragraph. Rendered into a one-line `/** … */`
+	// it stays valid TypeScript — unlike the Go side, where the same string was
+	// a package that did not compile (#326) — but it is no longer JSDoc, and an
+	// editor renders it as one run-on line. The multi-line spelling is what
+	// every hand-written doc comment in the ecosystem uses.
+	lines := strings.Split(comment, "\n")
+	if len(lines) == 1 {
+		fmt.Fprintf(b, "%s/** %s */\n", indent, comment)
+		return
+	}
+	fmt.Fprintf(b, "%s/**\n", indent)
+	for _, line := range lines {
+		if line = strings.TrimRight(line, " \t\r"); line == "" {
+			fmt.Fprintf(b, "%s *\n", indent)
+			continue
+		}
+		fmt.Fprintf(b, "%s * %s\n", indent, line)
+	}
+	fmt.Fprintf(b, "%s */\n", indent)
 }
 
 // tsRule is a section divider, padded so the generated file has visible seams.

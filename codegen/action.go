@@ -122,7 +122,7 @@ func renderActionInput(b *bytes.Buffer, d actionDef) {
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name,
 			omitEmpty(optionalOnCreate(desc)), enumTag(desc))
 		if c := desc.Comment; c != "" {
-			fmt.Fprintf(b, " // %s", c)
+			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
 		fmt.Fprintln(b)
 	}
@@ -156,7 +156,7 @@ func renderActionResult(b *bytes.Buffer, d actionDef) {
 		fmt.Fprintf(b, "\t%s %s `json:\"%s%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name,
 			omitEmpty(optionalOnCreate(desc)), enumTag(desc))
 		if c := desc.Comment; c != "" {
-			fmt.Fprintf(b, " // %s", c)
+			fmt.Fprintf(b, " // %s", oneLine(c))
 		}
 		fmt.Fprintln(b)
 	}
@@ -221,7 +221,8 @@ func renderActions(b *bytes.Buffer, defs []actionDef) {
 		}
 		fmt.Fprintf(b, "\t// %s runs POST %s.\n", d.goName(), d.fullPath())
 		if desc := d.action.Description; desc != "" {
-			fmt.Fprintf(b, "\t//\n\t// %s\n", desc)
+			fmt.Fprintf(b, "\t//\n")
+			docLines(b, "\t", desc)
 		}
 		if w := d.action.Writes; len(w) > 0 {
 			fmt.Fprintf(b, "\t//\n\t// The envelope persists %s off this row afterwards, and nothing\n"+

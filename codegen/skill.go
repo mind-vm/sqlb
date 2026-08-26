@@ -722,7 +722,3 @@ func andList(items []string) string {
 	}
 	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
-
-// oneLine flattens whitespace, because a YAML frontmatter value spanning two
-// lines is a different document than the one intended.
-func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
