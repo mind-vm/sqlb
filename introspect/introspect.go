@@ -140,10 +140,19 @@ type constraintRow struct {
 	Columns  []string
 	RefTable string
 	RefCols  []string
-	OnDelete string // confdeltype
-	OnUpdate string // confupdtype
-	Expr     string // pg_get_expr of a CHECK
-	Def      string // pg_get_constraintdef, for reporting what was skipped
+	// RefSchema is the schema the referenced table lives in, and is empty
+	// whenever that is the schema being read — which is every foreign key in a
+	// database with one schema in it. Read as NULLIF against the constrained
+	// table's own namespace for that reason: what matters here is not where the
+	// target is but whether the key points *out*, and a row that answers the
+	// question directly is one no caller can forget to ask. A shared database
+	// makes it answer non-empty — public.profiles referencing auth.users in a
+	// Supabase project is the case that turns up first.
+	RefSchema string
+	OnDelete  string // confdeltype
+	OnUpdate  string // confupdtype
+	Expr      string // pg_get_expr of a CHECK
+	Def       string // pg_get_constraintdef, for reporting what was skipped
 
 	// Deferrable and Deferred are condeferrable and condeferred: whether the
 	// constraint may be deferred, and whether it is by default.
@@ -260,11 +269,13 @@ SELECT c.relname, con.conname, con.contype::text,
        con.confdeltype::text, con.confupdtype::text,
        COALESCE(pg_get_expr(con.conbin, con.conrelid), ''),
        pg_get_constraintdef(con.oid),
-       con.condeferrable, con.condeferred
+       con.condeferrable, con.condeferred,
+       COALESCE(NULLIF(fn.nspname, n.nspname), '')
 FROM pg_constraint con
 JOIN pg_class c ON c.oid = con.conrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
 LEFT JOIN pg_class ft ON ft.oid = con.confrelid
+LEFT JOIN pg_namespace fn ON fn.oid = ft.relnamespace
 LEFT JOIN LATERAL (
   SELECT string_agg(a.attname, ',' ORDER BY u.ord) AS cols
   FROM unnest(con.conkey) WITH ORDINALITY AS u(attnum, ord)
@@ -352,7 +363,7 @@ func read(ctx context.Context, db sqlb.Executor, nspname string) (*catalog, erro
 		var cols, refCols string
 		if err := rows.Scan(&r.Table, &r.Name, &r.Type, &cols, &r.RefTable, &refCols,
 			&r.OnDelete, &r.OnUpdate, &r.Expr, &r.Def,
-			&r.Deferrable, &r.Deferred); err != nil {
+			&r.Deferrable, &r.Deferred, &r.RefSchema); err != nil {
 			return err
 		}
 		r.Columns, r.RefCols = splitList(cols), splitList(refCols)

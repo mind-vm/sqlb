@@ -271,7 +271,7 @@ func constraintHazard(table string, c constraint) (lock, hazard string) {
 		// Both tables are locked against writes: the referencing one is
 		// scanned, and the referenced one has to hold still while it is.
 		return lockShareRowExclusive, "checking that every row of " + table +
-			" already points at a row of " + c.ref.table + " blocks writes to both " +
+			" already points at a row of " + c.ref.qualified() + " blocks writes to both " +
 			"tables until it finishes. " + notValidRemedy
 	case c.unique:
 		return lockAccessExclusive, "the unique constraint is enforced by an index, " +
@@ -404,7 +404,7 @@ func hasForeignKey(d *schema.FieldDesc) bool {
 		return false
 	}
 	if d.Ref.External {
-		_, _, ok := d.Ref.EnforcedTarget()
+		_, _, _, ok := d.Ref.EnforcedTarget()
 		return ok
 	}
 	return d.Ref.Table != nil
@@ -530,14 +530,34 @@ type constraint struct {
 // fkRef is a foreign key's parts, kept apart so a rename can re-render it.
 type fkRef struct {
 	column    string // the constrained column, in this table
+	schema    string // the referenced table's schema; empty for this one
 	table     string // the referenced table
 	refColumn string // the referenced column, in that table
 	actions   string // " ON DELETE CASCADE" and the like; no identifiers in it
 }
 
+// qualified is the referenced table as prose names it: unquoted, and carrying
+// the schema only when the declaration did.
+func (r fkRef) qualified() string {
+	if r.schema == "" {
+		return r.table
+	}
+	return r.schema + "." + r.table
+}
+
+// target renders the referenced table for DDL, qualified only when the
+// declaration qualified it. An unqualified name is left to the search path,
+// which is what every other identifier this package renders already does.
+func (r fkRef) target() string {
+	if r.schema == "" {
+		return quoteIdent(r.table)
+	}
+	return quoteIdent(r.schema) + "." + quoteIdent(r.table)
+}
+
 func (r fkRef) render() string {
 	return fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s (%s)%s",
-		quoteIdent(r.column), quoteIdent(r.table), quoteIdent(r.refColumn), r.actions)
+		quoteIdent(r.column), r.target(), quoteIdent(r.refColumn), r.actions)
 }
 
 // renamed returns the constraint as it will read once cols and tables have been
@@ -565,7 +585,13 @@ func (c constraint) renamed(cols, tables map[string]string) constraint {
 	if c.ref != nil {
 		r := *c.ref
 		r.column = rename(cols, r.column)
-		r.table = rename(tables, r.table)
+		// A rename map names tables in the schema being migrated, so a target
+		// in another one is not in it — and a table there sharing a name with
+		// one being renamed here would otherwise be rewritten to a name its
+		// own schema has never had.
+		if r.schema == "" {
+			r.table = rename(tables, r.table)
+		}
 		c.ref = &r
 		c.def = r.render()
 		return c
@@ -841,12 +867,13 @@ func quoteList(cols []string) string {
 
 func foreignKeyRef(d *schema.FieldDesc) fkRef {
 	r := d.Ref
-	var table, col string
+	var refSchema, table, col string
 	if r.External {
 		// The target is a name rather than a declaration, which is the point:
 		// the constraint can be emitted without the target table being in this
-		// schema at all.
-		table, col, _ = r.EnforcedTarget()
+		// schema at all — and "auth.users.id" says so outright, for a target in
+		// a schema this application shares the database with but does not own.
+		refSchema, table, col, _ = r.EnforcedTarget()
 	} else {
 		table, col = r.Table.Name(), r.Column
 		if col == "" {
@@ -855,7 +882,7 @@ func foreignKeyRef(d *schema.FieldDesc) fkRef {
 			}
 		}
 	}
-	out := fkRef{column: d.Name, table: table, refColumn: col}
+	out := fkRef{column: d.Name, schema: refSchema, table: table, refColumn: col}
 	// NO ACTION is the Postgres default, so emitting it would only add noise
 	// and make a diff against an introspected schema look like a change.
 	if r.OnDelete != "" && r.OnDelete != schema.NoAction {

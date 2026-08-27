@@ -172,6 +172,10 @@ type ColumnManifest struct {
 // though the database does not.
 type RefManifest struct {
 	Relation string `json:"relation"`
+	// Schema is the target's schema, and is present only for an enforced
+	// external reference that named one — "auth.users.id". Empty means the
+	// table is in this schema, which is every other reference there is.
+	Schema   string `json:"schema,omitempty"`
 	Table    string `json:"table,omitempty"`
 	Column   string `json:"column,omitempty"`
 	OnDelete string `json:"onDelete,omitempty"`
@@ -383,11 +387,12 @@ func (t *TableDef) manifest(inverses []InverseRelation, wire WireCase) TableMani
 			// declared Enforced, and then the manifest names the table and
 			// column that constraint points at — a reader auditing the
 			// boundary wants to know which of the two kinds this is.
-			table, column, enforced := d.Ref.EnforcedTarget()
+			refSchema, table, column, enforced := d.Ref.EnforcedTarget()
 			cm.References = &RefManifest{
 				Relation: d.Ref.Name,
 				External: true,
 				Target:   d.Ref.Target,
+				Schema:   refSchema,
 				Table:    table,
 				Column:   column,
 				Enforced: enforced,

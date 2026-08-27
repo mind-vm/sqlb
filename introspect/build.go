@@ -217,7 +217,13 @@ func dependencyOrder(cat *catalog, byTable map[string]*tableParts, rep *Report) 
 	for _, n := range names {
 		seen := map[string]bool{}
 		for _, c := range byTable[n].constraints {
-			if c.Type != "f" || c.RefTable == "" || c.RefTable == n || seen[c.RefTable] {
+			// RefSchema is set only for a key pointing out of the schema
+			// being read, and such a key is not an edge here however its
+			// target is spelled: nothing orders a table this import will
+			// never build, and treating it as one would let auth.users
+			// impose an order on a local users of the same name — or close
+			// a cycle that does not exist.
+			if c.Type != "f" || c.RefSchema != "" || c.RefTable == "" || c.RefTable == n || seen[c.RefTable] {
 				continue
 			}
 			seen[c.RefTable] = true
@@ -742,7 +748,13 @@ func newField(col columnRow, t schema.Type, typeArg, scale int, isArray bool, co
 		// it would leave the registry missing a column the database has, which
 		// makes the next Diff propose adding a column that exists, or dropping
 		// one that is load-bearing.
-		if target := built[fk.RefTable]; target != nil {
+		// A key that points out of the schema being read is never one of the
+		// tables in built, however alike the two names are: a Supabase project
+		// has both public.users and auth.users, and matching on the bare name
+		// would declare a reference to the wrong one — silently, and with a
+		// constraint that would then be re-pointed at the local table by the
+		// first migration generated from it.
+		if target := built[fk.RefTable]; target != nil && fk.RefSchema == "" {
 			return refField(col, fk, target, rep, table)
 		}
 		if f := externalRefField(col, fk, t); f != nil {
@@ -762,11 +774,11 @@ func newField(col columnRow, t schema.Type, typeArg, scale int, isArray bool, co
 			// ExternalRef wants and the import did not (issue #82). Both sides
 			// now produce the same field, so they agree by construction.
 			return f
-		} else if fk.RefTable == table {
+		} else if fk.RefTable == table && fk.RefSchema == "" {
 			rep.add(table, col.Name, "self-referential foreign key whose target column "+
 				"cannot be declared; the column is imported without it", fk.Def)
 		} else {
-			rep.add(table, col.Name, "foreign key points at "+fk.RefTable+
+			rep.add(table, col.Name, "foreign key points at "+qualify(fk)+
 				", which is not in the schema being read, and its column or table name "+
 				"cannot be declared; the column is imported without it", fk.Def)
 		}
@@ -784,6 +796,16 @@ func newField(col columnRow, t schema.Type, typeArg, scale int, isArray bool, co
 	return plainField(col.Name, t, typeArg, scale)
 }
 
+// qualify names a foreign key's target the way a declaration has to spell it:
+// bare when the target is in the schema being read, and schema-qualified when
+// the key points out of it.
+func qualify(fk constraintRow) string {
+	if fk.RefSchema == "" {
+		return fk.RefTable
+	}
+	return fk.RefSchema + "." + fk.RefTable
+}
+
 // externalRefField imports a foreign key whose target is not in the schema
 // being read, as an enforced external reference.
 //
@@ -796,12 +818,12 @@ func externalRefField(col columnRow, fk constraintRow, t schema.Type) *schema.Fi
 	if len(fk.RefCols) != 1 {
 		return nil
 	}
-	target := fk.RefTable + "." + fk.RefCols[0]
+	target := qualify(fk) + "." + fk.RefCols[0]
 	f := schema.ExternalRef(relationName(col.Name), target).Enforced().OfType(t)
 	if f.Name() != col.Name {
 		f.Named(col.Name)
 	}
-	if _, _, ok := f.Desc().Ref.EnforcedTarget(); !ok {
+	if _, _, _, ok := f.Desc().Ref.EnforcedTarget(); !ok {
 		return nil
 	}
 	if onDelete, ok := referentialAction(fk.OnDelete); ok {

@@ -467,7 +467,7 @@ func TestSelfReferentialForeignKeyKeepsItsColumn(t *testing.T) {
 		t.Errorf("a self-reference must import as an ExternalRef, since that is the only " +
 			"spelling a declaration can use")
 	}
-	target, col, enforced := found.Ref.EnforcedTarget()
+	_, target, col, enforced := found.Ref.EnforcedTarget()
 	if !enforced || target != "employees" || col != "id" {
 		t.Errorf("EnforcedTarget() = %q,%q,%v; want employees,id,true", target, col, enforced)
 	}
@@ -560,7 +560,7 @@ func TestBuildBreaksAForeignKeyCycleWithAnExternalRef(t *testing.T) {
 			}
 			if ref.External {
 				external++
-				if _, _, ok := ref.EnforcedTarget(); !ok {
+				if _, _, _, ok := ref.EnforcedTarget(); !ok {
 					t.Errorf("%s.%s imported as an unenforced ExternalRef, so the live "+
 						"foreign key would be proposed for deletion", name, f.Desc().Name)
 				}

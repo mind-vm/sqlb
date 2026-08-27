@@ -201,7 +201,7 @@ func TestForeignKeyIntoAnExcludedTableSurvivesAsEnforced(t *testing.T) {
 	if ref == nil || !ref.Enforced {
 		t.Fatalf("the foreign key should survive as an enforced external reference, got %+v", ref)
 	}
-	if table, column, _ := ref.EnforcedTarget(); table != "organizations" || column != "id" {
+	if _, table, column, _ := ref.EnforcedTarget(); table != "organizations" || column != "id" {
 		t.Errorf("target = %s.%s, want organizations.id", table, column)
 	}
 }

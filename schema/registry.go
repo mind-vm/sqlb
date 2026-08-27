@@ -332,11 +332,12 @@ func (r *Registry) Validate() error {
 				// unlike the unenforced form its target has to be one. A
 				// module-qualified name is not: the FOREIGN KEY would be
 				// written against a table nothing in this database is called.
-				if _, _, ok := d.Ref.EnforcedTarget(); d.Ref.Enforced && !ok {
+				if _, _, _, ok := d.Ref.EnforcedTarget(); d.Ref.Enforced && !ok {
 					report(t.name, d.Name,
 						"Enforced needs a target naming a table in this database, and %q is not one; "+
-							"write it as \"organizations.id\" or \"organizations\" — a module-qualified target "+
-							"cannot carry a real foreign key, which is the whole of what a module boundary means",
+							"write it as \"organizations.id\", \"organizations\", or \"auth.users.id\" for a "+
+							"table in another schema — a module-qualified target cannot carry a real foreign "+
+							"key, which is the whole of what a module boundary means",
 						d.Ref.Target)
 				}
 			}

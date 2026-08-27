@@ -690,11 +690,21 @@ func ExternalRef(relation, target string) *Field {
 // sqlb owned the DDL, would propose actually dropping it (issue #55).
 //
 // The target is still not resolved: it is a name, and the constraint is emitted
-// against that name. Two forms are accepted — "organizations.id" names the
-// table and the column, and a bare "organizations" means its "id". A
+// against that name. Three forms are accepted — "organizations.id" names the
+// table and the column, a bare "organizations" means its "id", and
+// "auth.users.id" names a table in another schema of the same database. A
 // module-qualified target ("platform/users.users.id") cannot be enforced,
-// because a constraint has to name a table in this database, and neither can a
-// schema-qualified one, which this spelling has no room for.
+// because a constraint has to name a table in this database.
+//
+// The schema-qualified form is for an application that shares its database
+// with a platform's own schemas and does not own them — a Supabase project's
+// public tables referencing auth.users is the case that turns up first, and
+// [introspect] imports such a key back as this same spelling, so the round
+// trip is a fixpoint rather than a constraint the next diff proposes dropping.
+// It obliges every database the DDL reaches to already have that schema in it,
+// including the scratch database `sqlb migrate` replays the history into:
+// nothing here creates it, and the replay fails on the migration that first
+// names it. docs/supabase.md is the arrangement that keeps the two alike.
 //
 // # What this gives up
 //
@@ -709,6 +719,7 @@ func ExternalRef(relation, target string) *Field {
 // not give this schema the target's columns, so `?expand` has nothing to build
 // a join from.
 //
+// [introspect]: https://pkg.go.dev/github.com/mind-vm/sqlb/introspect
 // [ADR-0015]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#module-isolation
 func (f *Field) Enforced() *Field {
 	if f.d.Ref != nil {
@@ -718,33 +729,42 @@ func (f *Field) Enforced() *Field {
 }
 
 // EnforcedTarget resolves an enforced external reference's target into the
-// table and column a FOREIGN KEY names.
+// schema, table and column a FOREIGN KEY names.
 //
 // "organizations.id" is a table and a column; a bare "organizations" is that
 // table's "id", which is the convention every other part of this DSL already
-// assumes. Anything else — a module-qualified target, an empty one, more than
-// one dot — reports false, and Validate turns that into an error naming the two
-// forms rather than emitting a constraint against a guess.
-func (r *Reference) EnforcedTarget() (table, column string, ok bool) {
+// assumes; and "auth.users.id" names the schema the table lives in as well.
+// schemaName is empty for the two unqualified forms, which leaves the target to
+// the search path exactly as every other name this package renders does.
+//
+// Anything else — a module-qualified target, an empty one, more than two dots —
+// reports false, and Validate turns that into an error naming the forms rather
+// than emitting a constraint against a guess.
+func (r *Reference) EnforcedTarget() (schemaName, table, column string, ok bool) {
 	if r == nil || !r.Enforced {
-		return "", "", false
+		return "", "", "", false
 	}
 	target := strings.TrimSpace(r.Target)
 	if target == "" || strings.Contains(target, "/") {
-		return "", "", false
+		return "", "", "", false
 	}
 	switch parts := strings.Split(target, "."); len(parts) {
 	case 1:
 		table, column = parts[0], "id"
 	case 2:
 		table, column = parts[0], parts[1]
+	case 3:
+		schemaName, table, column = parts[0], parts[1], parts[2]
 	default:
-		return "", "", false
+		return "", "", "", false
 	}
 	if !isIdent(table) || !isIdent(column) {
-		return "", "", false
+		return "", "", "", false
 	}
-	return table, column, true
+	if schemaName != "" && !isIdent(schemaName) {
+		return "", "", "", false
+	}
+	return schemaName, table, column, true
 }
 
 // OfType overrides the column type, for an external reference whose target is

@@ -45,7 +45,7 @@ func TestForeignKeyOutOfSchemaImportsAsEnforced(t *testing.T) {
 	case !ref.Enforced:
 		t.Error("the constraint is real, and an unenforced reference would diff as a drop")
 	}
-	if table, column, ok := ref.EnforcedTarget(); !ok || table != "organizations" || column != "id" {
+	if _, table, column, ok := ref.EnforcedTarget(); !ok || table != "organizations" || column != "id" {
 		t.Errorf("target = %s.%s (ok=%t), want organizations.id", table, column, ok)
 	}
 	if ref.OnDelete != schema.Cascade {
@@ -90,7 +90,7 @@ func TestEnforcedExternalRefKeepsTheColumnType(t *testing.T) {
 	if d.Type != schema.TypeBigInt {
 		t.Errorf("type = %s, want bigint", d.Type)
 	}
-	if _, column, _ := d.Ref.EnforcedTarget(); column != "account_id" {
+	if _, _, column, _ := d.Ref.EnforcedTarget(); column != "account_id" {
 		t.Errorf("referenced column = %q, want account_id — a foreign key need not point at a primary key", column)
 	}
 	// A name that is not the convention is pinned, or the diff renames a live
