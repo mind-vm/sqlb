@@ -18,6 +18,7 @@ than three guesses.
 | Keep stock sqlc output, unedited | [Alongside sqlc](../with-sqlc.md) — which queries belong on which side |
 | Move one sqlc endpoint across | [Refactoring a sqlc endpoint](../refactoring-from-sqlc.md) — four stages, and you can stop after any of them |
 | Find out how much of my codebase would move | [Surveying a codebase](../surveying-a-codebase.md) — counting the endpoints before committing to any of it |
+| Run it against a Supabase project | [Running sqlb on Supabase](../supabase.md) — which connection each component needs, and who authorizes what |
 | Decide whether to adopt it at all | [How sqlb compares](../comparisons.md), then [Compatibility](../compatibility.md) |
 
 ## Declaring and changing a schema
@@ -26,6 +27,7 @@ than three guesses.
 |---|---|
 | Decide what a column should let clients do | [Capabilities](../schema/capabilities.md) — nothing is filterable, sortable or selectable unless it says so |
 | Point one table at another | [References and relations](../schema/references.md) |
+| Key a row to a table in a schema I do not own | [Running sqlb on Supabase](../supabase.md#declaring-a-table-keyed-to-authusers) — `ExternalRef("user", "auth.users.id").Enforced()`, and what it obliges the shadow database to have |
 | Ship a library that declares its own tables | [A library that ships tables](../schema/libraries.md) — declare into the host's registry, never own the migrations |
 | Follow the project's schema conventions | [Schema and API practices](../best-practices.md) — each marked Enforced or Recommended |
 | Ship a schema edit to a running database | [Rolling out a migration](../migrations/rollout.md) |
@@ -47,6 +49,7 @@ than three guesses.
 |---|---|
 | Use my own router or middleware | [Bringing your own router](../rest/README.md#bringing-your-own-router) |
 | Find out who is calling, and scope the query to them | [Authenticating a request](../rest/auth.md) — the identity seam, then [Hooks](../queries/hooks.md) |
+| Verify a Supabase Auth token | [Running sqlb on Supabase](../supabase.md#authentication) — the adapter, and why a project's anon key must be refused |
 | Resolve a tenant or role from a header, not just the token | [Identity is one stage; enrichment is another](../rest/auth.md#identity-is-one-stage-enrichment-is-another) |
 | Offer something CRUD does not cover | [Actions](../rest/actions.md) |
 | Return a score, a count or a token from a verb | [What the verb answers with](../rest/actions.md#what-the-verb-answers-with) — a declared result, instead of the row or a 204 |

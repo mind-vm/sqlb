@@ -210,6 +210,12 @@ const SOURCES = [
       "with-sqlc.md",
       "refactoring-from-sqlc.md",
       "surveying-a-codebase.md",
+      // After the sqlc trio because it is the same kind of page one platform
+      // over: how sqlb sits beside something a project already has. It is the
+      // only one of these that is also an operational document — which
+      // connection each component needs, what the shadow database has to be —
+      // so it publishes rather than staying a checkout-only note.
+      "supabase.md",
       "review-adoption-readiness.md",
     ],
     order(slug) {

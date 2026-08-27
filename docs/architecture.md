@@ -4086,3 +4086,55 @@ shape that would take is a declared result with a property whose type is the
 model, and it is not built: the cases collected so far each want one or the
 other, and a response type that sometimes embeds a row is the thing that makes
 a generated client's return type conditional.
+
+### A foreign key may name another schema
+
+An enforced external reference used to accept a table name and nothing more, and
+said so: a schema-qualified target was refused because "this spelling has no
+room for it". That was right while the assumption behind it held — one
+application, one schema, everything it references declared by it or adjacent to
+it. A managed platform breaks the assumption rather than bending it. On Supabase
+the identity rows live in `auth.users`, an application's own rows are keyed to
+them, and the canonical shape of the very first table anybody declares there is
+a foreign key into a schema the application does not own and must never migrate.
+
+Three spellings were available and each was worse. An unenforced `ExternalRef`
+drops a constraint the database has, which is the drift
+[issue #55](https://github.com/mind-vm/sqlb/issues/55) already named: the diff
+proposes removing it forever. Hand-writing the constraint in a migration and
+leaving the declaration silent moves the same drift one file over, since the
+next diff still cannot see it. Declaring a local `users` table to point at is
+the worst, because it type-checks: the database has two tables that answer to
+that name, and the wrong one is the one in reach.
+
+So the target takes a third part — `ExternalRef("user", "auth.users.id")` — and
+every layer carries it: `Diff` renders `REFERENCES "auth"."users" ("id")` with
+the halves quoted separately, a rename map is applied only to a target in the
+schema being migrated, and `introspect` reads the referenced namespace and hands
+back the same qualified spelling, so the round trip is a fixpoint. The
+introspection half fixes a bug rather than adding a feature: a key into another
+schema was matched to a local table *by bare name*, so a project with both
+`public.users` and `auth.users` imported a reference to the wrong one silently,
+and the first migration generated from that import would have re-pointed a live
+constraint at this application's table. `pgtest/crossschema_test.go` runs the
+whole path against a real Postgres, and with the qualification removed it fails
+by reporting that the key points at `public.users`.
+
+What this costs is an obligation that leaves the database sqlb can see. A
+qualified target names a schema nothing here creates, so every database the DDL
+reaches must already have it — the shadow database `sqlb migrate` replays into
+most of all, where the failure is a replay that stops on the migration naming
+it. That is documentation rather than a check, because the target schema is
+outside what any part of this project reads:
+[docs/supabase.md](supabase.md#the-shadow-database) says what to point the
+shadow DSN at. `introspect` still reads one schema, so the target is a name on
+both sides and stays unresolved: no expansion, no type inference from the
+target's key, nothing the DSL could offer without reading a schema it has
+deliberately not been asked for.
+
+Revisit if a second platform wants the same shape with a *different* obligation
+— a target schema that has to be created rather than assumed, which would make
+`CREATE SCHEMA` a change `Diff` emits and put the ownership question back on the
+table. Or if the target's own columns are ever wanted here, which is the point
+at which reading more than one schema stops being a feature request and becomes
+a change to what a registry is.

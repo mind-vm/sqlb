@@ -177,6 +177,7 @@ Not built yet, in the order they matter: an MCP server over the manifest.
 | [Schema](docs/schema/README.md) · [Queries](docs/queries/README.md) · [REST](docs/rest/README.md) · [TypeScript](docs/typescript/README.md) · [Dart](docs/dart/README.md) · [CLI](docs/cli/README.md) · [Migrations](docs/migrations/README.md) | One section per surface |
 | [Examples](docs/examples/README.md) | Six worked applications, and what each one proves |
 | [Reference](docs/reference/README.md) | Filter operators, column types, capabilities, codegen options, CLI, rejections |
+| [Supabase](docs/supabase.md) | Running sqlb against a Supabase project: which connection each component needs, keying a row to `auth.users`, and who authorizes what |
 | [Architecture](docs/architecture.md) | How the pieces fit, the request path, where safety lives |
 | [Decision records](docs/architecture.md#decisions) | What was decided, why, and what would change our mind |
 | [`example/recipes`](example/recipes/) | Eighty-odd small examples, one file per aspect — the place to look when you know what you are building and need to know how one piece is spelled |

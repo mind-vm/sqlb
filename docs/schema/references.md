@@ -110,6 +110,27 @@ means its `id`. A module-qualified target is refused, because a constraint has t
 name a table in this database and being unable to is the whole of what a module
 boundary means.
 
+### A target in another schema
+
+A third form names the schema, for a database this application shares with a
+platform that owns schemas of its own:
+
+```go
+schema.ExternalRef("user", "auth.users.id").Enforced().OnDelete(schema.Cascade)
+```
+
+That renders `REFERENCES "auth"."users" ("id")`, and `introspect` reads such a
+key back in the same spelling rather than binding it to a same-named local table
+— a distinction a Supabase project needs, since it usually has both an
+`auth.users` and a `users` of its own
+([a foreign key may name another schema](../architecture.md#a-foreign-key-may-name-another-schema)).
+
+The obligation it takes on is that **nothing here creates that schema**. Every
+database the generated DDL reaches has to have it already, the scratch database
+`sqlb migrate` replays the history into included — see
+[Running sqlb on Supabase](../supabase.md#the-shadow-database), which is where
+this form is usually wanted.
+
 It gives up exactly what the paragraph above bought: two modules joined this way
 can no longer be migrated or deployed independently, and neither can move to its
 own database without dropping the constraint. That is the right trade when both
