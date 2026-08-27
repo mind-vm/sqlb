@@ -118,6 +118,7 @@ These are reported by `Validate()`, all at once rather than one per run.
 | `computed-without-index` | A computed column marked filterable or sortable, which evaluates the expression per candidate row and no index can serve |
 | `raw-default-has-helper` | A `Default(Expr(…))` spelling out what a helper renders on one Postgres version, so the declaration has answered a question the helper was still asking |
 | `text-required-on-create` | A `Text` column with no default and not nullable, so create requires it — correct far more often than not, and worth knowing before the 422 |
+| `default-disagrees-with-zero` | A bool or numeric default that is not the column's Go zero value, so a direct `InsertRows` leaving the field at zero writes the default instead |
 | `list-without-sort` | A list endpoint with no sortable column, so every client gets primary-key order and none can ask for another |
 | `list-without-filters` | A list endpoint with nothing filterable |
 | `no-max-page-size` | No `MaxPageSize`, so the package default applies as the hard ceiling |

@@ -2,6 +2,7 @@ package schema
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -63,6 +64,53 @@ func (ds Diagnostics) Warnings() Diagnostics {
 		}
 	}
 	return out
+}
+
+// zeroForType reports whether a literal default is the Go zero value of the
+// column's type, which is what decides whether writing that zero is
+// distinguishable from leaving the field alone.
+//
+// Only bool and the numerics are answered; everything else reports true, which
+// reads as "nothing to say" and keeps the rule above off the types where the
+// zero is rarely the value anybody meant. A default declared with a helper —
+// Now, GenUUIDv7 — has no literal at all and never reaches here.
+func zeroForType(d *FieldDesc) bool {
+	if d.Array {
+		// The default is an array literal and the zero is a nil slice; a
+		// caller writing an empty array through a direct insert is a case
+		// nobody has reported, and guessing at it would be noise.
+		return true
+	}
+	switch d.Type {
+	case TypeBool:
+		b, ok := d.Default.Value.(bool)
+		return !ok || !b
+	case TypeSmallInt, TypeInt, TypeBigInt, TypeReal, TypeFloat, TypeNumeric:
+		return isZeroNumber(d.Default.Value)
+	}
+	return true
+}
+
+// isZeroNumber reports whether v is a numeric zero, whatever width or
+// signedness the declaration wrote it in. reflect rather than a type switch
+// over eleven cases, since the question is about the value and not the spelling.
+func isZeroNumber(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return rv.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return rv.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return rv.Float() == 0
+	}
+	// A numeric column defaulted to something that is not a Go number — a
+	// string literal for a numeric(12,2), which is how a caller avoids float
+	// rounding. Not classified rather than guessed.
+	return true
 }
 
 // alreadyNamed reports whether some earlier rule has already told the reader to
@@ -146,6 +194,45 @@ func (r *Registry) Lint() Diagnostics {
 						"this is correct if a value must always be given, and worth a second look only if " +
 						"callers were expected to be able to leave it blank",
 					Fix: `if blank should be allowed, add .Default(schema.Value("")) or .Nullable(); otherwise no change is needed`,
+				})
+			}
+
+			// A default that disagrees with the column's Go zero value, which
+			// is the set where Insert's default-omitting rule changes what a
+			// zero means: the column is dropped from the statement and the
+			// database's value applies, so an explicitly written zero becomes
+			// the default instead (#304).
+			//
+			// Scoped to bool and the numerics rather than to every non-zero
+			// default the issue names, and the split is about how often the
+			// zero is the value somebody meant. A bool has two values, so
+			// Default(Value(true)) makes false both "not set" and the entire
+			// other half of the type — the reported case cost six agreeing
+			// tests, because the fixtures said draft and the table said
+			// published. A numeric zero is meant sometimes: a quantity of
+			// none, a score of nothing. A defaulted string's "" almost never
+			// is, and a rule firing on every `status` column defaulting to
+			// "draft" would be the noise that gets a linter switched off.
+			//
+			// The generated create path no longer has this problem — the
+			// request body knows which fields it carried and says so (#314) —
+			// so what is left is a direct InsertRows, which is what the fix
+			// names.
+			if d.Default != nil && d.Default.Raw == "" && !d.Nullable && !zeroForType(d) {
+				sev, why := SeverityInfo, "zero"
+				if d.Type == TypeBool {
+					sev, why = SeverityWarn, "false"
+				}
+				add(Diagnostic{
+					Rule: "default-disagrees-with-zero", Table: t.name, Column: d.Name,
+					Severity: sev,
+					Message: fmt.Sprintf(
+						"the default %v is not this column's Go zero value, so a direct sqlb.InsertRows "+
+							"that leaves the field at %s omits the column and writes the default instead",
+						d.Default.Value, why),
+					Fix: fmt.Sprintf(
+						"nothing to change in the schema; a caller meaning to write %s says so with "+
+							"Explicit(%q), and a generated create already does", why, d.Name),
 				})
 			}
 

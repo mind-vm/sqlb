@@ -528,3 +528,108 @@ func TestLintOnlyLeansOnTheScopeOfAnExposedTable(t *testing.T) {
 	}
 	t.Fatalf("no unindexed-filter diagnostic:\n%s", r.Lint())
 }
+
+// findRule returns the one diagnostic for rule, failing with the whole set if
+// there is not exactly one — which says more than an index out of range.
+func findRule(t *testing.T, ds schema.Diagnostics, rule string) schema.Diagnostic {
+	t.Helper()
+	var found []schema.Diagnostic
+	for _, d := range ds {
+		if d.Rule == rule {
+			found = append(found, d)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("want exactly one %q diagnostic, got %d:\n%v", rule, len(found), ds)
+	}
+	return found[0]
+}
+
+// A default that disagrees with the column's Go zero value (#304).
+//
+// This is the set where Insert's default-omitting rule changes what a zero
+// means: the column leaves the statement and the database's value applies, so
+// an explicitly written zero is replaced by the default. The reported case cost
+// six tests that agreed with each other about the wrong thing — every draft was
+// created on sale, so the fixtures described a catalog state that did not exist.
+func TestLintCatchesABoolDefaultingAgainstItsZero(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("offerings",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Bool("active").Default(schema.Value(true)),
+	)
+
+	d := findRule(t, r.Lint(), "default-disagrees-with-zero")
+	if d.Column != "active" {
+		t.Errorf("rule fired on %q, want active", d.Column)
+	}
+	// A warning, not an info: this is the one shape where the zero is not
+	// merely a value somebody might have meant but the entire other half of
+	// the type.
+	if d.Severity != schema.SeverityWarn {
+		t.Errorf("severity = %v, want warn", d.Severity)
+	}
+	// The fix has to name the escape hatch, since there is nothing to change
+	// in the schema — the declaration is right and the caller is the one who
+	// has to say the zero is meant.
+	if !strings.Contains(d.Fix, "Explicit") {
+		t.Errorf("the fix should name Explicit: %q", d.Fix)
+	}
+}
+
+// The other direction, and the reason the rule is keyed on the value rather
+// than on "has a default": a default that agrees with the zero is invisible to
+// Insert's rule, and warning about it would be noise on the most common
+// declaration there is.
+func TestLintIsQuietWhenTheDefaultIsTheZero(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("offerings",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Bool("archived").Default(schema.Value(false)),
+		schema.Int("views").Default(schema.Value(0)),
+		schema.Timestamp("created_at").Default(schema.Now()),
+	)
+
+	for _, d := range r.Lint() {
+		if d.Rule == "default-disagrees-with-zero" {
+			t.Errorf("rule fired on a default that is the zero value: %s.%s", d.Table, d.Column)
+		}
+	}
+}
+
+// A defaulted string is deliberately not linted. Writing "" is almost never
+// what a caller meant, and a rule firing on every status column defaulting to
+// "draft" is the noise that gets a linter switched off — so the rule is scoped
+// to the types where the zero is a value somebody plausibly means.
+func TestLintDoesNotFireOnADefaultedString(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("posts",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Enum("status", "draft", "published").Default(schema.Value("draft")),
+		schema.Varchar("kind", 20).Default(schema.Value("workshop")),
+	)
+
+	for _, d := range r.Lint() {
+		if d.Rule == "default-disagrees-with-zero" {
+			t.Errorf("rule fired on a defaulted string: %s.%s", d.Table, d.Column)
+		}
+	}
+}
+
+// A numeric zero is meant sometimes — a quantity of none, a score of nothing —
+// so it is reported, at info rather than warn.
+func TestLintNotesANumericDefaultingAgainstItsZero(t *testing.T) {
+	r := schema.NewRegistry()
+	r.Table("orders",
+		schema.UUIDv7("id").PrimaryKey(),
+		schema.Int("retries").Default(schema.Value(3)),
+	)
+
+	d := findRule(t, r.Lint(), "default-disagrees-with-zero")
+	if d.Column != "retries" {
+		t.Errorf("rule fired on %q, want retries", d.Column)
+	}
+	if d.Severity != schema.SeverityInfo {
+		t.Errorf("severity = %v, want info", d.Severity)
+	}
+}
