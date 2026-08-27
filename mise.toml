@@ -151,6 +151,12 @@ run = '''
 cd "$MISE_PROJECT_ROOT/example/auth-workos" && go test ./...
 '''
 
+[tasks.test-auth-supabase]
+description = "Run the Supabase adapter's suite. Database-free and network-free, like test-auth-workos: tokens are minted in the test against a freshly generated key and the asymmetric half verifies against an in-memory JWKS, so no live project is reached. What it gates that a JWT suite usually does not is the refusal a Supabase project needs most — the anon key is a JWT signed by the same project and published in every browser bundle, so a verifier checking only the signature accepts it as a logged-in caller."
+run = '''
+cd "$MISE_PROJECT_ROOT/example/auth-supabase" && go test ./...
+'''
+
 [tasks.test-attachments]
 description = "Run the presigned-upload example's suite. Database-free and bucket-free, like test-auth-workos: the flow runs against sqlbtest's scripted Executor and an httptest endpoint holding objects in a map, so what it gates is the ordering — a row before the bytes, an object removed only after the commit — rather than anything a container would answer. The signature is gated against aws-sdk-go-v2's, pinned as a golden. The suite that needs real storage skips unless SQLB_TEST_S3_ENDPOINT names one; example/attachments/README.md has the RustFS and MinIO invocations."
 run = '''
@@ -259,6 +265,7 @@ cd "$MISE_PROJECT_ROOT/pgtest" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/tasks" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/fxapp" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/auth-workos" && go vet ./...
+cd "$MISE_PROJECT_ROOT/example/auth-supabase" && go vet ./...
 cd "$MISE_PROJECT_ROOT/example/attachments" && go vet ./...
 '''
 
@@ -271,6 +278,7 @@ cd "$MISE_PROJECT_ROOT/pgtest" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/tasks" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/fxapp" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/auth-workos" && golangci-lint run
+cd "$MISE_PROJECT_ROOT/example/auth-supabase" && golangci-lint run
 cd "$MISE_PROJECT_ROOT/example/attachments" && golangci-lint run
 '''
 
@@ -374,7 +382,7 @@ mise run heal
 # that need nothing but Go still pass. Every module, because `heal` regenerates
 # code the examples compile against and a break there is invisible from the root.
 echo
-for mod in . pgtest example/tasks example/fxapp example/auth-workos example/attachments; do
+for mod in . pgtest example/tasks example/fxapp example/auth-workos example/auth-supabase example/attachments; do
   (cd "$MISE_PROJECT_ROOT/$mod" && go build ./...)
 done
 go test ./...
@@ -1102,7 +1110,7 @@ echo "every commit builds, vets and tests green in isolation"
 '''
 
 [tasks.ci]
-description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — fourteen stages is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
+description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-auth-supabase, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — fourteen stages is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
 run = '''
 set -e
 mise run vet
@@ -1125,6 +1133,7 @@ mise run map-check
 mise run adr-check
 mise run test-race
 mise run test-auth-workos
+mise run test-auth-supabase
 mise run test-ts
 mise run test-dart
 mise run dart-sdk-check

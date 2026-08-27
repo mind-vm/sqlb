@@ -47,7 +47,7 @@ as it stands. The API reference is the Go doc comments.
 
 ## Layout
 
-Fourteen Go modules. The six worth knowing before you start are below, and
+Fifteen Go modules. The seven worth knowing before you start are below, and
 `go test ./...` at the root covers **only the first** of them:
 
 | | |
@@ -56,6 +56,7 @@ Fourteen Go modules. The six worth knowing before you start are below, and
 | `pgtest/` | round-trip tests against a real Postgres. Its own module so the engine's suite stays database-free. It takes a DSN and starts nothing — `mise run pg-up` provides one, and `sqlbtest.Fresh` makes a database per test on it |
 | `example/tasks/`, `example/fxapp/` | worked applications, each with its own gate |
 | `example/auth-workos/` | a `sqlb.Verifier[T]` adapter for WorkOS AuthKit — its own module so the WorkOS SDK and JWT/JWKS dependencies never reach sqlb core's `go.mod` |
+| `example/auth-supabase/` | the same seam for Supabase Auth, and the authentication half of [docs/supabase.md](docs/supabase.md). Separate module for the same reason. It refuses a project's `anon` and `service_role` keys, which are JWTs the project itself signed |
 | `example/attachments/` | presigned direct-to-S3 uploads: the row-before-bytes ordering, and a stdlib SigV4 presigner cross-checked against `aws-sdk-go-v2`. Its own module for the same reason, though it ended up needing no dependency at all |
 
 Packages: `schema` (the DSL), `codegen` (emitters), `rest` (Huma mount),
@@ -84,7 +85,7 @@ it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
 `test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
-`mise tasks` describes all 40.
+`mise tasks` describes all 41.
 
 ## Traps
 
