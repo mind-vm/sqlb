@@ -2,10 +2,12 @@ package shadow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mind-vm/sqlb"
 	"github.com/mind-vm/sqlb/introspect"
 	"github.com/mind-vm/sqlb/migrate"
@@ -151,8 +153,29 @@ func apply(ctx context.Context, db DB, f file) error {
 }
 
 func statementError(f file, i int, stmt string, err error) error {
-	return fmt.Errorf("shadow: %s: statement %d of %d failed: %w\n%s",
-		f.Name, i+1, len(f.Statements), err, strings.TrimSpace(stmt))
+	return fmt.Errorf("shadow: %s: statement %d of %d failed: %w\n%s%s",
+		f.Name, i+1, len(f.Statements), err, strings.TrimSpace(stmt), hint(err))
+}
+
+// hint adds the one line a replay failure cannot carry on its own.
+//
+// A migration may name a schema this project does not own and does not create
+// — a foreign key into a platform's tables, which
+// docs/architecture.md's "a foreign key may name another schema" decision
+// allows and obliges nothing to provision. The database it was written against
+// has that schema; a scratch database created for the replay does not, and
+// Postgres answers 3F000 with the schema's name and no idea why anyone
+// expected it to be there. Naming the arrangement here is the difference
+// between a puzzling failure and a one-line fix.
+func hint(err error) string {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "3F000" {
+		return ""
+	}
+	return "\n\nThe history names a schema this database does not have. Nothing in sqlb " +
+		"creates one:\ncreate it in the shadow database before the replay, or point the " +
+		"shadow DSN at a database\nthat already has it — docs/supabase.md's \"The shadow " +
+		"database\" is the worked case."
 }
 
 // requireEmpty refuses a database that already has tables in it.
