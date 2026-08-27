@@ -208,7 +208,7 @@ func renderWiring(opts Options) ([]byte, error) {
 	hasMigrations := opts.WiringMigrations.Type != ""
 
 	var exposed []*schema.TableDef
-	for _, t := range opts.Registry.Tables() {
+	for _, t := range ownTables(opts) {
 		if t.Rest() != nil {
 			exposed = append(exposed, t)
 		}

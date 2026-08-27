@@ -105,7 +105,17 @@ func Declare(reg *schema.Registry, opts Options) Tables {
 		schema.Text("token_hash").Unique(),
 		schema.Timestamp("expires_at").Filterable().Sortable(),
 		schema.Timestamps(),
-	).Describe("A signed-in session. Declared by sessionkit, owned by the host's registry.")
+	).Describe("A signed-in session. Declared by sessionkit, owned by the host's registry.").
+		// This package ships its own Session model (below), so the host's
+		// codegen must not emit a second one. Hooks are keyed by Go type: a
+		// confinement hook registered on sessionkit.Session would not fire for
+		// a query written against a host-generated Session, and the host's
+		// package is the one its author is already importing (#284).
+		//
+		// Declared here, by the library that knows, rather than by a list each
+		// host maintains — that list is a second copy of this package's table
+		// set, and goes wrong the release a table is added to it.
+		ModelsIn("sessionkit")
 
 	if opts.Scope != "" {
 		sessions.AddField(schema.Text(opts.Scope).Filterable().ReadOnly().Scoped().Indexed())

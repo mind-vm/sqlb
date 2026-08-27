@@ -275,7 +275,7 @@ func applyOverridesToManifest(m *schema.Manifest, opts Options) error {
 		return nil
 	}
 	byName := map[string]*schema.TableDef{}
-	for _, t := range opts.Registry.Tables() {
+	for _, t := range ownTables(opts) {
 		byName[t.Name()] = t
 	}
 	for ti := range m.Tables {

@@ -25,7 +25,7 @@ import (
 // REST surface does not acquire a dependency on huma.
 func renderREST(opts Options) ([]byte, error) {
 	var exposed []*schema.TableDef
-	for _, t := range append(opts.Registry.Tables(), opts.Registry.Views()...) {
+	for _, t := range append(ownTables(opts), ownViews(opts)...) {
 		if t.Rest() != nil {
 			exposed = append(exposed, t)
 		}

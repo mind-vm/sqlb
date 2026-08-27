@@ -19,7 +19,7 @@ import (
 // column declared LookupKey, which is the case where the secret *is* the lookup
 // key and the omission took away the operation the column exists for (#155).
 func renderColumns(opts Options) ([]byte, error) {
-	tables := opts.Registry.Tables()
+	tables := ownTables(opts)
 
 	ov, err := newOverrides(opts.Types, opts.Registry)
 	if err != nil {

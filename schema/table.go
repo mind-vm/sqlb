@@ -412,6 +412,7 @@ type Exclusion struct {
 // it in the default registry.
 type TableDef struct {
 	name     string // storage name, including any module prefix
+	modelsIn string // package that already generates this table's model; see ModelsIn
 	local    string // name as declared, without the prefix
 	module   string
 	comment  string
@@ -552,6 +553,44 @@ func (t *TableDef) LocalName() string { return t.local }
 
 // Module is the owning module name, or "" if the table is not in one.
 func (t *TableDef) Module() string { return t.module }
+
+// ModelsIn declares that another Go package already generates this table's
+// model, so this schema's own codegen must not emit a second one.
+//
+// The case is a library that declares its tables into the host's registry —
+// the arrangement that lets a host's column carry a real foreign key into a
+// library's table, since a module-qualified target cannot. Migrations then
+// cover every table, which is the point; but codegen emitted a row struct for
+// each of them too, so the host's package gained a `User` mapping the same rows
+// as the library's `User`.
+//
+// That is dangerous rather than untidy, because hooks are keyed by Go type. A
+// confinement hook registered on the library's type does not fire for a query
+// written against the host's, so the same table is read with no hook at all —
+// no error, no warning, and plausible data (#284). The shadow type is in a
+// package the author is already importing, and autocomplete offers it.
+//
+// pkg is the Go package name that owns the models. Codegen skips a table whose
+// ModelsIn names some package other than the one it is generating into, so the
+// library's own generation — into that package — still emits everything, and
+// every host's generation emits none of it. The declaration is made once, by
+// the library that knows, rather than by a list each host has to maintain and
+// keep true as the library grows.
+//
+//	func Declare(r *schema.Registry) {
+//	    r.Table("users", …).ModelsIn("authitstore")
+//	}
+//
+// It changes no DDL. The table is migrated exactly as before; what stops is the
+// emission of a second Go type for it.
+func (t *TableDef) ModelsIn(pkg string) *TableDef {
+	t.modelsIn = pkg
+	return t
+}
+
+// ModelsPackage is the package named by [TableDef.ModelsIn], or "" when this
+// schema's own codegen owns the table's model.
+func (t *TableDef) ModelsPackage() string { return t.modelsIn }
 
 // Fields returns the table's columns in declaration order, computed ones
 // included: they are columns to every consumer that describes the row — the

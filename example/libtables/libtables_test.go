@@ -9,6 +9,8 @@ package libtables_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/mind-vm/sqlb"
+	"github.com/mind-vm/sqlb/codegen"
 	"github.com/mind-vm/sqlb/example/libtables/appschema"
 	"github.com/mind-vm/sqlb/example/libtables/sessionkit"
 	"github.com/mind-vm/sqlb/migrate"
@@ -259,4 +262,59 @@ type recorder struct {
 func (r *recorder) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	r.last = sql
 	return r.deadExec.Query(ctx, sql, args...)
+}
+
+// The host's codegen emits no model for the library's table, because the
+// library said where its models live (#284).
+//
+// This is not the same claim as TestAHostModelAndTheLibrarysCoexist above. That
+// one is about a model the host wrote *on purpose* — narrower, over the same
+// table, and its author knows both exist. This is about the one nobody asked
+// for: `sqlb generate` sees the whole registry, so it used to emit a full row
+// struct for every library table into the host's package, identical in shape to
+// the library's and carrying none of its hooks.
+//
+// Hooks are keyed by Go type, so a query written against the generated copy runs
+// with no confinement at all — same table, same rows, no error, plausible data.
+// And the shadow lands in the package the host's author is already importing for
+// their own types.
+func TestTheHostsCodegenEmitsNoModelForTheLibrarysTable(t *testing.T) {
+	dir := t.TempDir()
+	files, err := codegen.Generate(codegen.Options{
+		Registry: appschema.Registry, Dir: dir, Package: "data",
+		ClientImportPath: "example.com/app/cli/client",
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	var models string
+	for _, f := range files {
+		if filepath.Base(f) != "models_gen.go" {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		models = string(b)
+	}
+	if models == "" {
+		t.Fatal("no models file was generated")
+	}
+
+	// The host's own table is generated as always.
+	if !strings.Contains(models, `return "users"`) {
+		t.Errorf("the host's own model is missing:\n%s", models)
+	}
+	// The library's is not.
+	if strings.Contains(models, `return "sessionkit_sessions"`) {
+		t.Errorf("the host generated a shadow model for the library's table:\n%s", models)
+	}
+
+	// And the table is still migrated, which is what keeps the host's foreign
+	// key into it real. Skipping the model must not skip the DDL.
+	if !strings.Contains(ddl(t, appschema.Registry), `CREATE TABLE "sessionkit_sessions"`) {
+		t.Error("the library's table must still be migrated by the host")
+	}
 }

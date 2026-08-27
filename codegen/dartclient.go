@@ -107,7 +107,7 @@ func renderDartClient(opts Options) ([]byte, error) {
 	// name a table that has no endpoint of its own, and the row still has to
 	// have a type. This is the same call `.Expandable()` already makes on the
 	// server.
-	for _, t := range opts.Registry.Tables() {
+	for _, t := range ownTables(opts) {
 		if err := dartRowSection(&body, opts.Registry, t); err != nil {
 			return nil, err
 		}

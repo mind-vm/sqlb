@@ -149,7 +149,7 @@ func renderEject(opts EjectOptions) (map[string][]byte, error) {
 	if err := opts.Registry.Validate(); err != nil {
 		return nil, fmt.Errorf("codegen: schema does not validate, refusing to eject:\n%w", err)
 	}
-	tables := opts.Registry.Tables()
+	tables := ownTablesFor(opts.Registry, opts.Package)
 	if len(tables) == 0 {
 		return nil, fmt.Errorf("codegen: registry has no tables (is the schema package imported for its side effects?)")
 	}

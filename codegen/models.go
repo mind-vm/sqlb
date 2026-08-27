@@ -24,7 +24,7 @@ func renderModels(opts Options) ([]byte, error) {
 	// rather than interleaved by name, which would put a view's struct in
 	// the middle of an unrelated table's block for no reason a reader could
 	// see.
-	tables := append(opts.Registry.Tables(), opts.Registry.Views()...)
+	tables := append(ownTables(opts), ownViews(opts)...)
 
 	ov, err := newOverrides(opts.Types, opts.Registry)
 	if err != nil {

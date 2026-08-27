@@ -826,6 +826,7 @@ func render(opts Options) (map[string][]byte, error) {
 	}
 	if name := opts.manifestFile(); name != "-" {
 		m := opts.Registry.BuildManifest()
+		dropForeignFromManifest(m, opts)
 		// The manifest reports what was generated rather than what the default
 		// mapping would have produced: its goType field exists for a reader
 		// deciding how to call the generated code, and an override changed

@@ -53,6 +53,7 @@ import (
 // renderSkill writes the project-specific agent skill.
 func renderSkill(opts Options) ([]byte, error) {
 	m := opts.Registry.BuildManifest()
+	dropForeignFromManifest(m, opts)
 	if err := applyOverridesToManifest(m, opts); err != nil {
 		return nil, err
 	}

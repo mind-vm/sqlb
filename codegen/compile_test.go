@@ -109,6 +109,11 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// struct tags — including a query parameter's `query:` tag, the one
 		// body shape whose field is not a JSON property.
 		"constraints": {Registry: constraintFixture()},
+		// A table another package models (#284): the registry holds it so the
+		// cross-boundary foreign key is real, and nothing here emits a type for
+		// it — so this is the case where a half-applied filter shows up as a
+		// package that does not compile.
+		"foreignmodels": {Registry: shared()},
 	})
 }
 

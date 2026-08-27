@@ -54,7 +54,7 @@ What it costs to get this wrong is not abstract. Without the key, deleting a
 user leaves their sessions behind and nothing but application code says
 otherwise.
 
-## The five questions, answered
+## The six questions, answered
 
 | | Answer | Pinned by |
 |---|---|---|
@@ -63,6 +63,7 @@ otherwise.
 | **Confinement** | The library declares it and the host is obliged. `sqlb:"scope"` on the model means a mount refuses to start until a `BeforeQuery` confines it — the library knows the rows are confidential, only the host knows what confines them | `TestConfinementObligesTheHost` |
 | **Extension** | A host may `AddField` onto a library's table and it lands in the migration like any other. It does not reach the library's own model, so the added column is the host's to read through the host's own struct | `TestTheHostCanExtendALibraryTable` |
 | **Migrations** | The host owns the sequence. Always | `TestTheLibrarysReferenceIsEnforced` |
+| **Models** | The library says which package generates them — `.ModelsIn("sessionkit")` — so the host's codegen skips the table and emits no unhooked shadow of it. Migrations are untouched | `TestTheHostsCodegenEmitsNoModelForTheLibrarysTable` |
 
 ## Two halves, neither needing codegen
 
@@ -72,10 +73,21 @@ application: the host owns codegen, so a library cannot import its output. The
 engine reflects over the tags, so the library queries its own tables with
 nothing generated anywhere.
 
-The host's own `sqlb generate` will emit a model for the same table. That is not
-a conflict — the model cache is keyed by Go type, so the two structs address the
-same rows independently, which `TestAHostModelAndTheLibrarysCoexist` asserts
-with two different projections over one table.
+**The host's `sqlb generate` emits no model for the library's table**, because
+`Declare` says where its models live: `.ModelsIn("sessionkit")`. It used to emit
+one, and that was a hazard rather than a redundancy. Hooks are keyed by Go type,
+so a query written against a host-generated `Session` runs with none of the
+hooks registered on `sessionkit.Session` — same table, same rows, no
+confinement, no error — and the shadow sits in the package the host's author is
+already importing ([#284](https://github.com/mind-vm/sqlb/issues/284)).
+`TestTheHostsCodegenEmitsNoModelForTheLibrarysTable` pins it, along with the
+half that makes it safe: the table is still migrated.
+
+A host model written *on purpose* is a different thing and still works. The
+model cache is keyed by Go type, so a narrower hand-written struct addresses the
+same rows independently — `TestAHostModelAndTheLibrarysCoexist` asserts that
+with two projections over one table. The distinction is whether its author knows
+both exist.
 
 The library's query takes an `sqlb.Executor` rather than owning a handle, so the
 host decides whether it carries the hook registry. Passing the hooked handle is

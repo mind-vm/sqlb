@@ -150,6 +150,36 @@ the column that asked. The obligation travels in the right direction: the
 library states that these rows belong to someone, and the host says who. See
 [Capabilities](capabilities.md#scoped-so-the-missing-hook-is-caught).
 
+## Say where your models live, so the host does not shadow them
+
+A library's tables are in the host's registry, so the host's `sqlb generate`
+sees them — and used to emit a row struct for each. The host's package then held
+a `User` mapping the same rows as the library's `User`.
+
+That is dangerous rather than untidy, because **hooks are keyed by Go type**. A
+confinement hook the library registered on its own `User` does not fire for a
+query written against the host's. Same table, same rows, no hook, no error —
+and the shadow type sits in the package the author is already importing, where
+autocomplete offers it.
+
+Name the package that owns the models, once, in the declaration:
+
+```go
+func Declare(r *schema.Registry) {
+    r.Table("authit_users", …).ModelsIn("authitstore")
+}
+```
+
+Every host's codegen then skips the table, and the library's own — generating
+into `authitstore` — still emits it. **Migrations are untouched**: the table is
+created and altered exactly as before, which is what keeps a host's foreign key
+into it real.
+
+It is declared by the library rather than configured by each host on purpose. A
+host-side list of tables to skip is a second copy of your table set: correct the
+day it is written, and silently wrong the release you add a table
+([#284](https://github.com/mind-vm/sqlb/issues/284)).
+
 ## The runtime half needs no codegen either
 
 A library cannot import the host's generated models — the host owns codegen. It
