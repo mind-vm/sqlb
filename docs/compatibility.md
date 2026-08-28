@@ -288,6 +288,23 @@ Named in advance, so the break is a documented plan rather than a surprise.
   These validate a request and write no DDL. A row arriving from a migration, a
   seed or a job is unchecked, so a rule the table must hold is still `Check`.
 
+- **A grouped query read with `All` is refused.** `Builder.All` on a query that
+  declared `GroupBy` now returns an error when the projection carries a column
+  the model has no field for, where it used to scan the rest and drop that one
+  ([#306](https://github.com/mind-vm/sqlb/issues/306)).
+
+  The mechanical edit is `sqlb.Collect[R](ctx, db, q)` with an `R` carrying a
+  `db` tag per projected column — which is what the code wanted in the first
+  place, since the dropped column is the aggregate. A grouped query whose
+  projection the model can hold is unaffected, and so is every ungrouped partial
+  select.
+
+  It broke because the old behaviour was silently wrong rather than merely
+  permissive: the rows came back the right length, with the grouped column set,
+  a zero where the count should be, and a nil error. A consumer read that as
+  "the builder can express GROUP BY and cannot read what it returns" and shipped
+  an N+1 loop instead.
+
 ### Five that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke

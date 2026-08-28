@@ -110,7 +110,22 @@ rows, err := sqlb.Collect[Revenue](ctx, db,
         Select(sqlb.F("status"), sqlb.Sum(sqlb.F("total")).As("revenue")))
 ```
 
-Query hooks still run, so tenant scoping applies to aggregates too. Unlike
+**Reading a grouped query with `All` is refused**, rather than answered with
+rows whose numbers are missing. The model has no field for the aggregate, so
+scanning into it discarded exactly the column the query was written to get and
+returned the right number of rows with a zero where the answer should be — and a
+nil error, so there was nothing to search for. The refusal names the dropped
+column and points here ([#306](https://github.com/mind-vm/sqlb/issues/306)). A
+grouped query whose projection the model *can* hold — grouping by the primary
+key and selecting its own columns — still scans as before.
+
+Query hooks still run, so tenant scoping applies to aggregates too. That is the
+reason to reach for this rather than dropping to `DB.Query` and hand-writing the
+SQL: a raw statement leaves the confinement hooks behind, and a dashboard count
+is exactly where a missing tenant predicate is invisible — the number is merely
+wrong, not obviously unauthorised.
+
+Unlike
 `All`, `Collect` requires every field of `R` to be filled by some result column:
 `R` was written to match this projection, so an unfilled field is a mistyped
 alias rather than a deliberate partial select — and a mistyped alias on a `Sum`

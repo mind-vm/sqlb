@@ -177,6 +177,13 @@ func (b *Builder[T]) All(ctx context.Context, db Executor) ([]T, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	// A grouped query's projection is usually not the model's shape, and the
+	// half of it the model cannot hold is the aggregate the query exists for.
+	// Discarding that quietly is the failure #306 reported as a missing
+	// feature; the feature is Collect, and this is what says so.
+	if len(b.groups) > 0 {
+		return scanGroupedInto[T](rows, b.model)
+	}
 	return scanAll[T](rows, b.model)
 }
 
@@ -216,7 +223,9 @@ func (b *Builder[T]) First(ctx context.Context, db Executor) (T, error) {
 }
 
 // Count returns the number of matching rows, ignoring pagination. For a
-// grouped query it counts groups.
+// grouped query it counts groups — one number for the whole statement, not one
+// per group. A count *per group* is a projection, so it comes back through
+// [Collect]; see [Builder.GroupBy].
 func (b *Builder[T]) Count(ctx context.Context, db Executor) (int64, error) {
 	q, err := b.Resolved(ctx, db)
 	if err != nil {
@@ -322,11 +331,32 @@ const (
 	// projection, so an unfilled field means a mismatch rather than an
 	// intention.
 	scanExact
+	// scanGrouped is scanPartial with the discard made loud: a result column
+	// the model has no field for is an error rather than something dropped.
+	//
+	// Only for a query that declared GROUP BY, where a projected column the
+	// model cannot hold is almost always an aggregate — the answer the query
+	// was written to get. Discarding it returns rows that are the right shape,
+	// the right length and empty where the number should be, with a nil error
+	// (#306). A reader then concludes the builder can express GROUP BY and not
+	// read what it returns, which is what happened.
+	//
+	// Not scanExact, because a grouped query legitimately fills only the
+	// columns it grouped by; what is being caught is a projected column with
+	// nowhere to go, not a model field left unset.
+	scanGrouped
 )
 
 // scanAll maps a result set onto a slice of T, tolerating unfilled fields.
 func scanAll[T any](rows rowSource, m *Model) ([]T, error) {
 	return scan[T](rows, m, scanPartial)
+}
+
+// scanGroupedInto is scanAll for a query that declared GROUP BY, where a
+// projected column the model cannot hold is a mistake rather than a partial
+// select. See scanGrouped.
+func scanGroupedInto[T any](rows rowSource, m *Model) ([]T, error) {
+	return scan[T](rows, m, scanGrouped)
 }
 
 // scan maps a result set onto a slice of T. Result columns with no matching
@@ -378,6 +408,26 @@ func scan[T any](rows rowSource, m *Model, mode scanMode) ([]T, error) {
 	}
 	if matched == 0 {
 		return nil, fmt.Errorf("sqlb: none of the result columns %v map to %s; check the db tags or the Select aliases", cols, m.Type)
+	}
+
+	// A grouped query projecting something the model cannot hold. Named rather
+	// than dropped: the dropped column is the aggregate, so the rows come back
+	// the right length and empty where the number should be.
+	if mode == scanGrouped {
+		var dropped []string
+		for i, name := range cols {
+			if targets[i] == nil && expansions[i] == nil {
+				dropped = append(dropped, name)
+			}
+		}
+		if len(dropped) > 0 {
+			return nil, fmt.Errorf(
+				"sqlb: this grouped query projects %s, which %s has no field for, and All would "+
+					"discard them — leaving rows that are the right length and zero where the "+
+					"aggregate should be. Read a grouped result with sqlb.Collect[R](ctx, db, q), "+
+					"where R is a struct with a db tag per projected column",
+				strings.Join(dropped, ", "), m.Type)
+		}
 	}
 
 	// A field left unfilled would scan as its zero value, which is

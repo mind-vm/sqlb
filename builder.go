@@ -370,6 +370,30 @@ func (b *Builder[T]) join(kind, table, alias string, on Pred) *Builder[T] {
 }
 
 // GroupBy groups by the given columns.
+//
+// A grouped result is usually not the model's shape — the aggregate the query
+// exists for has no field on T — so it is read with [Collect] rather than with
+// [Builder.All]:
+//
+//	type PerOrg struct {
+//	    OrgID string `db:"org_id"`
+//	    Open  int64  `db:"open"`
+//	}
+//	rows, err := sqlb.Collect[PerOrg](ctx, db,
+//	    sqlb.Query[Thread]().
+//	        Where(sqlb.F("status").OneOf("open", "escalated")).
+//	        GroupBy(sqlb.F("org_id")).
+//	        Select(sqlb.F("org_id"), sqlb.Count().As("open")))
+//
+// Query hooks run either way, so a confined table stays confined through an
+// aggregate — which is the whole reason to reach for this rather than dropping
+// to [DB.Query] and hand-writing the SQL, where nothing obliges the tenant
+// predicate and a wrong number looks like a right one (#306).
+//
+// Calling All on a grouped query is refused when the projection carries
+// something T cannot hold, rather than discarding it: the discarded column is
+// the aggregate, so the rows would come back the right length and zero where
+// the number should be.
 func (b *Builder[T]) GroupBy(fields ...Field) *Builder[T] {
 	for _, f := range fields {
 		b.groups = append(b.groups, f.Column())
@@ -377,13 +401,15 @@ func (b *Builder[T]) GroupBy(fields ...Field) *Builder[T] {
 	return b
 }
 
-// GroupByExpr groups by arbitrary expressions.
+// GroupByExpr groups by arbitrary expressions. See [Builder.GroupBy] for how a
+// grouped result is read.
 func (b *Builder[T]) GroupByExpr(exprs ...Expr) *Builder[T] {
 	b.groups = append(b.groups, exprs...)
 	return b
 }
 
-// Having filters grouped rows.
+// Having filters grouped rows. See [Builder.GroupBy] for how a grouped result
+// is read.
 func (b *Builder[T]) Having(preds ...Pred) *Builder[T] {
 	for _, p := range preds {
 		if !p.IsZero() {
