@@ -853,6 +853,80 @@ fi
 echo "column-check: $(echo $constructors | wc -w | tr -d ' ') constructors, all reachable from the reference"
 '''
 
+[tasks.skill-check]
+description = "Fail if skills/sqlb-authoring/SKILL.md and the DSL have drifted apart. The skill is the one hand-written artifact whose subject matter the engine already enumerates, which is #293's argument: it claimed every symbol was 'grounded at a file:line so a stale entry is checkable rather than trusted', nothing checked it, and by the time anyone looked almost every line number was wrong and a fifth of the *Field vocabulary was missing. Same class as column-check, and the same shape: forward, so a method added to the DSL has to be documented or deliberately exempted; and reverse, so a row cannot name something that does not exist."
+run = '''
+set -e
+
+source=schema/field.go
+skill=skills/sqlb-authoring/SKILL.md
+
+# docs/architecture.md's "Tooling scoped to tracked files" decision, for the
+# reason column-check gives: .claude/worktrees/ holds other checkouts.
+for f in $source $skill; do
+  if ! git ls-files --error-unmatch "$f" > /dev/null 2>&1; then
+    echo "skill-check: $f is not tracked, so there is nothing to check against" >&2
+    exit 1
+  fi
+done
+
+# Accessors rather than declarations: they read a field back for a caller that
+# already has one, so a table of what a declaration can say has nothing to say
+# about them. An addition here is a decision, which is the point of naming them.
+accessors="Name Desc"
+
+# A line number is not checked because there are none left to check. They rotted
+# on every edit and told a reader nothing they could not get by grepping the
+# name, which is what the skill now cites instead.
+methods=$(grep -E '^func \(f \*Field\) [A-Z]' "$source" \
+  | sed 's/^func (f \*Field) \([A-Za-z0-9]*\).*/\1/' \
+  | sort -u)
+
+status=0
+
+# Forward. The skill's own description claims the DSL's whole surface, so a
+# method it does not mention is the failure -- this is the half that was
+# silently untrue for Array, Inverse, OnDelete, Pattern, Min, Max and fifteen
+# others while the file said it covered everything.
+for m in $methods; do
+  case " $accessors " in
+    *" $m "*) continue ;;
+  esac
+  if ! grep -qF "\`$m(" "$skill"; then
+    echo "skill-check: (*Field).$m is declared in $source and is named nowhere in $skill" >&2
+    status=1
+  fi
+done
+
+# Reverse: every method the skill spells as `Foo(` is one that exists. Scoped to
+# the tables, since the prose below them names Builder and Hooks methods too,
+# which are checked against their own files by nothing yet.
+rows=$(awk '/^\| `/ {print}' "$skill" \
+  | grep -oE '`[A-Z][A-Za-z0-9]*\(' \
+  | tr -d '`(' \
+  | sort -u)
+
+for r in $rows; do
+  if grep -qE "^func \(f \*Field\) $r\(" "$source"; then continue; fi
+  if grep -qE "^func $r\(" "$source"; then continue; fi
+  if grep -qE "^func \(f Field\) $r\(|^func \(c Col\[T\]\) $r\(" expr.go; then continue; fi
+  if grep -qE "^func \(h \*?Hooks\[T\]\) $r\(" hooks.go; then continue; fi
+  if grep -qrE "^func $r\(|^func \([a-z] \*?[A-Za-z\[\]]*\) $r\(" schema/ expr.go hooks.go builder.go; then continue; fi
+  echo "skill-check: $skill has a row for $r(), which nothing in the DSL declares" >&2
+  status=1
+done
+
+if [ "$status" -ne 0 ]; then
+  echo >&2
+  echo "The skill claims the DSL's whole surface and is installed into consumers'" >&2
+  echo "repositories, so a gap here is wrong everywhere at once. Document the method" >&2
+  echo "or add it to the accessors list above, which makes the omission a decision." >&2
+  exit 1
+fi
+
+echo "skill-check: $(echo $methods | wc -w | tr -d ' ') *Field methods, all reachable from the skill"
+'''
+
 [tasks.lint-check]
 description = "Fail if the lint reference table and schema/lint.go have drifted apart. Same shape as column-check, and added for the same reason it was: the table had gone three rules stale — `computed-without-index`, `text-required-on-create` and `page-size-without-list` were all in the linter and in nothing a reader would find. #293's whole argument is that prose duplicating a check is the worst of both, because it is the copy that can be wrong; a rule nobody can look up is the same failure pointed the other way."
 run = '''
@@ -1113,7 +1187,7 @@ echo "every commit builds, vets and tests green in isolation"
 '''
 
 [tasks.ci]
-description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-auth-supabase, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — fourteen stages is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
+description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, skill-check, lint-check, map-check, adr-check, test-race, test-auth-workos, test-auth-supabase, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — fourteen stages is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
 run = '''
 set -e
 mise run vet
@@ -1131,6 +1205,7 @@ mise run eject-check
 # repeating it, so nothing else would notice it falling behind the DSL.
 mise run tagline-check
 mise run column-check
+mise run skill-check
 mise run lint-check
 mise run map-check
 mise run adr-check

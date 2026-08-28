@@ -83,9 +83,9 @@ is what to run before a tag, since nothing runs it for you any more. The
 database-backed suites read a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
-`tagline-check`, `column-check`, `lint-check`, `adr-check`, `map-check`,
-`test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
-`mise tasks` describes all 41.
+`tagline-check`, `column-check`, `skill-check`, `lint-check`, `adr-check`,
+`map-check`, `test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
+`mise tasks` describes all 42.
 
 ## Traps
 
@@ -123,8 +123,8 @@ exclusions, one test failed and named the constraint while the fixpoint test
 ([docs/architecture.md, "Tooling scoped to tracked files"](docs/architecture.md#tooling-scoped-to-tracked-files)).
 
 **Prefer a failing check to a written-down rule.** `generate-check`,
-`eject-check`, `impact-check`, `deps-check`, `column-check`, `lint-check`,
-`adr-check`, `map-check` and `bisect-check` all exist
+`eject-check`, `impact-check`, `deps-check`, `column-check`, `skill-check`,
+`lint-check`, `adr-check`, `map-check` and `bisect-check` all exist
 because a convention that is only documented is a convention that drifts. If
 you are about to add a paragraph telling someone to remember something,
 consider whether it can fail as a `mise run ci` step instead. `deps-check` is

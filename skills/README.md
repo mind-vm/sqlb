@@ -23,7 +23,7 @@ skill is offered from the first turn — give each registry its own
 
 | Skill | Covers |
 |---|---|
-| [`sqlb-authoring`](sqlb-authoring/SKILL.md) | The DSL's own vocabulary for *writing* a schema: column types, capability flags (`Filterable`/`Sortable`/`Scoped`/`Hidden`/…), predicates, hooks and the escape hatches around each — grounded at file:line, not tied to any one project's schema |
+| [`sqlb-authoring`](sqlb-authoring/SKILL.md) | The DSL's own vocabulary for *writing* a schema: column types, capability flags (`Filterable`/`Sortable`/`Scoped`/`Hidden`/…), predicates, hooks and the escape hatches around each — checked against the DSL by `skill-check`, not tied to any one project's schema |
 | [`sqlb-queries`](sqlb-queries/SKILL.md) | Where the builder ends and `Raw`, sqlc or hand-written SQL begins — plus four failure modes that compile, pass their tests, and are wrong at runtime |
 | [`sqlb-adoption`](sqlb-adoption/SKILL.md) | Whether an existing codebase should adopt sqlb at all: a five-step census producing a ratio and a pilot, with the two stop conditions that end the evaluation early |
 
@@ -97,15 +97,29 @@ an evaluation that reports "sqlb replaces the API" when the honest answer is
 "the least novel third of it", or that surveys the routes before finding out the
 tables are blocked.
 
-`sqlb-authoring` is the third case, and it argues differently than the other
-two: a check *could* in principle enumerate `Field`'s methods, but the DSL's
-vocabulary changes at the rate of a minor release, not a schema edit — the
-opposite drift risk `sqlb-schema` exists to close by generating. What makes a
-hand-written document safe here is the same thing that makes it unsafe for the
-per-project half: nothing about it is a fact any particular registry could get
-out of sync with. It still rots on a rename the way `sqlb-queries` does, so
-every method and doc-comment claim below is grounded at a file:line rather than
-asserted from memory — see "Keeping it honest".
+`sqlb-authoring` is the third case, and it used to argue differently than the
+other two: a check *could* in principle enumerate `Field`'s methods, this said,
+but the DSL's vocabulary changes at the rate of a minor release rather than a
+schema edit, so a hand-written document is safe here — nothing in it is a fact
+any particular registry could get out of sync with.
+
+That argument was wrong, and #293 said why before the evidence arrived: prose
+duplicating something the source already enumerates is the worst of both,
+because it is the copy that can be wrong. It was. Almost every line number in
+that file pointed somewhere else — `Filterable()` at a blank line, `Hidden()` at
+`Field.Comment` — twenty-one of thirty-nine `*Field` methods were missing while
+the file's own description claimed the DSL's whole surface, and two "not
+expressible" entries had shipped in the meantime (`sqlb.Near` for a vector
+column, `AddExclude` for an exclusion constraint). A minor-release cadence is
+slow enough to feel safe and fast enough to be wrong within one.
+
+So `mise run skill-check` now enumerates `Field`'s methods after all. Forward: a
+method the DSL declares and the skill does not name fails the gate, unless it is
+in the accessors list, which makes the omission a decision. Reverse: a table row
+naming something the DSL does not declare fails too. The line numbers are gone —
+they rot on any edit and tell a reader nothing they could not get by grepping
+the name — so what is cited is a file and a symbol, which is what the check can
+actually verify. See "Keeping it honest".
 
 ## Keeping it honest
 
