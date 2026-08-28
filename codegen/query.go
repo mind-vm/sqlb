@@ -51,16 +51,30 @@ func (d queryDef) paramsName() string { return d.goName() + "Params" }
 // fullPath is the route: the resource path with the query's own appended.
 func (d queryDef) fullPath() string { return d.query.FullPath(d.table.Rest().Path) }
 
-// resultType is what Do returns: a slice of the table's own model.
+// resultName is the generated row type of a query that declared one.
+func (d queryDef) resultName() string { return d.goName() + "Result" }
+
+// returns is the declared result shape, empty when the query answers with rows
+// of its own table.
+func (d queryDef) returns() []*schema.Field { return d.query.Returns }
+
+// resultType is what Do returns: a slice of the table's own model, or a slice
+// of the declared result where the query says its answer is not rows of this
+// table.
 //
-// This is the constraint ADR-0057 left open rather than answered: a query
-// can return anything its Do func likes when hand-mounted, but a generated
-// field needs one concrete signature, and "every row of the table this query
-// reads, filtered" is the shape the one query built against this so far
-// actually has. A query wanting a different result — a different model, an
-// aggregate — is not generated; it stays hand-mounted, same as before this
-// file existed.
-func (d queryDef) resultType() string { return "[]" + TypeName(d.table) }
+// The default was the whole of what ADR-0057 settled, and it left the rest
+// open with a trigger: revisit if the fixed []T turns out to be the wrong
+// default often enough that a result type is worth declaring. It did. A
+// metering table's actual read is a chart — per-bucket sums — and a bucketed
+// sum is a row of no declared table, so every application with one hand-wrote
+// that endpoint outside the generated surface no matter how much of the rest
+// was generated (#240).
+func (d queryDef) resultType() string {
+	if len(d.returns()) > 0 {
+		return "[]" + d.resultName()
+	}
+	return "[]" + TypeName(d.table)
+}
 
 // summary defaults to "Overdue tasks" — capitalised verb, then the table
 // name. A query has no collection/item distinction to pick an article by,
@@ -104,11 +118,43 @@ func renderQueryParams(b *bytes.Buffer, d queryDef) {
 	fmt.Fprintln(b, "}")
 }
 
+// renderQueryResult writes one query's declared row type.
+//
+// It is renderActionResult for a read, and deliberately the same shape: the
+// two declare their result in one vocabulary, so a reader who has met one
+// recognises the other.
+func renderQueryResult(b *bytes.Buffer, d queryDef) {
+	props := d.returns()
+	if len(props) == 0 {
+		return
+	}
+	name := d.resultName()
+	fmt.Fprintf(b, "\n// %s is one row of the answer to %s.\n", name, d.fullPath())
+	fmt.Fprintf(b, "//\n// The query answers with these rather than with rows of %s: what it reads\n", TypeName(d.table))
+	fmt.Fprintf(b, "// is grouped or aggregated, and the result is a row of no declared table.\n")
+	fmt.Fprintf(b, "// sqlb.Collect[%s] is how the func reads one out of the database, and the\n", name)
+	fmt.Fprintf(b, "// query hooks run for it as they do for any other read.\n")
+	fmt.Fprintf(b, "type %s struct {\n", name)
+	for _, f := range props {
+		desc := f.Desc()
+		// A db tag as well as json: this type is the destination of a
+		// sqlb.Collect, which matches result columns to fields by db tag, and
+		// without one the func cannot scan into what it was handed.
+		fmt.Fprintf(b, "\t%s %s `db:%q json:\"%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name,
+			desc.Name, valueTags(desc))
+		if c := desc.Comment; c != "" {
+			fmt.Fprintf(b, " // %s", oneLine(c))
+		}
+		fmt.Fprintln(b)
+	}
+	fmt.Fprintln(b, "}")
+}
+
 // queryParamImports records the packages a query's parameters name. Mirrors
 // actionBodyImports.
 func queryParamImports(imports map[string]bool, defs []queryDef) {
 	for _, d := range defs {
-		for _, f := range d.query.Params {
+		for _, f := range append(append([]*schema.Field{}, d.query.Params...), d.query.Returns...) {
 			switch goType := f.Desc().GoType(); {
 			case strings.Contains(goType, "time.Time"):
 				imports["time"] = true

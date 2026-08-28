@@ -119,6 +119,10 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// — so a signature drifting there is a consumer's build breaking, and
 		// this is what catches it here instead.
 		"scopes": {Registry: tenancyFixture()},
+		// A declared query result (#240), which changes the Queries field's
+		// signature and puts a second generated type through rest.Query's Out
+		// parameter — the shape that has to typecheck against the mount.
+		"queryresult": {Registry: rollupFixture()},
 	})
 }
 

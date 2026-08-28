@@ -421,27 +421,36 @@ No fetch, no transaction, no obligation check — a query is exactly as confined
 as the statements its func issues, which is why `Reads` is documentation rather
 than enforcement.
 
-**A declared query is generated as `[]T`.** `rest.Query[In, Out]` takes any
-`Out` — a rollup struct, a bare count, an envelope — but codegen always emits
-the table's own row slice, so a custom result type means mounting that one query
-by hand beside the generated `Register`:
+**A read whose answer is not rows of the table declares its shape.** A rollup,
+a per-bucket sum, a count per group — a row of no declared table:
 
 ```go
-type Backlog struct {
-    ListID string `json:"list_id"`
-    Open   int64  `json:"open"`
-}
-
-err := rest.Query[BacklogParams, []Backlog](api, db, tasksOptions, rest.QuerySpec{
-    Name: "backlog",
-    Path: "/tasks/backlog",
-}, func(ctx context.Context, db sqlb.Executor, in BacklogParams) ([]Backlog, error) {
-    return sqlb.Collect[Backlog](ctx, db, sqlb.Query[Task]().
-        GroupBy(sqlb.F("list_id")).
-        Select(sqlb.F("list_id"), sqlb.Count().As("open")).
-        Where(sqlb.F("status").Neq("done")))
+UsageEvent.AddQuery(schema.Query{
+    Name:   "usage",
+    Params: schema.Body(schema.Date("from"), schema.Date("to")),
+    Returns: schema.Result(
+        schema.Timestamp("bucket"),
+        schema.Numeric("total", 18, 2),
+    ),
 })
+// func(context.Context, sqlb.Executor, UsageUsageEventParams) ([]UsageUsageEventResult, error)
 ```
+
+The emitted row type carries a `db` tag as well as a `json` one, because it is
+what `sqlb.Collect` scans into:
+
+```go
+func usage(ctx context.Context, db sqlb.Executor, in UsageUsageEventParams) ([]UsageUsageEventResult, error) {
+    return sqlb.Collect[UsageUsageEventResult](ctx, db, sqlb.Query[UsageEvent]().
+        Where(sqlb.F("at").Gte(in.From), sqlb.F("at").Lt(in.To)).
+        GroupByExpr(sqlb.Raw("date_trunc('day', at)")).
+        Select(sqlb.Raw("date_trunc('day', at)").As("bucket"), sqlb.Sum(sqlb.F("amount")).As("total")))
+}
+```
+
+Query hooks run for it, so a confined table stays confined through the
+aggregate. Leaving `Returns` empty keeps `[]T`, which is what a read that
+filters or orders differently and answers with the same rows wants.
 
 The verb may not collide with an operation the table already exposes
 (`create`, `get`, `update`, `delete`, `list`). See [Actions](../rest/actions.md).

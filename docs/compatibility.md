@@ -316,6 +316,18 @@ Named in advance, so the break is a documented plan rather than a surprise.
   changes no behaviour — but it is a new generated artefact, so `generate-check`
   fails until the schema is regenerated.
 
+- **`schema.Query` takes a `Returns`.** Additive: a query declaring none still
+  generates `func(...) ([]T, error)` and every existing declaration is
+  unchanged. Declaring one changes that field's signature to a slice of the
+  emitted result type, so the func assigned to it has to change with it — a
+  compile error at the call site, which is the point
+  ([#240](https://github.com/mind-vm/sqlb/issues/240)).
+
+  It is what a read whose answer is not rows of the table needs: a rollup, a
+  per-bucket sum, a count per group. Those were hand-mounted beside the
+  generated `Register` because codegen always emitted `[]T`; `rest.Query` was
+  already generic over its result, so nothing about the runtime changed.
+
 ### Five that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke

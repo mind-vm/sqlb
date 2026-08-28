@@ -115,6 +115,7 @@ func renderREST(opts Options) ([]byte, error) {
 	}
 	for _, q := range qs {
 		renderQueryParams(b, q)
+		renderQueryResult(b, q)
 	}
 	if len(qs) > 0 {
 		renderQueries(b, qs)

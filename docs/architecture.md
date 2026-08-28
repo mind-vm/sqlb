@@ -3545,11 +3545,23 @@ envelope. Retiring it on the day it shipped was a small, real pre-1.0
 break for the one schema that had adopted it, accepted because nothing
 else had, and the lesson carried forward is procedural: "the form may
 still change" is a reason to defer introducing a second name for the same
-shape, not a reason to ship one and see. Revisit if a generated `Query`'s
-fixed `[]T` result shape — every row of the table it reads, filtered —
-turns out to be the wrong default often enough that a narrower or wider
-result type is worth declaring; a query wanting something else stays
-hand-mounted today, the same as before codegen knew about `Query` at all.
+shape, not a reason to ship one and see. That last constraint had its own
+revisit trigger — the fixed `[]T` result being the wrong default often enough
+that a result type is worth declaring — and it fired: a metering table's real
+read is a chart, per-bucket sums, and a bucketed sum is a row of no declared
+table, so every application with one hand-wrote that endpoint outside the
+generated surface however much of the rest was generated. `Query.Returns`
+declares the row shape in the same field vocabulary `Action.Returns` uses, and
+codegen emits a type per query that declares one and types the `Queries` field
+to return a slice of it. `rest.Query` needed nothing: it was already generic
+over its result, and the constraint was only ever codegen's.
+
+The emitted row type carries a `db` tag as well as a `json` one, because it is
+the destination of a `sqlb.Collect` — the read is grouped, so the func reads it
+with the terminal written for exactly that and the query hooks run for it as
+they do for any other read. Leaving `Returns` empty keeps `[]T`, which is what
+a read that filters or orders differently and answers with the same rows wants,
+and is what every query declared before this continues to get.
 
 ### Serve owns the boilerplate mount is the seam
 

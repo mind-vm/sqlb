@@ -1,6 +1,9 @@
 package schema
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // A query is a domain read the table exposes: GET /tasks/overdue.
 //
@@ -84,6 +87,35 @@ type Query struct {
 	// consumes it will want it (#316).
 	Reads []*TableDef
 
+	// Returns declares the shape of one row of the result, in the field
+	// vocabulary. Build it with [Result].
+	//
+	//	Meter.AddQuery(schema.Query{
+	//	    Name:   "usage",
+	//	    Params: schema.Body(schema.Date("from"), schema.Date("to")),
+	//	    Returns: schema.Result(
+	//	        schema.Timestamp("bucket"),
+	//	        schema.Numeric("total", 18, 2),
+	//	    ),
+	//	})
+	//
+	// Leaving it empty keeps the default, which is every row of the table this
+	// query is declared on: a read that filters or orders differently than the
+	// list endpoint does, and answers with the same rows.
+	//
+	// Declaring one is for the read whose answer is not rows of this table —
+	// a per-bucket sum for a chart, a rollup, a count per group. Those are the
+	// reads an application always hand-wrote outside the generated surface,
+	// because `[]T` could not describe them and a bucketed sum is a row of no
+	// declared table (#240). The func returns a slice of the generated type,
+	// and [sqlb.Collect] is how it reads one out of the database.
+	//
+	// It is declared rather than reflected from the func's return type for the
+	// reason Params is, and the reason [Action.Returns] is: the value of a
+	// declared read is that it reaches the client emitters, and a result they
+	// cannot see is a client method typed `unknown`.
+	Returns []*Field
+
 	// Summary and Description document the operation.
 	Summary     string
 	Description string
@@ -158,6 +190,11 @@ func (r *Registry) validateQueries(t *TableDef, report func(string, string, stri
 
 		r.validateQueryParams(t, q, report)
 		r.validateQueryReads(t, q, report)
+		// The declared result goes through the shared body validator, the same
+		// one an action's result uses: it is the same vocabulary making the
+		// same claims, and a second copy of that rule list is a place the two
+		// can disagree.
+		r.validateBody(t, fmt.Sprintf("query %q: result", q.Name), q.Returns, report)
 	}
 }
 
