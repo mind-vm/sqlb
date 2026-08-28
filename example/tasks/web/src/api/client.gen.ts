@@ -15,7 +15,7 @@
 //
 // ADR-0028, ADR-0036.
 import type { ArrayCond, ChangeEvent, ChangeOp, ChangeStreamOptions, Collection, Cond, DayMatch, NullCheck, Page, TextMatch, Transport } from './runtime.gen.ts';
-import { encodeItemQuery, encodeListQuery, itemPath, subscribeEvents } from './runtime.gen.ts';
+import { encodeItemQuery, encodeListQuery, encodeQueryParams, itemPath, subscribeEvents } from './runtime.gen.ts';
 export * from './runtime.gen.ts';
 
 // --------------------------------------------------------------- comments
@@ -215,6 +215,21 @@ export interface TaskPatch {
 export interface CompleteTaskInput {
   /** Recorded as a comment on the task, in the same transaction. */
   note?: string | null;
+}
+
+/** The query parameters for `GET /tasks/by-list`. */
+export type ByListTasksParams = {
+  /** Roll up one list only; omit for every list the caller can see. */
+  list_id?: string | null;
+};
+
+/** One row of the answer to `GET /tasks/by-list`. */
+export interface ByListTasksResult {
+  list_id: string;
+  /** Tasks in the list that are not done. */
+  open: number;
+  /** Tasks in the list that are. */
+  done: number;
 }
 
 // ------------------------------------------------------------------ users
@@ -812,6 +827,11 @@ export function completeTask(request: Transport, id: string | number, body: Comp
   return request({ method: 'POST', path: itemPath('/tasks', id) + '/complete', body, signal });
 }
 
+/** `GET /tasks/by-list` — task counts per list. */
+export function byListTasks(request: Transport, params: ByListTasksParams = {}, signal?: AbortSignal): Promise<ByListTasksResult[]> {
+  return request({ method: 'GET', path: '/tasks/by-list', query: encodeQueryParams(params), signal });
+}
+
 /**
  * Cache keys for /tasks. Deriving them is what keeps a mutation's invalidation
  * and a change-feed subscriber's invalidation from being two lists that can
@@ -825,6 +845,8 @@ export const taskKeys = {
   infinite: (params: unknown = {}) => ['tasks', 'infinite', params] as const,
   details: () => ['tasks', 'detail'] as const,
   detail: (id: string | number, params: unknown = {}) => ['tasks', 'detail', String(id), params] as const,
+  queries: () => ['tasks', 'query'] as const,
+  query: (name: string, params: unknown = {}) => ['tasks', 'query', name, params] as const,
 };
 
 // ----------------------------------------------------------------- /users
@@ -1089,7 +1111,7 @@ const changeKeysByTable: Record<TableName, (key: string) => readonly (readonly u
   tasks: (key) =>
     key === ''
       ? [taskKeys.all()]
-      : [taskKeys.lists(), taskKeys.infinites(), taskKeys.detail(key)],
+      : [taskKeys.lists(), taskKeys.infinites(), taskKeys.detail(key), taskKeys.query('by-list')],
   users: (key) =>
     key === ''
       ? [userKeys.all()]

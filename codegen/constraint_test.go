@@ -47,8 +47,11 @@ func TestConstraintsReachEveryRequestBody(t *testing.T) {
 		// Bounds, rendered short rather than as 0e+00.
 		`minimum:"0" maximum:"150"`,
 		`minimum:"0.5"`,
-		// A query parameter, which Huma validates the same way.
-		`query:"at_least" minimum:"0"`,
+		// A query parameter, which Huma validates the same way. Neither
+		// nullable nor defaulted, so it is required — huma treats a query
+		// parameter as optional otherwise, and a read that cannot answer
+		// without one should say so rather than receive a zero.
+		`query:"at_least" required:"true" minimum:"0"`,
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("generated bodies missing %q:\n%s", want, src)

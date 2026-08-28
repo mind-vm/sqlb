@@ -156,6 +156,8 @@ func New(cfg Config) (*Server, error) {
 	// already cover those for every read the handlers issue.
 	if err := tasks.Register(api, hooked, tasks.Actions{
 		CompleteTask: completeTask,
+	}, tasks.Queries{
+		ByListTask: tasksByList,
 	}); err != nil {
 		return nil, fmt.Errorf("app: mounting the generated resources: %w", err)
 	}

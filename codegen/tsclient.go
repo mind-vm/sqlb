@@ -67,6 +67,10 @@ func renderTSClient(opts Options) ([]byte, error) {
 				"export it from tsRuntime, or the emitted client will not compile", name)
 	}
 
+	if err := tsQueryPropCollision(resources); err != nil {
+		return nil, err
+	}
+
 	if err := tsCollision(opts.Registry, "the TypeScript client", body.String()); err != nil {
 		return nil, err
 	}
@@ -141,6 +145,10 @@ func renderTSQueries(opts Options) ([]byte, error) {
 			if r.readsOne() {
 				types = append(types, r.typeName+"GetParams")
 				values = append(values, "get"+r.typeName)
+			}
+			for _, q := range r.table.Queries() {
+				types = append(types, tsQueryParamsName(r.table, q))
+				values = append(values, tsQueryName(r.table, q))
 			}
 		}
 
@@ -274,7 +282,7 @@ func (r tsResource) hasExpand() bool { return len(r.relations) > 0 }
 // object naming a function that does not exist is a generator that compiles
 // into a build failure.
 func (r tsResource) hasQueries() bool {
-	return r.ops.Has(schema.OpList) || r.readsOne()
+	return r.ops.Has(schema.OpList) || r.readsOne() || len(r.table.Queries()) > 0
 }
 
 func (r tsResource) canCreate() bool { return r.ops.Has(schema.OpCreate) }
@@ -458,6 +466,8 @@ func tsRowTypes(b *bytes.Buffer, reg *schema.Registry, t *schema.TableDef) {
 	tsBodyTypes(b, t, typeName, wire)
 	tsActionBodies(b, t, typeName)
 	tsActionResults(b, t, typeName)
+	tsQueryParamTypes(b, t, typeName)
+	tsQueryResults(b, t, typeName)
 }
 
 // tsForwardRelations is the expandable references declared on t, keyed by the
@@ -779,6 +789,7 @@ func tsTransport(b *bytes.Buffer, r tsResource) {
 	}
 
 	tsActionFunctions(b, r)
+	tsQueryFunctions(b, r)
 }
 
 // tsKeys emits the query-key factory.
@@ -798,6 +809,7 @@ func tsKeys(b *bytes.Buffer, r tsResource) {
 	// because that is the key a change-feed subscriber invalidates by table.
 	if r.singleton() {
 		fmt.Fprintf(b, "  single: (params: unknown = {}) => [%s, 'single', params] as const,\n", tsString(r.table.Name()))
+		tsQueryKeys(b, r)
 		fmt.Fprintln(b, "};")
 		return
 	}
@@ -811,6 +823,7 @@ func tsKeys(b *bytes.Buffer, r tsResource) {
 	fmt.Fprintf(b, "  infinite: (params: unknown = {}) => [%s, 'infinite', params] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintf(b, "  details: () => [%s, 'detail'] as const,\n", tsString(r.table.Name()))
 	fmt.Fprintf(b, "  detail: (id: string | number, params: unknown = {}) => [%s, 'detail', String(id), params] as const,\n", tsString(r.table.Name()))
+	tsQueryKeys(b, r)
 	fmt.Fprintln(b, "};")
 }
 
@@ -848,17 +861,31 @@ func tsChangeFeed(b *bytes.Buffer, resources []tsResource) {
 	fmt.Fprint(b, " * A keyed event names one row, so it invalidates that row's detail queries\n")
 	fmt.Fprint(b, " * plus the lists and infinite walks it may have moved in or out of — not\n")
 	fmt.Fprint(b, " * every other row's detail. A keyless one invalidates the table, which is\n")
-	fmt.Fprint(b, " * what an event nobody could attribute to a single row asks for.\n */\n")
+	fmt.Fprint(b, " * what an event nobody could attribute to a single row asks for.\n")
+	for _, gap := range unservedReads(resources) {
+		fmt.Fprintf(b, " *\n * Not invalidated: %s. This client does not serve that table, so an event\n", gap)
+		fmt.Fprint(b, " * naming it is dropped before it reaches a key — see isTableName.\n")
+	}
+	fmt.Fprint(b, " */\n")
+	reach := tsQueryReaches(resources)
 	fmt.Fprint(b, "const changeKeysByTable: Record<TableName, (key: string) => readonly (readonly unknown[])[]> = {\n")
 	for _, r := range resources {
+		name := r.table.Name()
+		// A read declared on this table keys under its own namespace, so
+		// all() already covers it and only the foreign ones are listed on the
+		// keyless branch.
+		keyless := append([]string{r.ident + "Keys.all()"}, reach.foreignKeysFor(name)...)
 		if r.singleton() {
-			fmt.Fprintf(b, "  %s: () => [%sKeys.all()],\n", tsProp(r.table.Name()), r.ident)
+			fmt.Fprintf(b, "  %s: () => [%s],\n", tsProp(name), strings.Join(keyless, ", "))
 			continue
 		}
-		fmt.Fprintf(b, "  %s: (key) =>\n", tsProp(r.table.Name()))
+		keyed := append([]string{
+			r.ident + "Keys.lists()", r.ident + "Keys.infinites()", r.ident + "Keys.detail(key)",
+		}, reach.keysFor(name)...)
+		fmt.Fprintf(b, "  %s: (key) =>\n", tsProp(name))
 		fmt.Fprintf(b, "    key === ''\n")
-		fmt.Fprintf(b, "      ? [%sKeys.all()]\n", r.ident)
-		fmt.Fprintf(b, "      : [%sKeys.lists(), %sKeys.infinites(), %sKeys.detail(key)],\n", r.ident, r.ident, r.ident)
+		fmt.Fprintf(b, "      ? [%s]\n", strings.Join(keyless, ", "))
+		fmt.Fprintf(b, "      : [%s],\n", strings.Join(keyed, ", "))
 	}
 	fmt.Fprint(b, "};\n")
 
@@ -974,6 +1001,8 @@ func tsQueriesSection(b *bytes.Buffer, r tsResource) {
 		fmt.Fprintf(b, "        queryFn: ({ signal }) => get%s(request, id, params, signal),\n", name)
 		fmt.Fprint(b, "      }),\n")
 	}
+
+	tsQueryOptions(b, r)
 
 	fmt.Fprint(b, "  };\n}\n")
 }
@@ -1608,6 +1637,33 @@ export function encodeListQuery(query: ListQuery = {}): string {
   }
   // Sorted, so that the same parameters always produce the same string — which
   // is what makes a URL comparable in a test and cacheable by a proxy.
+  out.sort();
+  return out.toString();
+}
+
+/** Encodes a declared read's parameters.
+ *
+ * A declared query's parameters are its own — no operator grammar, no paging
+ * and no projection — so each property is one parameter under the name the
+ * schema gave it, and this encoder is deliberately neither of the two below.
+ *
+ * A property that is ` + "`undefined`" + ` or ` + "`null`" + ` is omitted rather than sent: a
+ * query string has no spelling for an explicit null, and the server reads an
+ * absent parameter as unset, which is the same thing. An array is joined with
+ * commas, which is how the server splits it back into a slice.
+ */
+export function encodeQueryParams(params: Record<string, unknown> = {}): string {
+  const out = new URLSearchParams();
+  for (const [name, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      if (value.length) out.set(name, (value as Scalar[]).map(encodeMember).join(','));
+      continue;
+    }
+    out.set(name, encodeScalar(value as Scalar));
+  }
+  // Sorted for the reason encodeListQuery sorts: the same parameters always
+  // produce the same string.
   out.sort();
   return out.toString();
 }

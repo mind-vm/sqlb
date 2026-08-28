@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { encodeItemQuery, encodeListQuery } from './client.gen.ts';
+import { encodeItemQuery, encodeListQuery, encodeQueryParams } from './client.gen.ts';
 
 test('a bare value is equality', () => {
   assert.equal(encodeListQuery({ where: { status: 'todo' } }), 'status=eq.todo');
@@ -155,4 +155,41 @@ test('the escape hatch appends parameters verbatim', () => {
 test('the item endpoint encodes expand and nothing else', () => {
   assert.equal(encodeItemQuery({ expand: ['list'] }), 'expand=list');
   assert.equal(encodeItemQuery(), '');
+});
+
+// A declared read's parameters, which are its own rather than the filter
+// grammar's: one parameter per declared property, under the name the schema
+// gave it (#316).
+
+test('a declared read sends one parameter per property, under its own name', () => {
+  assert.equal(
+    encodeQueryParams({ list_id: 'a', since: 3 }),
+    'list_id=a&since=3',
+  );
+});
+
+test('an omitted or null parameter is absent rather than sent empty', () => {
+  // A query string has no spelling for an explicit null, and the server reads
+  // an absent parameter as unset — which is the same thing. Sending
+  // `list_id=null` would instead be a uuid the column cannot parse.
+  assert.equal(encodeQueryParams({ list_id: null, other: undefined, kept: 1 }), 'kept=1');
+});
+
+test('a declared array parameter is comma-joined, which is how the server splits it', () => {
+  assert.equal(encodeQueryParams({ labels: ['urgent', 'blocked'] }), 'labels=urgent%2Cblocked');
+});
+
+test('an empty array parameter is dropped rather than sent as an empty value', () => {
+  assert.equal(encodeQueryParams({ labels: [] }), '');
+});
+
+test('a Date parameter is RFC 3339, as it is everywhere else in the client', () => {
+  assert.equal(
+    encodeQueryParams({ as_of: new Date('2026-03-04T05:06:07Z') }),
+    'as_of=2026-03-04T05%3A06%3A07.000Z',
+  );
+});
+
+test('no parameters is an empty string, not a stray question mark', () => {
+  assert.equal(encodeQueryParams(), '');
 });

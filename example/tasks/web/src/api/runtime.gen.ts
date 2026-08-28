@@ -283,6 +283,33 @@ export function encodeListQuery(query: ListQuery = {}): string {
   return out.toString();
 }
 
+/** Encodes a declared read's parameters.
+ *
+ * A declared query's parameters are its own — no operator grammar, no paging
+ * and no projection — so each property is one parameter under the name the
+ * schema gave it, and this encoder is deliberately neither of the two below.
+ *
+ * A property that is `undefined` or `null` is omitted rather than sent: a
+ * query string has no spelling for an explicit null, and the server reads an
+ * absent parameter as unset, which is the same thing. An array is joined with
+ * commas, which is how the server splits it back into a slice.
+ */
+export function encodeQueryParams(params: Record<string, unknown> = {}): string {
+  const out = new URLSearchParams();
+  for (const [name, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      if (value.length) out.set(name, (value as Scalar[]).map(encodeMember).join(','));
+      continue;
+    }
+    out.set(name, encodeScalar(value as Scalar));
+  }
+  // Sorted for the reason encodeListQuery sorts: the same parameters always
+  // produce the same string.
+  out.sort();
+  return out.toString();
+}
+
 /** The item endpoint declares no parameters but `expand`, and rejects any
  * other, so this encoder is deliberately not the list one. */
 export function encodeItemQuery(query: { expand?: readonly string[] } = {}): string {

@@ -88,6 +88,37 @@ func (d queryDef) summary() string {
 	return words + " " + d.table.LocalName()
 }
 
+// queryParamType is the Go type of one declared parameter.
+//
+// Never a pointer, which is where this differs from actionBodyType and is not
+// a stylistic choice: huma panics at Register with "pointers are not supported
+// for form/header/path/query parameters", so a query whose declaration carried
+// one optional parameter brought the server down at mount rather than serving
+// a route. The body rule — a pointer distinguishes omitted from zero — was
+// copied here from a position where it is right, and a query string is not
+// that position. `required` below is what carries the distinction instead: a
+// parameter huma does not require and the caller did not send arrives as the
+// zero value, and the func reads that as "not asked for", which is the same
+// thing an absent query parameter has always meant.
+func queryParamType(d *schema.FieldDesc) string {
+	return strings.TrimPrefix(d.GoType(), "*")
+}
+
+// queryParamTags renders one parameter's struct tags.
+//
+// required is stated rather than left to huma's default, which treats every
+// query parameter as optional. A declared parameter that is neither nullable
+// nor defaulted is one the read cannot answer without, so a request omitting
+// it should be a 422 naming the parameter rather than a call with a zero
+// value the func has no way to tell from a deliberate one.
+func queryParamTags(d *schema.FieldDesc) string {
+	tags := fmt.Sprintf("query:%q", d.Name)
+	if !optionalOnCreate(d) {
+		tags += ` required:"true"`
+	}
+	return tags + valueTags(d)
+}
+
 // renderQueryParams writes one query's request parameter type.
 //
 // query, not json: a query's parameters arrive on the query string, which
@@ -104,12 +135,14 @@ func renderQueryParams(b *bytes.Buffer, d queryDef) {
 		fmt.Fprintf(b, "type %s struct{}\n", name)
 		return
 	}
-	fmt.Fprintf(b, "//\n// A property with a default or one that may be null is a pointer, so that\n")
-	fmt.Fprintf(b, "// omitting it from the query string is distinguishable from its zero value.\n")
+	fmt.Fprintf(b, "//\n// No property is a pointer: huma refuses one on a query parameter. A\n")
+	fmt.Fprintf(b, "// parameter that may be omitted arrives as its zero value, and one that\n")
+	fmt.Fprintf(b, "// may not is tagged required, so omitting it is a 422 rather than a call\n")
+	fmt.Fprintf(b, "// the func cannot distinguish from a deliberate zero.\n")
 	fmt.Fprintf(b, "type %s struct {\n", name)
 	for _, f := range d.query.Params {
 		desc := f.Desc()
-		fmt.Fprintf(b, "\t%s %s `query:\"%s\"%s`", GoName(desc.Name), actionBodyType(desc), desc.Name, valueTags(desc))
+		fmt.Fprintf(b, "\t%s %s `%s`", GoName(desc.Name), queryParamType(desc), queryParamTags(desc))
 		if c := desc.Comment; c != "" {
 			fmt.Fprintf(b, " // %s", oneLine(c))
 		}

@@ -3563,6 +3563,35 @@ they do for any other read. Leaving `Returns` empty keeps `[]T`, which is what
 a read that filters or orders differently and answers with the same rows wants,
 and is what every query declared before this continues to get.
 
+The seam `Reads` was left as is now built on one side of it. A declared read
+reached the Go mount and the docs checklist and no client emitter at all, which
+made the asymmetry with a declared action — four toolchains since it existed —
+the whole gap: the one property a declared route buys, that the verb arrives on
+every generated surface rather than being hand-maintained per client, held for
+writes and not for reads. The TypeScript emitter closes it with a transport
+function, a parameter type, a `queryOptions` entry in the resource's own read
+factory, and the `changeKeysByTable` entries that were the actual point — a
+read's cache key sits under every served table in its reach, so a change to one
+of them refetches it and the server computes nothing and pushes nothing.
+`Reads` is behaviour rather than documentation for the first time. Building it
+was deferred once, on the argument that an emitter serving only `[]T` queries
+would have to be revisited when the result shape became declarable; `Returns`
+discharged that, which is why this followed it rather than preceding it.
+
+What that emitter cannot reach is a `Reads` naming a table the client does not
+serve: the subscriber narrows an event to a `TableName` derived from the tables
+it has key factories for, so there is no entry to add and no key to invalidate.
+Widening `TableName` to cover a table the client only *reads through* would
+break `keysByTable[event.table]`, which is the index's whole purpose, so the
+emitter states the gap in a comment on `changeKeysByTable` naming the table and
+the reads it silences, rather than leaving it to be found by a chart that never
+refreshes. Revisit if a real schema hits it — the fix is a second narrowing
+predicate over a wider union, and it is not worth two exported type names until
+something needs them. The Dart client and the CLI emit nothing for a declared
+read yet, deliberately: the TypeScript shape is the one being proven, and the
+two that follow it should copy a shape that has been through a `tsc` gate
+rather than three shapes invented in parallel.
+
 ### Serve owns the boilerplate mount is the seam
 
 Every sqlb server's `main.go` repeated the same ~134 lines — open a pool,

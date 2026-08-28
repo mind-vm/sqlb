@@ -199,6 +199,27 @@ useMutation({
 `keysByTable` below is the mechanical half of that; the choice of what to
 invalidate stays yours.
 
+## Declared reads
+
+A read declared with `AddQuery` arrives here the way a declared verb does — a
+transport function, a typed parameter object, and an entry in the resource's
+own read factory:
+
+```ts
+const rollup = useQuery(taskQueries(request).byList({ list_id }));
+rollup.data?.[0]?.open;             // ByListTasksResult, not Task
+```
+
+The result type is whichever the schema declared. A read that says nothing
+about its result answers with rows of its table; one that declares `Returns` —
+a per-bucket sum, a rollup, a count per group — answers with that shape, which
+is a row of no declared table and the reason the declaration exists.
+
+Its parameters are the ones the schema declared and no others: they are not the
+filter grammar, so there is no `where`, no `sort` and no paging on them. An
+optional parameter may be omitted, and a `null` is dropped rather than sent —
+a query string has no spelling for an explicit null.
+
 ## Cache keys
 
 One factory per resource, plus a table-keyed index:
@@ -206,6 +227,7 @@ One factory per resource, plus a table-keyed index:
 ```ts
 taskKeys.lists();                 // ['tasks', 'list']
 taskKeys.detail(id);              // ['tasks', 'detail', id, {}]
+taskKeys.query('by-list');        // ['tasks', 'query', 'by-list', {}] — a declared read
 keysByTable['tasks'].lists();     // the same list, reached from an event payload
 ```
 
@@ -236,6 +258,15 @@ or out of — not every other row's detail — and a keyless one names the table
 event for a table this client does not serve is dropped, which is what a
 module of a larger schema receives.
 
+A declared read is invalidated the same way, and this is the whole of what
+[`Query.Reads`](../schema/README.md) is for. A read's key sits under every
+table in its reach — the one it is declared on, which is implicit, plus each
+table `Reads` names — so a change to any of them refetches it, and the server
+computes nothing and pushes nothing. A `Reads` naming a table this client does
+not serve buys nothing, because such an event is dropped before it reaches a
+key; the generator says which reads that silences, in a comment on
+`changeKeysByTable`.
+
 `onReset` is not optional in spirit. A reset means the stream could not be
 resumed, so nothing on display can be trusted whatever it is showing.
 
@@ -260,7 +291,10 @@ in the client has to remember the position.
 
 A table's types are its own singularised name — `posts` → `Post` — and that
 name plus a suffix: `PostColumn`, `PostSort`, `PostWhere`, `PostListParams`,
-`PostCreate`, `PostPatch`. Two tables can therefore want the same name:
+`PostCreate`, `PostPatch`. A declared read is named for the verb and the
+table's plural — `by-list` on `tasks` gives `byListTasks`, with
+`ByListTasksParams` and, where one is declared, `ByListTasksResult`. Two tables
+can therefore want the same name:
 `board_columns` singularises to `BoardColumn`, which is also what `boards`
 calls its selectable-column type.
 

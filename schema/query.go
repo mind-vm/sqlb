@@ -75,16 +75,19 @@ type Query struct {
 	// Reads beyond its own table is simply never invalidated by anything else
 	// changing; a client still gets its data by calling it again.
 	//
-	// That cache does not exist yet, and this is written in the present tense
-	// because it describes the reason for the field rather than the state of
-	// the emitters. As of today a declared query reaches the Go mount and the
-	// docs checklist and no client emitter at all — no TypeScript method, no
-	// Dart method, no CLI subcommand — so nothing turns Reads into an
-	// invalidation. It is validated, carried into rest.QuerySpec, rendered
-	// into the OpenAPI description as a sentence and recorded in the contract
-	// snapshot, and then read by nothing. Declaring it costs nothing and buys
-	// nothing yet; declare it anyway if it is true, since the emitter that
-	// consumes it will want it (#316).
+	// The TypeScript client performs it. A declared read has a transport
+	// function and a cache key there, so every table this names carries that
+	// key in the generated changeKeysByTable — a change to it invalidates this
+	// read, and the subscriber refetches. Naming a table that is *not* exposed
+	// buys nothing: the subscriber drops an event for a table the client does
+	// not serve, and the emitter says which reads that silences in a comment
+	// on changeKeysByTable itself.
+	//
+	// The Dart client and the CLI still do not emit a declared read at all, so
+	// for those two this is a declaration nothing consumes yet — the same
+	// state TypeScript was in before #316. Declare it anyway when it is true:
+	// the remaining emitters will want it, and a schema that starts declaring
+	// it later has to go back through every query.
 	Reads []*TableDef
 
 	// Returns declares the shape of one row of the result, in the field

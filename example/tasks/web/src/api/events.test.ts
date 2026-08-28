@@ -65,6 +65,10 @@ test('a keyed change resolves to the keys that read the row', () => {
     taskKeys.lists(),
     taskKeys.infinites(),
     taskKeys.detail('t1'),
+    // The declared read's key, which is what Query.Reads was for: `by-list`
+    // counts tasks, so a task changing makes its numbers stale and the
+    // subscriber refetches it without the server computing anything.
+    taskKeys.query('by-list'),
   ]);
 });
 

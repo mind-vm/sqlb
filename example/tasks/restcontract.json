@@ -397,6 +397,19 @@
             "comments"
           ]
         }
+      ],
+      "queries": [
+        {
+          "name": "by-list",
+          "path": "/tasks/by-list",
+          "params": [
+            {
+              "name": "list_id",
+              "type": "uuid",
+              "nullable": true
+            }
+          ]
+        }
       ]
     },
     {

@@ -385,6 +385,44 @@ type Actions struct {
 	CompleteTask func(context.Context, *Task, CompleteTaskInput) error
 }
 
+// ByListTaskParams is the query parameters for /tasks/by-list.
+//
+// No property is a pointer: huma refuses one on a query parameter. A
+// parameter that may be omitted arrives as its zero value, and one that
+// may not is tagged required, so omitting it is a 422 rather than a call
+// the func cannot distinguish from a deliberate zero.
+type ByListTaskParams struct {
+	ListID string `query:"list_id"` // Roll up one list only; omit for every list the caller can see.
+}
+
+// ByListTaskResult is one row of the answer to /tasks/by-list.
+//
+// The query answers with these rather than with rows of Task: what it reads
+// is grouped or aggregated, and the result is a row of no declared table.
+// sqlb.Collect[ByListTaskResult] is how the func reads one out of the database, and the
+// query hooks run for it as they do for any other read.
+type ByListTaskResult struct {
+	ListID string `db:"list_id" json:"list_id"`
+	Open   int64  `db:"open" json:"open"` // Tasks in the list that are not done.
+	Done   int64  `db:"done" json:"done"` // Tasks in the list that are.
+}
+
+// Queries carries the domain funcs the declared queries call.
+//
+// Each field is one declared read. What is generated is the route and the
+// parameter binding; there is no fetch, no lock and no obligation check —
+// a query confines what it reads the way sqlb.Query in application code
+// already does, by running against the Executor it is handed.
+//
+// A field left nil is refused when Register mounts the resource, not by
+// the request that would have called it.
+type Queries struct {
+	// ByListTask runs GET /tasks/by-list.
+	//
+	// Open and completed task counts per list, under the caller's workspace.
+	ByListTask func(context.Context, sqlb.Executor, ByListTaskParams) ([]ByListTaskResult, error)
+}
+
 // Register mounts every exposed resource on api.
 //
 // The handlers are rest.Resource, instantiated per model. Registration is
@@ -396,7 +434,11 @@ type Actions struct {
 // their envelopes. That parameter is the compiler's half of the bargain:
 // an action added to the schema fails the build here rather than serving a
 // route nobody wired.
-func Register(api huma.API, db sqlb.Executor, actions Actions) error {
+//
+// The schema declares queries too, so this also takes the funcs that
+// answer them. Unlike Actions there is no envelope behind a query — see
+// Queries' own doc comment for what that means.
+func Register(api huma.API, db sqlb.Executor, actions Actions, queries Queries) error {
 	if err := rest.Resource[Comment, CommentCreate, rest.None[Comment]](api, db, rest.Options{
 		Path:            "/comments",
 		Name:            "comment",
@@ -464,6 +506,16 @@ func Register(api huma.API, db sqlb.Executor, actions Actions) error {
 		Touches:     []string{"comments"},
 		HasBody:     true,
 	}, actions.CompleteTask); err != nil {
+		return err
+	}
+	if err := rest.Query[ByListTaskParams, []ByListTaskResult](api, db, tasksOptions, rest.QuerySpec{
+		Name:        "by-list",
+		Path:        "/tasks/by-list",
+		Field:       "ByListTask",
+		Summary:     "Task counts per list",
+		Description: "Open and completed task counts per list, under the caller's workspace.",
+		HasParams:   true,
+	}, queries.ByListTask); err != nil {
 		return err
 	}
 	if err := rest.Resource[User, rest.None[User], rest.None[User]](api, db, rest.Options{

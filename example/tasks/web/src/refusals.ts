@@ -10,9 +10,9 @@
 // generating from the schema rather than from the OpenAPI document is that they
 // are answered here instead, before the request is sent.
 
-import { listTasks, getComment, type Transport } from './api/client.gen';
-import { taskMutations } from './api/queries.gen';
-import { useMutation } from '@tanstack/react-query';
+import { listTasks, getComment, byListTasks, type Transport } from './api/client.gen';
+import { taskMutations, taskQueries } from './api/queries.gen';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 export function refusals(request: Transport) {
   // @ts-expect-error — "titel" is not a column of tasks.
@@ -113,4 +113,37 @@ export async function narrowing(request: Transport) {
   if (unexpanded === undefined) return;
   // @ts-expect-error — nothing was expanded, so there is no list to read.
   unexpanded.list.name;
+}
+
+// A declared read reaches the client the way a declared action does, and its
+// parameters are as narrow as a column's (#316). What is asserted here is that
+// the read's *result* is the shape the schema declared rather than rows of the
+// table: `by-list` answers with counts per list, which is a row of no declared
+// table, and a client typed `[]Task` for it would be confidently wrong.
+export async function declaredReads(request: Transport) {
+  const rollup = await byListTasks(request, { list_id: null });
+  const row = rollup[0];
+  if (row === undefined) return;
+
+  row.list_id;
+  row.open;
+  row.done;
+  // @ts-expect-error — the answer is a rollup, not a task, so there is no title on it.
+  row.title;
+
+  // @ts-expect-error — "listId" is not the wire spelling of the parameter.
+  void byListTasks(request, { listId: 'a' });
+
+  // Every parameter is optional, so the argument may be left out entirely.
+  void byListTasks(request);
+}
+
+export function declaredReadOptions(request: Transport) {
+  // The TanStack wrapper, beside list and detail — the read is a member of the
+  // resource's own factory rather than a hand-written queryOptions next to it.
+  const rollup = useQuery(taskQueries(request).byList({ list_id: 'a' }));
+  rollup.data?.[0]?.open;
+
+  // @ts-expect-error — "byLists" is not the read the schema declared.
+  void taskQueries(request).byLists({});
 }

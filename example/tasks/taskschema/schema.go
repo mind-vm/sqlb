@@ -343,6 +343,35 @@ var Task = schema.Table("tasks",
 		Writes:      []string{"status", "completed_at"},
 		Touches:     []string{"comments"},
 		Description: "Marks the task done and stamps its completion time. A task that is already done is refused with a 409.",
+	}).
+	// The read the filter grammar cannot express, and the reason declared
+	// queries have a Returns (#240).
+	//
+	// "How much is outstanding per list" is a GROUP BY, so its answer is not
+	// rows of tasks — it is a row per list with two counts on it, a shape no
+	// declared table has. Before Returns existed this was the read every
+	// application hand-wrote next to Register no matter how much of the rest
+	// was generated, because []Task could not describe it.
+	//
+	// No Reads: the rollup groups tasks and joins nothing, so the only table a
+	// change to which moves these numbers is the one it is declared on. That
+	// is implicit — see schema.Query.Reads — and the generated client already
+	// keys this read under the tasks namespace, so a task event invalidates it.
+	// Renaming a list does not change a count, which is the honest reason not
+	// to name lists here.
+	AddQuery(schema.Query{
+		Name:    "by-list",
+		Summary: "Task counts per list",
+		Params: schema.Body(
+			schema.UUID("list_id").Nullable().
+				Comment("Roll up one list only; omit for every list the caller can see."),
+		),
+		Returns: schema.Result(
+			schema.UUID("list_id"),
+			schema.BigInt("open").Comment("Tasks in the list that are not done."),
+			schema.BigInt("done").Comment("Tasks in the list that are."),
+		),
+		Description: "Open and completed task counts per list, under the caller's workspace.",
 	})
 
 // Comment is a note on a task. It exists mainly to give the demo a second

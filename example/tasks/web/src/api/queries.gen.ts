@@ -14,6 +14,7 @@
 
 import { infiniteQueryOptions, mutationOptions, queryOptions } from '@tanstack/react-query';
 import type {
+  ByListTasksParams,
   CommentColumn,
   CommentCreate,
   CommentGetParams,
@@ -46,6 +47,7 @@ import type {
   WorkspaceListParams,
 } from './client.gen';
 import {
+  byListTasks,
   commentKeys,
   completeTask,
   createComment,
@@ -267,6 +269,11 @@ export function taskQueries(request: Transport) {
       queryOptions({
         queryKey: taskKeys.detail(id, params),
         queryFn: ({ signal }) => getTask(request, id, params, signal),
+      }),
+    byList: (params: ByListTasksParams = {}) =>
+      queryOptions({
+        queryKey: taskKeys.query('by-list', params),
+        queryFn: ({ signal }) => byListTasks(request, params, signal),
       }),
   };
 }
