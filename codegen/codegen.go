@@ -30,6 +30,12 @@ type Options struct {
 	ColumnsFile  string
 	ManifestFile string
 	RestFile     string
+	// ScopesFile carries the confining hooks a Scoped column declares — the
+	// half of a tenancy bundle that could not travel in the declaration,
+	// because the schema package cannot register a hook and the model type it
+	// would key on does not exist there (#274). Nothing is written when no
+	// table declares a scope, so a schema not using it gains no file.
+	ScopesFile string
 
 	// TSDir emits the TypeScript client, into a directory relative to Dir —
 	// "web/src/api" in a repository whose frontend lives beside its server.
@@ -278,6 +284,7 @@ func (o Options) modelsFile() string   { return orDefault(o.ModelsFile, "models_
 func (o Options) columnsFile() string  { return orDefault(o.ColumnsFile, "columns_gen.go") }
 func (o Options) manifestFile() string { return orDefault(o.ManifestFile, "sqlb.json") }
 func (o Options) restFile() string     { return orDefault(o.RestFile, "rest_gen.go") }
+func (o Options) scopesFile() string   { return orDefault(o.ScopesFile, "scopes_gen.go") }
 
 func (o Options) skillName() string { return orDefault(o.SkillName, defaultSkillName) }
 
@@ -812,6 +819,21 @@ func render(opts Options) (map[string][]byte, error) {
 			return nil, err
 		}
 		files[name] = src
+	}
+	if name := opts.scopesFile(); name != "-" {
+		ov, err := newOverrides(opts.Types, opts.Registry)
+		if err != nil {
+			return nil, err
+		}
+		// nil source means no table declared a scope, so no file is written —
+		// the feature is inert for a schema that does not use it.
+		src, err := renderScopes(opts, ov)
+		if err != nil {
+			return nil, err
+		}
+		if src != nil {
+			files[name] = src
+		}
 	}
 	if name := opts.restFile(); name != "-" {
 		src, err := renderREST(opts)

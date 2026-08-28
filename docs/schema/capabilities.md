@@ -150,6 +150,39 @@ The check proves a hook *exists*, not that it is right. That is worth knowing
 before relying on it, and it catches the case that actually happens: the table
 somebody added last week ([ADR-0030](../architecture.md#declared-scope-is-required)).
 
+### The hooks can be generated
+
+Sixteen tables carrying the same tenant reference is sixteen identical
+declarations paired by hand with one function registered sixteen times, in a
+second file kept aligned by care. Codegen writes that pairing now, into
+`scopes_gen.go`:
+
+```go
+if err := data.RegisterScopes(reg, "tenant", data.Scopes{
+    WorkspaceID: auth.WorkspaceOf,   // the one thing only you can answer
+}); err != nil {
+    return err
+}
+```
+
+One field per scope column, typed as the column is, so a scope added to the
+schema is a build error at the call site rather than a table that silently
+confines nothing. It registers the predicate on reads, updates and deletes
+under the releasable name, and the create stamp *not* under it — releasing a
+predicate shows one row more, releasing a stamp writes a row belonging to
+nobody.
+
+**A table scoped on its own primary key is skipped unless it names its scope**
+— `Scoped("workspace")`. What confines such a table is particular to it, and
+what the generated hook writes is `column = value`, which is not the shape of a
+membership subquery. Those keep their hand-written hooks and still owe them;
+the emitted file names them so it does not read as covering everything.
+
+Naming the same scope on a table's primary key and on the references pointing
+at it is how they come to share one resolver. The name groups columns, and is
+unrelated to the releasable name passed to `RegisterScopes`, which groups hooks
+([#274](https://github.com/mind-vm/sqlb/issues/274)).
+
 ## One table, two surfaces
 
 Every capability above is a property of the *column*, and a column belongs to a

@@ -1283,6 +1283,42 @@ multi-tenancy bundle wanting to travel with its own scoping hook — one
 instance is a bug fixed by documentation, two is a pattern that means the
 codegen-as-carrier direction stops being deferred.
 
+That trigger fired, in the shape it named. A nineteen-table consumer wrote one
+`Scoped` reference verbatim on sixteen tables and paired it by hand with one
+generic function registered sixteen times, across two files kept aligned by
+care — and two of those tables denormalised the tenant column *purely so the
+generic hook would apply*, which is the schema bending to fit the seam rather
+than describing the data. So codegen carries it now: a `scopes_gen.go` holding
+a `Scopes` struct of resolver funcs and a `RegisterScopes` that registers the
+predicates and the create stamp the declaration already obliged. What is
+emitted is the registration and not the policy — which tenant a caller is in is
+the one thing this cannot know, so it stays a func the application supplies,
+the same direction the obligation already travels in.
+
+Three things constrain what it may emit, and each is a place a generated
+confinement could be confidently wrong. The predicates go under the releasable
+name and the create stamp does not, because releasing a predicate shows one row
+more and releasing a stamp writes a row belonging to nobody. Grouping is by the
+question rather than by the column name, since sixteen tables carrying
+`workspace_id` are one question while two tables scoped on their own `id` are
+two — so `Scoped` takes an optional name, and a scoped primary key that does
+not give one is skipped rather than guessed at. And what it writes is `column =
+value`, which is the shape of a reference to the tenant table and not of every
+identity scope: a table confined by a membership subquery has a predicate this
+cannot express, which is the other half of why an unnamed identity scope is
+left to the hand-written hook it already has. The emitted file says which
+tables it does not cover, because a generated document that reads as complete
+stops the reader looking at exactly the wrong moment, and here what they would
+stop looking for is a confinement.
+
+What this does not do is let the schema package carry behaviour, and the
+reasoning against that is untouched: the import graph and the ordering are
+unchanged, and the file codegen writes is committed, readable and deletable in
+a way a hook hidden in a declaration would not be. Revisit if the emitted shape
+starts needing options — a second predicate form, a per-table exception —
+since a generated carrier accumulating configuration is a DSL growing in the
+layer that was chosen for not being one.
+
 ### No annotation slot
 
 An outside review suggested an annotation slot on the table declaration,

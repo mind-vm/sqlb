@@ -305,6 +305,17 @@ Named in advance, so the break is a documented plan rather than a surprise.
   "the builder can express GROUP BY and cannot read what it returns" and shipped
   an N+1 loop instead.
 
+- **`schema.Field.Scoped` takes an optional scope name.** `Scoped()` is
+  unchanged and every existing schema compiles; `Scoped("workspace")` groups a
+  column with the others answering the same question, which is what lets
+  codegen emit one resolver for the sixteen tables carrying one tenant
+  reference ([#274](https://github.com/mind-vm/sqlb/issues/274)).
+
+  A new `scopes_gen.go` appears for any schema with a scoped column that is not
+  an unnamed primary key. Nothing calls it until you do, so the file arriving
+  changes no behaviour — but it is a new generated artefact, so `generate-check`
+  fails until the schema is regenerated.
+
 ### Five that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke

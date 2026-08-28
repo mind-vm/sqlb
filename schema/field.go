@@ -84,6 +84,12 @@ type FieldDesc struct {
 	// spellings.
 	Auto Auto
 
+	// ScopeName groups this column with the other columns answering the same
+	// question, for the hooks codegen emits. Empty means the column name is the
+	// grouping key, which is right for a reference to the tenant table and is
+	// refused on a primary key. See [Field.Scoped].
+	ScopeName string
+
 	// Capabilities. Each is opt-in and gates one specific REST affordance.
 	Filterable bool // may be used in a REST filter expression
 	Sortable   bool // may appear in ?sort
@@ -1348,8 +1354,35 @@ func (f *Field) LookupKey() *Field {
 // which is where the confinement already holds (#158).
 //
 // [ADR-0030]: https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#declared-scope-is-required
-func (f *Field) Scoped() *Field {
+// name optionally says *which* scope this column carries, for the columns whose
+// name does not already say it. Codegen groups the confining hooks it emits by
+// that answer — sixteen tables carrying `workspace_id` are one question and get
+// one func to answer it — and the column name is a good enough key whenever the
+// column is a reference to the tenant table.
+//
+// It is not good enough for a table scoped on its own primary key. A workspace
+// confined to `id = the caller's workspace` and a user confined to `id = …`
+// are two different questions under one column name, and grouping them by that
+// name would hand both to one func. So a scoped primary key must name its
+// scope, and codegen refuses the schema until it does (#274). Naming the same
+// scope on both a primary key and a reference is how a table that *is* the
+// tenant and a table that points at it come to share one answer:
+//
+//	var Workspace = schema.Table("workspaces",
+//	    schema.UUIDv7("id").PrimaryKey().Scoped("workspace"),
+//	)
+//	var Task = schema.Table("tasks",
+//	    schema.Ref("workspace", Workspace).ReadOnly().Scoped("workspace"),
+//	)
+//
+// The name is about grouping columns, and is unrelated to the releasable name
+// passed to [sqlb.Hooks.Scope] at registration, which groups hooks so a handle
+// can be released from them.
+func (f *Field) Scoped(name ...string) *Field {
 	f.d.Scoped = true
+	if len(name) > 0 {
+		f.d.ScopeName = name[0]
+	}
 	return f
 }
 

@@ -114,6 +114,11 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// it — so this is the case where a half-applied filter shows up as a
 		// package that does not compile.
 		"foreignmodels": {Registry: shared()},
+		// The emitted scoping hooks (#274), which are the first generated code
+		// that calls into the engine's hook API rather than describing a table
+		// — so a signature drifting there is a consumer's build breaking, and
+		// this is what catches it here instead.
+		"scopes": {Registry: tenancyFixture()},
 	})
 }
 
