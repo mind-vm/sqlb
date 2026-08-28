@@ -14,6 +14,112 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.23.0
+
+2026-08-27 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.23.0)
+
+Two shapes that had no declaration and a login that handed the operator back to
+curl. No breaking change: nothing here alters an existing declaration's meaning,
+and both additions are inert until used.
+
+### A map-shaped body declares a map
+
+The field vocabulary is the column vocabulary, and a column is a scalar or an
+array of scalars — so a quiz submission, a settings patch, a per-key override
+had one spelling available: `JSON`. That reaches Go as `json.RawMessage` and
+every generated client as `unknown`, with the handler unmarshalling by hand and
+a malformed body becoming its 422 rather than the envelope's 400.
+
+The consumer who reported it put it best: declaring the action was still the
+right trade, but the client came out *less* typed than the hand-written route it
+replaced, which is the opposite of what a declared surface is for.
+
+```go
+Body: schema.Body(
+    schema.Map("answers", schema.TypeUUID),   // question id -> option id
+),
+```
+
+| | |
+|---|---|
+| Go | `map[string]string` |
+| OpenAPI | an object with `additionalProperties` |
+| TypeScript | `Record<string, string>` |
+| Dart | `Map<String, String>` |
+| CLI | `--answers '{"q1":"o2"}'`, sent as an object |
+
+An array is not the substitute. One value per key is a fact the map shape
+carries for free; a list lets a client send the same key twice, so the server
+grows a validation to refuse what the shape used to make unrepresentable.
+
+Body-only, deliberately: `Registry.Validate` refuses a `Map` column, no DDL
+renders one, and `schema.Types()` does not list it. A `jsonb` column stays
+`jsonb` — whether a *stored* map should be declarable is a larger question this
+does not answer, since the value there is stored rather than transported.
+
+Two declarations are refused rather than guessed at. A map naming no value type
+would have the emitters invent `map[string]string`, which is half a declaration
+written by the generator; a map of maps or of `jsonb` is refused for the same
+reason `IsArrayElement` refuses that set — the clients gain nothing over
+`unknown`, which is what this exists to avoid.
+
+Changing a declared map's *value* type is a break, and `sqlb impact` reports it:
+the value type is not in the type string, so every client's generated type
+changes while `map` stays `map`
+([#327](https://github.com/mind-vm/sqlb/issues/327)).
+
+### Studio signs in with the application's own credentials
+
+Studio's login took a pasted bearer token and nothing else, so a first-time
+operator had to mint one outside the browser — `curl` against the sign-in route,
+or Try-it-out on `/docs` — before studio was usable at all. Fine for whoever
+wired it up; friction for everyone else who wants to look at data, which is the
+one thing studio exists to make easy. It was also the only piece of a generated
+project that handed the operator back to curl.
+
+```go
+studio.NewServer(m, apiBase, "/studio").
+    WithCredentialLogin(studio.CredentialLogin{
+        Label: "Email",
+        Exchange: func(ctx context.Context, email, password string) (string, error) {
+            return auth.SignIn(ctx, email, password)
+        },
+    })
+```
+
+Unset, nothing changes: the token form is the only one rendered, and "studio has
+no opinion on how an application authenticates" stays true by default. The hook
+does not give it one either — it still only ever produces the *operator's own*
+token, the same value a pasted one would be, set in the same cookie by the same
+code. `Label` is the application's to choose, so the two fields are an
+identifier and a secret rather than an assumed email and password.
+
+What it removes is worse than the friction. An application could set the cookie
+itself, and one did — but that couples to three unexported details of a module
+it does not own: the cookie's name, its path shape, and the value being the raw
+token. None of that was a contract, so a release could have changed any of it
+without the break counting as one. **Do not set the cookie yourself**; this is
+the way in.
+
+Two properties follow from the login page being reachable without a token. The
+hook's error is never rendered — anything shown there is readable by anyone who
+can reach the URL, and a wrapped internal error would leak through a form nobody
+authenticated to see; a refusal and a failure both read "those credentials were
+not accepted", which is what a sign-in form should say anyway. And an empty
+token with a nil error is a refusal rather than a session, which would otherwise
+leave studio making unauthenticated calls while the operator believed they were
+signed in.
+
+A pasted token still works alongside a configured hook, so adding one does not
+take the escape hatch away from anyone whose credentials studio cannot exchange
+([#328](https://github.com/mind-vm/sqlb/issues/328)).
+
+### Upgrading
+
+Nothing to do. Both additions are new surface: an existing schema declares no
+`Map` and an existing studio mount configures no `CredentialLogin`, so neither
+changes what either already does.
+
 ## v0.22.0
 
 2026-08-27 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.22.0)
