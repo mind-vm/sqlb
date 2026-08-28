@@ -14,6 +14,138 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.21.0
+
+2026-08-27 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.21.0)
+
+Supabase is a supported target, and five holes are closed — three of them
+places where a rule that looked enforced was not.
+
+One breaking change, listed under *Will move* before it shipped: an action
+declaring `Writes` on a `Scoped` model now refuses to mount without a
+`BeforeUpdate`. The mechanical edit is registering the hook.
+
+### A writing verb on a confined row needed no write rule
+
+`rest.Action` checked its obligations as a read, so a verb declaring a
+non-empty `Writes` mounted with a `BeforeQuery` and nothing else, then
+persisted through `sqlb.UpdateRows` with no write rule behind it.
+
+The reasoning that put it there is sound and answers a different question. The
+row an action writes is one the envelope itself fetched under the read
+predicate, so confinement genuinely is settled by the fetch. Confinement
+establishes *whose row this is*. A write rule establishes *who may write it*.
+Those part company wherever a tenant has more than one kind of member, which is
+most products with roles — and the consumer who found it did so against a
+running server, where a child set the parent's PIN through a route that mounted
+cleanly. The sibling route was safe only because a hook registered for its own
+`PATCH` happened to cover it, which is luck rather than obligation.
+
+Keyed on the write set rather than on being an action: a verb that persists
+nothing still owes only the read hook, and an unconfined model owes neither.
+What is obliged is that a rule exist, not that it be correct — whether this
+caller may make this transition stays in the func.
+
+**The edit:** register `BeforeUpdate` on the model. It is the same hook such a
+schema already has when it exposes a `PATCH`, which is why this is invisible to
+most tables and loud on exactly the ones it is about ([#308](https://github.com/mind-vm/sqlb/issues/308)).
+
+### A generated create inverted a bool
+
+`POST {"active": false}` on a column declared `Bool(...).Default(Value(true))`
+answered 201 with `"active": true`. The body typed the column as a pointer, so
+absent and false were already distinct — and the insert dropped that one line
+later, because a defaulted column holding its Go zero value is omitted so the
+database can supply it.
+
+That rule is right for a generated id and wrong for the one common declaration
+whose default is the *opposite* of its zero. `Insert.Explicit(cols...)` says a
+named column's zero is meant, and generated bodies report which fields the
+request carried. Not `Only`, which would have dropped every column the request
+did not name — including the ones a `BeforeCreate` hook is about to fill in
+([#314](https://github.com/mind-vm/sqlb/issues/314), [#304](https://github.com/mind-vm/sqlb/issues/304)).
+
+### A table another package models is no longer shadowed here
+
+A library declaring its tables into the host's registry got a row struct per
+table out of the host's `sqlb generate`, so the host's package held a `User`
+mapping the same rows as the library's. Hooks are keyed by Go type, so a query
+written against the host's copy ran with no hook at all — same table, same
+rows, no confinement, no error, and the shadow sat in the package its author
+was already importing.
+
+`TableDef.ModelsIn(pkg)` names the package that owns a table's model, declared
+once by the library that knows rather than by a list each host maintains.
+Migrations are untouched, which is what keeps a host's foreign key into the
+table real ([#284](https://github.com/mind-vm/sqlb/issues/284)).
+
+### Supabase
+
+A foreign key may name the schema its target lives in — `auth.users.id` — so
+the first table anybody declares on Supabase is expressible without dropping a
+constraint the database has, hand-writing it in a migration, or declaring a
+local `users` that type-checks and is the wrong one of the two tables answering
+to that name.
+
+`example/auth-supabase` verifies the project's tokens, and refuses the trap
+nothing in the JWT literature warns about: a project's anon key is itself a JWT
+signed by that project and shipped in every browser bundle, so a verifier
+checking signature, issuer and expiry accepts the published key as a signed-in
+caller. The role claim is what separates them.
+
+`sqlb migrate` replaying a history that names a schema the shadow database does
+not have now says which database to create it in, rather than passing Postgres's
+3F000 through with no idea why anybody expected the schema to be there.
+
+### Format rules on a value
+
+`Pattern` for text and `Min`/`Max` for numbers are declared beside the type and
+reach the generated request bodies as the struct tags Huma reads, so the server
+rejects a malformed value before the func runs and the rule appears in the
+OpenAPI document. A regexp written inside a transition func reaches no emitter,
+so a caller with no compile step could only discover the rule by sending a bad
+request.
+
+They write no DDL. A row arriving from a migration, a seed or a job is
+unconstrained by them; `Check` is still the rule a database holds. Declaring one
+on an existing column narrows what a request may carry with no type change to
+give it away, so `sqlb impact` reports it — tightening as breaking, loosening as
+unknown, since a generated client still enforcing the old rule refuses input the
+server now accepts ([#311](https://github.com/mind-vm/sqlb/issues/311)).
+
+### Three refusals that were true-sounding and wrong
+
+**A CTE a hook attached** was told to resolve it first with `Resolved(ctx, db)`
+— a call a hook has no executor to make. The predicate case learned to say
+something else and this one had not, so the advice was inapplicable at one of
+the two places it fires. It now names the two fixes a hook can apply. The same
+guard serves `Builder.With` and `Update.From` and named `From` in both, sending
+a caller to a call they had not written ([#288](https://github.com/mind-vm/sqlb/issues/288)).
+
+**Two constraints with one name** were emitted into a single `CREATE TABLE` and
+reported as success. An `Enum` column's check is named `<table>_<column>_check`
+with nothing in the Go source saying so, which is exactly the name somebody
+writing a second constraint about that column reaches for. The shadow database
+could not catch it — it replays the *committed* history, and the file about to
+be written is not itself applied — so the failure surfaced on the next migrate
+run, in CI, or at deploy ([#303](https://github.com/mind-vm/sqlb/issues/303)).
+
+**A multi-paragraph description** was written into a doc comment with only its
+first line prefixed, so the second paragraph landed as bare source and codegen
+refused its own output. The diagnostic named a line in a file nobody had
+written ([#326](https://github.com/mind-vm/sqlb/issues/326)).
+
+### Also
+
+- `default-disagrees-with-zero` names a bool or numeric default that is not the
+  column's Go zero, so a direct `InsertRows` leaving the field at zero writes
+  the default instead ([#304](https://github.com/mind-vm/sqlb/issues/304)).
+- `Query.Reads` says plainly that no client emitter consumes it yet. It is
+  validated, carried into `rest.QuerySpec`, rendered into the OpenAPI
+  description and recorded in the contract snapshot — and then read by nothing,
+  while its documentation described the invalidation in the present tense
+  ([#316](https://github.com/mind-vm/sqlb/issues/316)).
+
 ## v0.20.0
 
 2026-08-26 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.20.0)
