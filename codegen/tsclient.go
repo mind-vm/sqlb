@@ -1087,6 +1087,12 @@ func tsType(typeName string, d *schema.FieldDesc) string {
 // declared as jsonb: `unknown` is what a jsonb column has to emit, and
 // `string[]` is what this one can (ADR-0033).
 func tsBaseType(typeName string, d *schema.FieldDesc) string {
+	if d.Type == schema.TypeMap {
+		// The shape jsonb could not give: a declared map reaches the client as
+		// a Record rather than as `unknown`, which is the whole of #327. Keys
+		// are strings because a JSON object's keys are.
+		return "Record<string, " + tsElemType(typeName, &schema.FieldDesc{Type: d.MapValue}) + ">"
+	}
 	if d.Array {
 		return tsElemType(typeName, d) + "[]"
 	}

@@ -875,6 +875,8 @@ func cliValueExample(d *schema.FieldDesc) string {
 		return "<" + d.Name + ">"
 	case schema.TypeJSON:
 		return `'{"key":"value"}'`
+	case schema.TypeMap:
+		return `'{"key":"value"}'`
 	case schema.TypeBytes:
 		return "<base64>"
 	}
@@ -916,10 +918,13 @@ func cliBodyAssignment(b *bytes.Buffer, d *schema.FieldDesc, wire schema.WireCas
 	name := cliFlagName(d.Name)
 	v := cliValueVar(d)
 	fmt.Fprintf(b, "\t\t\tif cmd.Flags().Changed(%q) {\n", name)
-	if d.Type == schema.TypeJSON {
-		// A jsonb column takes a document, so the flag's text is the value
-		// rather than a string containing it. Checking it here names the flag;
-		// sending it as a JSON string instead would store the text and succeed.
+	if d.Type == schema.TypeJSON || d.Type == schema.TypeMap {
+		// A jsonb column takes a document and a declared map takes an object,
+		// so in both the flag's text is the value rather than a string
+		// containing it. Checking it here names the flag; sending it as a JSON
+		// string instead would store the text and succeed for jsonb, and would
+		// be refused by the server's own schema for a map — which is a worse
+		// error, arriving further away (#327).
 		fmt.Fprintf(b, "\t\t\t\tif !json.Valid([]byte(%s)) {\n", v)
 		fmt.Fprintf(b, "\t\t\t\t\treturn fmt.Errorf(\"--%s: not valid JSON: %%s\", %s)\n", name, v)
 		fmt.Fprintf(b, "\t\t\t\t}\n")
@@ -1023,6 +1028,8 @@ func cliWriteUsage(d *schema.FieldDesc, kind bodyKind) string {
 		b.WriteString("UUID. ")
 	case schema.TypeJSON:
 		b.WriteString("A JSON document, sent as-is rather than as a string. ")
+	case schema.TypeMap:
+		fmt.Fprintf(&b, "A JSON object of %s values, sent as-is rather than as a string. ", d.MapValue)
 	case schema.TypeBytes:
 		b.WriteString("Base64-encoded bytes. ")
 	case schema.TypeEnum:

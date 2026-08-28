@@ -68,6 +68,10 @@ type BodyPropSnap struct {
 	Pattern string   `json:"pattern,omitempty"`
 	Min     *float64 `json:"min,omitempty"`
 	Max     *float64 `json:"max,omitempty"`
+	// MapValue is a map property's value type. Recorded because "map" alone
+	// does not say it, so a change from a map of strings to a map of ints
+	// would otherwise be a type change the diff could not see.
+	MapValue string `json:"map_value,omitempty"`
 }
 
 // ActionPropSnap is the former name of [BodyPropSnap].
@@ -114,6 +118,7 @@ func captureBodyProps(body []*schema.Field) []BodyPropSnap {
 			Pattern:    d.Pattern,
 			Min:        d.Min,
 			Max:        d.Max,
+			MapValue:   string(d.MapValue),
 		})
 	}
 	return out
@@ -232,6 +237,14 @@ func diffProps(path string, kind propKind, prefix string, oldBody, newBody []Bod
 			if op.Type != np.Type {
 				add(Break{LevelBreaking, path, kind.facet, field,
 					fmt.Sprintf("%s type changed from %s to %s", kind.noun, op.Type, np.Type)})
+			}
+			// A map's value type is not in its Type, so a map of strings
+			// becoming a map of ints is a break the comparison above cannot
+			// see: every client's generated type changes and every request
+			// carrying the old one is refused.
+			if op.Type == np.Type && op.MapValue != np.MapValue {
+				add(Break{LevelBreaking, path, kind.facet, field,
+					fmt.Sprintf("%s map value type changed from %s to %s", kind.noun, op.MapValue, np.MapValue)})
 			}
 			if !op.required() && np.required() {
 				add(Break{LevelBreaking, path, kind.facet, field,

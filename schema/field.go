@@ -84,6 +84,10 @@ type FieldDesc struct {
 	// spellings.
 	Auto Auto
 
+	// MapValue is the value type of a [TypeMap] property. Keys are always
+	// strings, so only the value is declared.
+	MapValue Type
+
 	// ScopeName groups this column with the other columns answering the same
 	// question, for the hooks codegen emits. Empty means the column name is the
 	// grouping key, which is right for a reference to the tenant table and is
@@ -376,6 +380,37 @@ func Date(name string) *Field      { return newField(name, TypeDate) }
 func Time(name string) *Field      { return newField(name, TypeTime) }
 func JSON(name string) *Field      { return newField(name, TypeJSON) }
 func Bytes(name string) *Field     { return newField(name, TypeBytes) }
+
+// Map is a string-keyed map property, for a declared request or response body.
+//
+//	Body: schema.Body(
+//	    schema.Map("answers", schema.TypeUUID),   // question id -> option id
+//	)
+//
+// It is the one shape a declared body could not describe. The field vocabulary
+// is the column vocabulary and a column is a scalar or an array of scalars, so
+// a map-shaped body had to be declared `JSON` — which reaches Go as
+// `json.RawMessage` and every generated client as `unknown`, with the handler
+// unmarshalling by hand and a malformed body becoming its 422 rather than the
+// envelope's 400. Declaring the action was still the right trade, but the
+// client got *less* typed in the process, which is the opposite of what a
+// declared surface is for (#327).
+//
+// Keys are always strings, because that is what a JSON object's keys are. The
+// value type is a scalar: a map of maps, or of arrays, is a shape whose
+// generated clients gain nothing over `unknown`, which is the same argument
+// that keeps jsonb and bytea out of [IsArrayElement].
+//
+// It is body-only, and [Registry.Validate] refuses it on a table: no DDL
+// renders one, and a jsonb *column* stays jsonb. Whether a stored map should be
+// declarable is a larger question than this answers — the value there is stored
+// rather than transported, and `json.RawMessage` is defensible for storage in a
+// way it is not for a request whose shape the schema knows.
+func Map(name string, value Type) *Field {
+	f := newField(name, TypeMap)
+	f.d.MapValue = value
+	return f
+}
 
 // Varchar is a length-bounded text column.
 func Varchar(name string, size int) *Field {
@@ -1433,6 +1468,13 @@ func (f *Field) OnUpdate(a RefAction) *Field {
 // else, database/sql included.
 func (d *FieldDesc) GoType() string {
 	base := d.Type.GoType()
+	if d.Type == TypeMap {
+		// Rendered here rather than on the Type, because the value type lives
+		// on the declaration. A map is never an array and never a pointer: a
+		// nil map already reads as absent, the same argument that keeps a
+		// nullable slice a slice.
+		return "map[string]" + d.MapValue.GoType()
+	}
 	if d.Array {
 		return "[]" + base
 	}

@@ -123,6 +123,10 @@ func TestGeneratedGoCompiles(t *testing.T) {
 		// signature and puts a second generated type through rest.Query's Out
 		// parameter — the shape that has to typecheck against the mount.
 		"queryresult": {Registry: rollupFixture()},
+		// A map-shaped body property (#327), which is the first declared type
+		// that is not a column type — so it reaches the Go body emitter
+		// through a path no table exercises.
+		"mapbody": {Registry: mapFixture()},
 	})
 }
 

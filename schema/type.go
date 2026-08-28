@@ -29,6 +29,17 @@ const (
 	// it — a vector(768) and a vector(1536) are different types to Postgres,
 	// and the dimension is FieldDesc.Dim (ADR-0026).
 	TypeVector Type = "vector"
+
+	// TypeMap is a string-keyed map, and is the one type here that is not a
+	// column type: no table stores one, no DDL renders it, and [Types] does
+	// not list it. It exists for a declared request or response body, where
+	// the shape a client should see is a map and the only spelling available
+	// was jsonb — which types as `unknown` in every generated client and hands
+	// the unmarshalling back to the handler (#327).
+	//
+	// The value type is [FieldDesc.MapValue]; keys are always strings, because
+	// that is what JSON object keys are.
+	TypeMap Type = "map"
 )
 
 // Types is every logical column type, in declaration order.
@@ -72,6 +83,12 @@ func (t Type) GoType() string {
 		return "time.Time"
 	case TypeJSON:
 		return "json.RawMessage"
+	case TypeMap:
+		// The value type is not on the Type, so this is the shape without it;
+		// FieldDesc.GoType is what renders the whole thing. A bare TypeMap
+		// reaching here at all means a declaration that never named a value
+		// type, which Validate refuses.
+		return "map[string]string"
 	case TypeBytes:
 		return "[]byte"
 	case TypeVector:

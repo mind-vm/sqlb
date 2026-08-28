@@ -786,10 +786,13 @@ done
 
 # The three that carry a section of their own rather than a table row, because a
 # row would say less about them than the section does: Ref and ExternalRef emit
-# a relation as well as a column, and UUIDv7 is a UUID with a default. They
-# still have to be on the page -- this exempts them from the table, not from the
-# reference. An addition here is a decision, which is the point of naming them.
-sectioned="Ref ExternalRef UUIDv7"
+# a relation as well as a column, and UUIDv7 is a UUID with a default. Map is
+# the one that is not a column constructor at all -- it declares a body
+# property, no DDL renders it, and a row in a table of column types would be
+# actively wrong about where it may be used. They still have to be on the page
+# -- this exempts them from the table, not from the reference. An addition here
+# is a decision, which is the point of naming them.
+sectioned="Ref ExternalRef UUIDv7 Map"
 
 # What the DSL exports. A method cannot match: its line begins "func (f *Field)",
 # so the character after "func " is not uppercase.

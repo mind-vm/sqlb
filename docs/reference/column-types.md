@@ -174,6 +174,49 @@ An `ExternalRef` cannot be `Expandable` and cannot declare an `Inverse`: both
 would reach a table this module does not own. See
 [References and relations](../schema/references.md).
 
+## `Map`, which is not a column
+
+`schema.Map(name, valueType)` declares a **string-keyed map property of a
+request or response body**. No table stores one, no DDL renders it, and
+`Registry.Validate` refuses it on a table — it is in this reference because it
+is part of the field vocabulary, not because it is a column type.
+
+```go
+Body: schema.Body(
+    schema.Map("answers", schema.TypeUUID),   // question id -> option id
+)
+```
+
+| | |
+|---|---|
+| Go | `map[string]string` — the value type decides the second half |
+| OpenAPI | an object with `additionalProperties` |
+| TypeScript | `Record<string, string>` |
+| Dart | `Map<String, String>` |
+
+It exists because the field vocabulary is the column vocabulary, and a column
+is a scalar or an array of scalars — so a map-shaped body had to be declared
+`JSON`, which reaches Go as `json.RawMessage` and every generated client as
+`unknown`. Declaring the action was still worth it, but the client came out
+*less* typed than the hand-written route it replaced, which is the opposite of
+what a declared surface is for
+([#327](https://github.com/mind-vm/sqlb/issues/327)).
+
+Keys are always strings, because that is what a JSON object's keys are. The
+value is a scalar: a map of maps, or of arrays, is a shape a generated client
+gains nothing from over `unknown` — the same argument that keeps `jsonb` and
+`bytea` out of array element types.
+
+An array is not a substitute. `schema.UUID("option_ids").Array()` types cleanly
+and is a worse contract: one option per question is a fact the map shape carries
+for free, and a list lets a client answer the same question twice, so the server
+grows a validation to refuse what the shape used to make unrepresentable.
+
+**A `jsonb` column stays `jsonb`.** Whether a *stored* map should be declarable
+is a larger question — the value there is stored rather than transported, and
+`json.RawMessage` is defensible for storage in a way it is not for a request
+whose shape the schema knows.
+
 ## Modifiers
 
 | Method | Effect |

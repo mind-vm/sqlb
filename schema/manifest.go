@@ -294,6 +294,10 @@ type BodyProperty struct {
 	Pattern string   `json:"pattern,omitempty"`
 	Min     *float64 `json:"min,omitempty"`
 	Max     *float64 `json:"max,omitempty"`
+	// MapValue is the value type of a map property, which "map" alone does not
+	// say — and a consumer assembling a request needs it to know what the
+	// object's values may be.
+	MapValue string `json:"mapValue,omitempty"`
 }
 
 // ActionProperty is the former name of [BodyProperty].
@@ -578,6 +582,7 @@ func bodyProperties(body []*Field) []BodyProperty {
 			Pattern:  d.Pattern,
 			Min:      d.Min,
 			Max:      d.Max,
+			MapValue: string(d.MapValue),
 		})
 	}
 	return out

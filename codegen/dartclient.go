@@ -587,6 +587,11 @@ func dartReader(t schema.Type) (fn, typ string) {
 		return "_time", "DateTime"
 	case schema.TypeJSON:
 		return "_any", "Object"
+	case schema.TypeMap:
+		// Reached only through dartValueType's map branch above, which renders
+		// the whole type from the declaration; a column is never a map, so no
+		// Row reader decodes one.
+		return "_any", "Map<String, Object?>"
 	default:
 		// Text, varchar, uuid and bytea all arrive as strings.
 		return "_str", "String"
@@ -855,6 +860,11 @@ func dartBodyType(base string, d *schema.FieldDesc, create bool) string {
 // dartValueType is the non-null Dart type of a column's value, as a filter
 // condition or a request body carries it.
 func dartValueType(base string, d *schema.FieldDesc) string {
+	if d.Type == schema.TypeMap {
+		// The shape jsonb could not give: a declared map reaches the client as
+		// a typed Map rather than as Object, which is the whole of #327.
+		return "Map<String, " + dartElemType(base, &schema.FieldDesc{Type: d.MapValue}) + ">"
+	}
 	if d.Array {
 		return "List<" + dartElemType(base, d) + ">"
 	}

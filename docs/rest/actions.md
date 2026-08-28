@@ -260,6 +260,30 @@ argument for declaring the body, applied to the rules about its values —
 see [the column reference](../reference/column-types.md#format-rules) for
 what they do not do, which is write any DDL.
 
+**A map-shaped body declares a map.** `schema.Map(name, valueType)` is the one
+request shape the vocabulary could not describe — a set of answers, a settings
+patch, a per-key override — and the only spelling for it was `JSON`, which
+reaches Go as `json.RawMessage` and every client as `unknown`:
+
+```go
+Body: schema.Body(
+    schema.Map("answers", schema.TypeUUID),   // question id -> option id
+),
+```
+
+| | |
+|---|---|
+| Go | `map[string]string` |
+| TypeScript | `Record<string, string>` |
+| Dart | `Map<String, String>` |
+| CLI | `--answers '{"q1":"o2"}'`, sent as an object |
+
+Keys are always strings. An array is not the substitute: one value per key is a
+fact the map carries for free, and a list lets a client send the same key twice,
+so the server grows a validation to refuse what the shape used to make
+unrepresentable. See [the column reference](../reference/column-types.md#map-which-is-not-a-column)
+for why a `jsonb` *column* stays `jsonb`.
+
 These are *format* rules, not domain rules. Whether this PIN is the one already
 in use is a question about the world rather than about the string, and it stays
 in the func with every other precondition.

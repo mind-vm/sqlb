@@ -264,6 +264,13 @@ func (r *Registry) Validate() error {
 			if d.Computed() || len(d.Needs) > 0 {
 				r.validateComputed(t, d, report)
 			}
+			// A map has no column type to render, so a table carrying one
+			// would reach the DDL with nothing to emit. Refused where it is
+			// fixable rather than discovered as a migration that will not
+			// apply (#327).
+			if d.Type == TypeMap {
+				report(t.name, d.Name, "Map declares a body property and not a column; no DDL renders one, and a stored map stays a JSON column")
+			}
 			r.validateConstraints(t.name, d, "", report)
 			if d.Searchable && (!isTextual(d.Type) || d.Array) {
 				report(t.name, d.Name, "Searchable requires a text column, got %s", describeType(d))

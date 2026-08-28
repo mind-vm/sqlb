@@ -68,6 +68,23 @@ func (r *Registry) validateBody(t *TableDef, where string, body []*Field, report
 		// a column's are: one vocabulary, one validator.
 		r.validateConstraints(t.name, d, where, report)
 
+		// A map's value type is the half the constructor takes and the type
+		// does not carry, so a zero one is a declaration that never said what
+		// it holds — and the emitters would render map[string]string for it,
+		// which is a guess.
+		if d.Type == TypeMap {
+			switch {
+			case d.MapValue == "":
+				report(t.name, d.Name, "%s: Map names no value type; schema.Map(%q, schema.TypeText) is the string-valued one", where, d.Name)
+			case !IsArrayElement(d.MapValue):
+				// The same set an array element is drawn from, and for the
+				// same reason: a map of maps or of jsonb is a shape no
+				// generated client can narrow past `unknown`, which is the
+				// thing this declaration exists to avoid.
+				report(t.name, d.Name, "%s: Map value %s is not a scalar; a map of maps or of jsonb types as unknown in every client, which is what Map exists to avoid", where, d.MapValue)
+			}
+		}
+
 		// A body property is a value, not a column. Every capability below
 		// describes a column's place in a table, and silently ignoring one
 		// would leave a declaration that reads as though it did something.

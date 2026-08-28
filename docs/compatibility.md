@@ -328,6 +328,16 @@ Named in advance, so the break is a documented plan rather than a surprise.
   generated `Register` because codegen always emitted `[]T`; `rest.Query` was
   already generic over its result, so nothing about the runtime changed.
 
+- **`schema.Map` declares a map-shaped body property.** Additive: a new
+  constructor and a new `schema.TypeMap`, neither reachable by an existing
+  declaration ([#327](https://github.com/mind-vm/sqlb/issues/327)).
+
+  It is body-only. `Registry.Validate` refuses it on a table, no DDL renders
+  one, and `schema.Types()` does not list it — a `jsonb` column stays `jsonb`.
+  Changing a declared map's *value* type is a break, and `sqlb impact` reports
+  it: the value type is not in the type string, so every client's generated
+  type changes while `map` stays `map`.
+
 ### Five that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke
