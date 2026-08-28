@@ -14,6 +14,109 @@ break a surface listed there, and the break is described here with the
 mechanical edit that fixes it. [The road to 1.0](release-1.0.md) says what has
 to be true before that promise becomes permanent.
 
+## v0.22.0
+
+2026-08-27 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.22.0)
+
+A rollup a chart needs is now a declaration: its result shape, the hooks that
+confine it, and a read that no longer drops the number it was asked for. Three
+changes that arrived separately and turn out to be one.
+
+One breaking change, listed under *Will move* before it shipped: reading a
+grouped query with `All` is refused rather than answered with rows whose
+aggregate is missing. The mechanical edit is `sqlb.Collect[R]`, which is the
+call the code wanted anyway.
+
+### A grouped read no longer discards the answer
+
+`Builder.All` on a query that declared `GROUP BY` scanned into the model type,
+and the model has no field for the aggregate — so partial scanning, which is
+what makes `?select=id,name` legitimate, silently dropped exactly the column the
+statement existed to get. The rows came back the right length, with the grouped
+column set, a zero where the count should be, and a nil error.
+
+Confirmed before fixing: two groups counting 7 and 3 came back as two structs
+with only the group key set and both counts gone.
+
+`sqlb.Collect[R]` had been the answer for a month — it scans a projection into a
+type the caller declares and runs the query hooks — and this is why nobody found
+it. A reader seeing `All` return plausible rows concludes the builder can
+express `GROUP BY` and not read what it returns, which is what a consumer
+concluded before shipping an N+1 loop and a paragraph defending it.
+
+So a grouped query is now scanned in a mode where a projected column the model
+cannot hold is an error naming the column and naming `Collect`. Keyed on the
+projection rather than on `GROUP BY` alone: grouping by the primary key and
+selecting the model's own columns is legal Postgres that scans exactly, and
+ungrouped partial selects are untouched. `GroupBy`'s doc comment, which was one
+line, now carries the worked example — the pointer belongs where the hand is
+([#306](https://github.com/mind-vm/sqlb/issues/306)).
+
+### A declared read may say its answer is not rows
+
+`rest.Resource` returns rows of `T` and a generated `Query` returned `[]T`, so a
+metering table's real read — per-bucket sums for a chart — could not be mounted
+from the declaration at all. A bucketed sum is a row of no declared table, so
+every application with a chart hand-wrote that one endpoint beside the generated
+`Register`.
+
+`Query.Returns` declares the row shape in the field vocabulary, exactly as
+`Action.Returns` does:
+
+```go
+UsageEvent.AddQuery(schema.Query{
+    Name:    "usage",
+    Params:  schema.Body(schema.Date("from"), schema.Date("to")),
+    Returns: schema.Result(schema.Timestamp("bucket"), schema.Numeric("total", 18, 2)),
+})
+// func(context.Context, sqlb.Executor, UsageUsageEventParams) ([]UsageUsageEventResult, error)
+```
+
+The emitted row type carries a `db` tag beside its `json` one, because it is
+what `Collect` scans into. `rest.Query[In, Out]` needed nothing — it was already
+generic over its result, and the constraint was only ever codegen's. Leaving
+`Returns` empty keeps `[]T` ([#240](https://github.com/mind-vm/sqlb/issues/240)).
+
+### A tenancy bundle's hook travels with its column
+
+The mixin decision deferred behaviour-carrying bundles with a trigger: revisit
+if a second one wants behaviour, such as a multi-tenancy bundle wanting to
+travel with its own scoping hook. It fired, in the shape it named — nineteen
+tables, one `Scoped` reference written verbatim on sixteen, paired by hand with
+one function registered sixteen times. Two of those tables denormalised the
+tenant column *purely so the generic hook would apply*, which is a schema
+bending to fit a seam.
+
+Codegen carries it now, which the decision had already settled as the only place
+it could: `scopes_gen.go` holds a `Scopes` struct of resolver funcs and a
+`RegisterScopes` that registers the predicates and the create stamp.
+
+```go
+data.RegisterScopes(reg, "tenant", data.Scopes{WorkspaceID: auth.WorkspaceOf})
+```
+
+What is emitted is the registration and not the policy: which tenant a caller is
+in stays the application's to answer. The predicates go under the releasable
+name and the create stamp does not — releasing a predicate shows one row more,
+releasing a stamp writes a row belonging to nobody. `Scoped` takes an optional
+name, so sixteen tables carrying one reference are one question while two tables
+scoped on their own `id` stay two. A scoped primary key that names no scope is
+skipped rather than guessed at, because what the emitted hook writes is `column
+= value` and that is not the shape of a membership subquery; the file names the
+tables it does not cover ([#274](https://github.com/mind-vm/sqlb/issues/274)).
+
+### Upgrading
+
+- **A grouped `All` now errors.** Replace it with `sqlb.Collect[R](ctx, db, q)`,
+  where `R` carries a `db` tag per projected column. A grouped query whose
+  projection the model can hold is unaffected, and so is every ungrouped partial
+  select.
+- **Regenerate.** A schema with a scoped column gains `scopes_gen.go`, so
+  `sqlb check` reports drift until `sqlb generate` has run. Nothing calls the
+  new file until you do.
+- `Scoped()` and a `Query` with no `Returns` are unchanged; every existing
+  declaration of both compiles and behaves as before.
+
 ## v0.21.0
 
 2026-08-27 · [tag](https://github.com/mind-vm/sqlb/releases/tag/v0.21.0)
