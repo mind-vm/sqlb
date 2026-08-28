@@ -37,6 +37,11 @@ type Server struct {
 	apiBase  string
 	basePath string
 
+	// credential is the optional application sign-in hook. Its zero value
+	// renders the token-paste form alone, which is what studio did before it
+	// existed. See CredentialLogin.
+	credential CredentialLogin
+
 	index     *template.Template
 	table     *template.Template
 	login     *template.Template
@@ -729,14 +734,28 @@ func (s *Server) renderActionError(w http.ResponseWriter, r *http.Request, t *sc
 type loginPage struct {
 	pageHeader
 	Next, Error, APIBase string
+	// Credential reports whether the application supplied a sign-in hook, and
+	// CredentialLabel names its first field. Both are zero when it did not,
+	// and the template then renders the token form alone.
+	Credential      bool
+	CredentialLabel string
+}
+
+// loginView is the page as it should render for this request, so the two
+// handlers cannot disagree about which forms are on it.
+func (s *Server) loginView(r *http.Request, next, errMsg string) loginPage {
+	return loginPage{
+		pageHeader:      s.header(r),
+		Next:            next,
+		Error:           errMsg,
+		APIBase:         s.apiBase,
+		Credential:      s.credential.configured(),
+		CredentialLabel: s.credential.label(),
+	}
 }
 
 func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, s.login, loginPage{
-		pageHeader: s.header(r),
-		Next:       r.URL.Query().Get("next"),
-		APIBase:    s.apiBase,
-	})
+	s.render(w, s.login, s.loginView(r, r.URL.Query().Get("next"), ""))
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -744,17 +763,55 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	token := r.PostForm.Get("token")
 	next := r.PostForm.Get("next")
-	if token == "" {
-		s.render(w, s.login, loginPage{
-			pageHeader: s.header(r),
-			Next:       next,
-			Error:      "a token is required",
-			APIBase:    s.apiBase,
-		})
+
+	// The credential form when the application supplied a hook and this
+	// submission came from it. Keyed on the identifier being present rather
+	// than on the hook existing, because both forms post here and a pasted
+	// token must still work when a hook is configured.
+	if id := r.PostForm.Get("identifier"); id != "" || r.PostForm.Get("secret") != "" {
+		s.submitCredential(w, r, next)
 		return
 	}
+
+	token := r.PostForm.Get("token")
+	if token == "" {
+		s.render(w, s.login, s.loginView(r, next, "a token is required"))
+		return
+	}
+	s.signIn(w, r, token, next)
+}
+
+// submitCredential exchanges the application's credentials for a token.
+func (s *Server) submitCredential(w http.ResponseWriter, r *http.Request, next string) {
+	if !s.credential.configured() {
+		// Posted credentials with no hook to answer them: the form that sent
+		// these was not rendered by this server.
+		s.render(w, s.login, s.loginView(r, next, "this studio does not accept a credential sign-in"))
+		return
+	}
+	id := r.PostForm.Get("identifier")
+	secret := r.PostForm.Get("secret")
+	if id == "" || secret == "" {
+		s.render(w, s.login, s.loginView(r, next, s.credential.label()+" and password are both required"))
+		return
+	}
+
+	token, err := s.credential.Exchange(r.Context(), id, secret)
+	// One message for a refusal and for a failure, and the hook's own error is
+	// never rendered. This page is reachable without a token, so anything shown
+	// here is readable by anyone who can reach the URL — and telling a visitor
+	// which half was wrong is an enumeration oracle. See CredentialLogin.
+	if err != nil || token == "" {
+		s.render(w, s.login, s.loginView(r, next, "those credentials were not accepted"))
+		return
+	}
+	s.signIn(w, r, token, next)
+}
+
+// signIn is the one place a token becomes a session, whether it was pasted or
+// exchanged — so the cookie's shape cannot differ between the two paths.
+func (s *Server) signIn(w http.ResponseWriter, r *http.Request, token, next string) {
 	s.setTokenCookie(w, token)
 	if next == "" {
 		next = s.url("/")

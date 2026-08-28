@@ -5,18 +5,41 @@
       <div class="card-body">
         <h2 class="card-title mb-3">Sign in</h2>
         {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+        {{if .Credential}}
+        <form method="post" action="{{url "/login"}}">
+          <input type="hidden" name="next" value="{{.Next}}">
+          <div class="mb-3">
+            <label class="form-label">{{.CredentialLabel}}</label>
+            <input type="text" name="identifier" class="form-control" autofocus autocomplete="username">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="secret" class="form-control" autocomplete="current-password">
+            <div class="form-hint">
+              Signs in against the application itself and holds the token it
+              returns. Studio never sees your password again, and never holds a
+              service credential — it acts as you, so you see exactly what you
+              could already fetch.
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Sign in</button>
+        </form>
+        <div class="text-center text-secondary my-3">or</div>
+        {{end}}
         <form method="post" action="{{url "/login"}}">
           <input type="hidden" name="next" value="{{.Next}}">
           <div class="mb-3">
             <label class="form-label">Bearer token</label>
-            <input type="password" name="token" class="form-control" autofocus autocomplete="off">
+            <input type="password" name="token" class="form-control" {{if not .Credential}}autofocus{{end}} autocomplete="off">
             <div class="form-hint">
               Sent as <code>Authorization: Bearer …</code> on every request to
               {{if .APIBase}}<code>{{.APIBase}}</code>{{else}}<span class="text-danger">no API configured</span>{{end}}.
               This is your own credential — the browser shows exactly what it can already fetch, nothing more.
             </div>
           </div>
-          <button type="submit" class="btn btn-primary w-100">Sign in</button>
+          <button type="submit" class="btn {{if .Credential}}btn-secondary{{else}}btn-primary{{end}} w-100">
+            Sign in with a token
+          </button>
         </form>
       </div>
     </div>

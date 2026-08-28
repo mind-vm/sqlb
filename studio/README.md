@@ -29,6 +29,37 @@ every request studio makes on your behalf, so you see exactly the rows and
 actions that token can already reach — the same row-scoping hooks apply here
 as they do to `?expand=` on the API directly.
 
+## Signing in with the application's own credentials
+
+Pasting a token means getting one outside the browser first, which is fine for
+whoever wired studio up and is friction for everyone else on the team. Mounting
+studio yourself, you can hand it your own sign-in:
+
+```go
+studio.NewServer(m, apiBase, "/studio").
+    WithCredentialLogin(studio.CredentialLogin{
+        Label: "Email",
+        Exchange: func(ctx context.Context, email, password string) (string, error) {
+            return auth.SignIn(ctx, email, password)
+        },
+    })
+```
+
+The login page then offers both forms. Studio still holds only the operator's
+own token — the hook produces exactly the value they would otherwise have
+pasted — and never a service credential.
+
+The hook's error is **not** shown to the visitor: the login page is reachable
+without a token, so anything rendered there is readable by anyone who can reach
+the URL. A refusal and a failure both read "those credentials were not
+accepted", which is what a sign-in form should say anyway.
+
+**Do not set the cookie yourself.** Its name, its path and the fact that its
+value is the raw token are studio's internals, not a contract — a release is
+free to change any of them. `WithCredentialLogin` is the supported way in, and
+it goes through the same code a pasted token does
+([#328](https://github.com/mind-vm/sqlb/issues/328)).
+
 ```bash
 go build -o sqlb-studio ./studio/cmd/sqlb-studio && \
 ./sqlb-studio -manifest example/tasks/sqlb.json -api http://localhost:8080
