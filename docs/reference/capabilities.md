@@ -124,9 +124,31 @@ These are reported by `Validate()`, all at once rather than one per run.
 | `no-max-page-size` | No `MaxPageSize`, so the package default applies as the hard ceiling |
 | `page-size-without-list` | `DefaultPageSize` or `MaxPageSize` set while `OpList` is absent, so there is no page for them to bound |
 | `create-without-key` | A create operation on a table with no primary key |
+| `scoped-create-takes-input` | A create on a tenant-scoped table whose body carries declared non-column properties, so its hook is the only thing between caller-supplied input and the tenant the row lands in |
 | `unnamespaced-table` | A table declared outside a module where one was expected |
 
-Two of those read the table's `Scoped` column before they speak. On an exposed
+`scoped-create-takes-input` is the one that asks a question rather than
+reporting a fault, and it is worth knowing why it exists. A `Scoped` column must
+be `ReadOnly`, so it is absent from the generated create body and a
+`BeforeCreate` hook — which has only the context to read, and so only the
+verified principal — is the one thing that can supply it. That made a guarantee
+rather than a convention: a create could not name its own tenant.
+[`REST.CreateInput`](../rest/README.md) reopened it without meaning to. A
+declared property may not take a column's name, but nothing stops one called
+`for_company` from being what the hook stamps onto `company_id`, and then the
+request has chosen after all.
+
+That is a legitimate thing to want — an application whose principals span
+several tenants, a consultancy or an agency, has no other way to say which one a
+write is for — so the rule does not call it wrong. What it does is make the set
+findable, because the choice lives in a hook body and no reader of the schema
+could otherwise enumerate the creates that make it. It is deliberately
+over-inclusive: the schema sees the property and the `Scoped` column and cannot
+see the hook that may or may not connect them, so a scoped create taking a
+password is named too. Being complete is the whole value; a rule that guessed
+which properties were tenants would print a shorter list nobody could rely on.
+
+Two of the index rules read the table's `Scoped` column before they speak. On an exposed
 table whose scope column is indexed, every generated read carries that column's
 predicate — `Scoped` is an obligation, so the resource either has a hook behind
 it or does not mount — which changes both halves of the diagnostic:

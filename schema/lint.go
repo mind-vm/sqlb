@@ -497,6 +497,58 @@ func (r *Registry) Lint() Diagnostics {
 			})
 		}
 
+		// The auditable set behind "which of my creates let the request choose
+		// the tenant it writes into?" (#313).
+		//
+		// A Scoped column must be ReadOnly, so it is absent from the generated
+		// create body and BeforeCreate — which has only the context, and so
+		// only the verified principal — is the one thing that can supply it.
+		// That was a structural guarantee: a create could not name its own
+		// tenant. CreateInput reopened it, without meaning to. A declared
+		// property may not share a column's name, but nothing stops one called
+		// `for_company` from being what the hook stamps onto `company_id`, and
+		// then the request has chosen after all.
+		//
+		// That is a legitimate thing to want — an application whose principals
+		// span tenants has no other way to say which one a write is for — and
+		// this rule does not call it wrong. What it does is make the set
+		// findable, because today it is not: the choice lives in a hook body,
+		// and no reader of the schema can enumerate the creates that make it.
+		//
+		// Info, and deliberately over-inclusive: the schema sees the property
+		// and the Scoped column and cannot see the hook that may or may not
+		// connect them, so this names every candidate rather than guessing at
+		// the ones that do. A create taking a password on a scoped table is a
+		// false positive by that measure and still costs one reading of a hook
+		// that is worth having read. Under-inclusive would be the worse error —
+		// the point of the rule is that the set is complete.
+		//
+		// If a distinct opt-in ever lands that puts the tenant column itself on
+		// the create body, its warn-level branch belongs here: at that point
+		// the schema knows, so it can say so rather than ask.
+		if scoped := scopedColumn(t); scoped != "" &&
+			t.rest.Ops.Has(OpCreate) && len(t.rest.CreateInput) > 0 {
+			names := make([]string, len(t.rest.CreateInput))
+			for i, f := range t.rest.CreateInput {
+				names[i] = f.Desc().Name
+			}
+			add(Diagnostic{
+				Rule: "scoped-create-takes-input", Table: t.name, Column: scoped,
+				Severity: SeverityInfo,
+				Message: fmt.Sprintf(
+					"the create body carries %d declared propert%s no column of this table declares (%s), "+
+						"and %q is Scoped: BeforeCreate is the only thing standing between caller-supplied "+
+						"input and the tenant the row lands in, and nothing here can tell whether it routes "+
+						"one of them to %q",
+					len(names), plural(len(names), "y", "ies"), quoteList(names), scoped, scoped),
+				Fix: fmt.Sprintf(
+					"if the hook stamps %q from the principal and ignores these, nothing needs to change; "+
+						"if it takes the tenant from one of them, the check that the caller may write into "+
+						"that tenant belongs against re-resolved state rather than against the request",
+					scoped),
+			})
+		}
+
 		// Writable endpoints on a table with no key cannot address a row.
 		if t.rest.Ops.Has(OpCreate) && t.PrimaryKey() == nil {
 			add(Diagnostic{
@@ -550,6 +602,21 @@ type tenantScope struct {
 }
 
 func (s tenantScope) confined() bool { return s.column != "" }
+
+// scopedColumn is the table's tenant column, or empty.
+//
+// Not scopeOf: that one answers "what does every read of this table already
+// carry a predicate on", so it requires the column to be indexed — a question
+// about what a scan costs. This one asks whether the table declares a tenant at
+// all, which an index has nothing to do with.
+func scopedColumn(t *TableDef) string {
+	for _, f := range t.fields {
+		if d := f.Desc(); d.Scoped {
+			return d.Name
+		}
+	}
+	return ""
+}
 
 func scopeOf(t *TableDef, indexed map[string]bool) tenantScope {
 	if t.rest == nil {

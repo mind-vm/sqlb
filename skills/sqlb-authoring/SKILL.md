@@ -163,6 +163,18 @@ cannot be declared on an array, computed or vector column. Every one of those is
 a refusal in `schema/registry.go` with a message naming the column, so the way
 to learn them is to try one, not to remember this paragraph.
 
+`ReadOnly` is not the whole of that loop, and the gap is worth knowing before
+you rely on it. It keeps the tenant out of the generated create body, which
+leaves `BeforeCreate` — holding only the context, and so only the verified
+principal — as the one thing that can supply it. But `REST.CreateInput`
+declares body properties that are not columns, and while such a property may
+not take a column's name, nothing stops one called `for_company` from being
+what the hook stamps onto `company_id`. So a create *can* name its own tenant;
+it just has to be spelled that way deliberately, and the check that the caller
+may write into it is then the hook's job. The `scoped-create-takes-input` lint
+names every create where that is possible, because the choice lives in a hook
+body and nothing else can enumerate it.
+
 `OpSingleton` (the caller's-one-row resource) refuses to mount without a
 `Scoped` column at all — `schema/registry.go` and `rest/singleton.go` —
 because a singleton addresses "the caller's row" entirely through the scope
