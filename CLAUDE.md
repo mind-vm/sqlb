@@ -18,8 +18,8 @@ Read in this order, and stop as soon as you have what you need:
    Go way instead, as `// Command sqlb …` at the head of `cmd/sqlb/main.go`.
 2. **[docs/architecture.md](docs/architecture.md)** for how the pieces fit and
    why the seams are where they are — including its
-   **[Decisions](docs/architecture.md#decisions)** section, 67 of them, and
-   they are *load-bearing rather than historical*. A decision here is usually
+   **[Decisions](docs/architecture.md#decisions)** section, which is
+   *load-bearing rather than historical*. A decision here is usually
    the answer to "why is this not simpler", and reversing one without reading
    it is the most common way to spend an afternoon rediscovering a rejected
    alternative. Most end with a revisit trigger.
@@ -47,12 +47,12 @@ as it stands. The API reference is the Go doc comments.
 
 ## Layout
 
-Fifteen Go modules. The seven worth knowing before you start are below, and
+Several Go modules. The seven worth knowing before you start are below, and
 `go test ./...` at the root covers **only the first** of them:
 
 | | |
 |---|---|
-| `.` | the engine — builder, compiler, hooks, model cache. 23 files at the root, which is the package |
+| `.` | the engine — builder, compiler, hooks, model cache. The root directory *is* the package |
 | `pgtest/` | round-trip tests against a real Postgres. Its own module so the engine's suite stays database-free. It takes a DSN and starts nothing — `mise run pg-up` provides one, and `sqlbtest.Fresh` makes a database per test on it |
 | `example/tasks/`, `example/fxapp/` | worked applications, each with its own gate |
 | `example/auth-workos/` | a `sqlb.Verifier[T]` adapter for WorkOS AuthKit — its own module so the WorkOS SDK and JWT/JWKS dependencies never reach sqlb core's `go.mod` |
@@ -84,8 +84,8 @@ database-backed suites read a DSN and start nothing; `mise run pg-up` provides
 it from `compose.yaml`, and the tasks that need it depend on that. Individual
 steps — `vet`, `lint`, `generate-check`, `impact-check`, `eject-check`,
 `tagline-check`, `column-check`, `skill-check`, `lint-check`, `adr-check`,
-`map-check`, `test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
-`mise tasks` describes all 42.
+`test-race`, `test-pg`, `test-ts`, `test-dart`, `dart-sdk-check`, `test-cli` — run on their own and
+`mise tasks` lists them all.
 
 ## Traps
 
@@ -124,7 +124,7 @@ exclusions, one test failed and named the constraint while the fixpoint test
 
 **Prefer a failing check to a written-down rule.** `generate-check`,
 `eject-check`, `impact-check`, `deps-check`, `column-check`, `skill-check`,
-`lint-check`, `adr-check`, `map-check` and `bisect-check` all exist
+`lint-check`, `adr-check` and `bisect-check` all exist
 because a convention that is only documented is a convention that drifts. If
 you are about to add a paragraph telling someone to remember something,
 consider whether it can fail as a `mise run ci` step instead. `deps-check` is

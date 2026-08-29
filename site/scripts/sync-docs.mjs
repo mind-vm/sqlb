@@ -507,7 +507,8 @@ async function checkSidebar(problems) {
  * So the two lists have to partition the directory: a file in neither is an
  * error that names both options. Subdirectories are out of scope on purpose —
  * each is a whole section with its own SOURCES entry, and docs/superpowers/
- * holds plans and specs that are working material by definition.
+ * holds specs for unshipped work, which is working material by definition and
+ * is deleted rather than published once the work lands (see its README).
  */
 const UNPUBLISHED = new Map([
   // Dated snapshots of one reader's attempt to adopt sqlb, kept because the
