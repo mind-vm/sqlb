@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -106,5 +107,79 @@ func TestQueryRefusesAMissingDo(t *testing.T) {
 	err := rest.Query[OverduePosts, []Post](api, newFakeDB(t).db, postOptions(), overdueSpec(), nil)
 	if err == nil {
 		t.Fatal("want an error mounting a query with a nil func")
+	}
+}
+
+// RequiredAsOf is what codegen emits for a parameter that is neither nullable
+// nor defaulted: the same field with `required:"true"` on it.
+//
+// The tag is the whole of the difference, and it was absent for as long as
+// declared queries existed. huma treats a query parameter as optional unless
+// told otherwise, so a read that could not answer without a value was handed
+// the zero one instead and had no way to tell that from a caller who meant
+// midnight on the first of January year one. The contract said the parameter
+// was required the whole time — restcompat records it as such, since it is
+// neither nullable nor defaulted — so the server was more permissive than its
+// own declaration rather than the declaration being wrong.
+type RequiredAsOf struct {
+	AsOf string `query:"as_of" required:"true" doc:"RFC3339 timestamp"`
+}
+
+func mountRequired(t *testing.T, db sqlb.Executor,
+	do func(context.Context, sqlb.Executor, RequiredAsOf) ([]Post, error)) humatest.TestAPI {
+	t.Helper()
+	_, api := humatest.New(t, huma.DefaultConfig("Test", "1.0.0"))
+	spec := overdueSpec()
+	if err := rest.Query[RequiredAsOf, []Post](api, db, postOptions(), spec, do); err != nil {
+		t.Fatalf("mounting the query: %v", err)
+	}
+	return api
+}
+
+// Omitting a required parameter is refused, and the func does not run.
+//
+// The second half is the point. A read that is handed a zero value it cannot
+// distinguish from a deliberate one answers 200 with rows nobody asked for,
+// which is the failure this asserts against — not a wrong status, a wrong
+// answer.
+func TestAnOmittedRequiredQueryParamIsRefusedBeforeDoRuns(t *testing.T) {
+	db := newFakeDB(t)
+
+	ran := false
+	api := mountRequired(t, db.db, func(context.Context, sqlb.Executor, RequiredAsOf) ([]Post, error) {
+		ran = true
+		return nil, nil
+	})
+
+	resp := api.Get("/posts/overdue")
+	if resp.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 for an omitted required parameter: %s", resp.Code, resp.Body)
+	}
+	if ran {
+		t.Error("the func ran with a zero parameter, which is the outcome the required tag exists to prevent")
+	}
+	// The refusal names the parameter, so a caller learns which one it left
+	// out rather than that "the request" was wrong.
+	if !strings.Contains(resp.Body.String(), "as_of") {
+		t.Errorf("the refusal does not name the parameter: %s", resp.Body)
+	}
+}
+
+// And supplying it still works, so the tag narrows nothing it should not.
+func TestASuppliedRequiredQueryParamReachesDo(t *testing.T) {
+	db := newFakeDB(t)
+
+	var seen RequiredAsOf
+	api := mountRequired(t, db.db, func(_ context.Context, _ sqlb.Executor, p RequiredAsOf) ([]Post, error) {
+		seen = p
+		return []Post{{ID: "p1", Title: "Hello"}}, nil
+	})
+
+	resp := api.Get("/posts/overdue?as_of=2026-01-01T00:00:00Z")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", resp.Code, resp.Body)
+	}
+	if seen.AsOf != "2026-01-01T00:00:00Z" {
+		t.Errorf("the func saw as_of = %q", seen.AsOf)
 	}
 }

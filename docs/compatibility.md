@@ -338,10 +338,11 @@ Named in advance, so the break is a documented plan rather than a surprise.
   it: the value type is not in the type string, so every client's generated
   type changes while `map` stays `map`.
 
-### Five that broke without being listed here first
+### Six that broke without being listed here first
 
 `v0.6.0` broke three surfaces that were not under *Will move*, `v0.11.0` broke
-a fourth — which is the first one finishing — and `v0.13.0` broke a fifth. The
+a fourth — which is the first one finishing — `v0.13.0` broke a fifth, and the
+sixth is a server that had been more permissive than its own contract. The
 honest version is that all five came out of consumer reports rather than a
 plan. The release notes — [v0.6.0](releases.md#v060),
 [v0.11.0](releases.md#v0110) and [v0.13.0](releases.md#v0130) — carry each
@@ -384,6 +385,27 @@ been.
   becomes `rest.ActionSpec`. It broke because an independent port confirmed,
   with a diff rather than a hypothesis, the redundancy `v0.12.0`'s own release
   notes had already named as an open question rather than a settled one.
+
+- **A required query parameter is now enforced.** A parameter of a declared
+  read that is neither `Nullable` nor defaulted is emitted with
+  `required:"true"`, so omitting it is a 422 naming the parameter. It used to
+  be emitted without the tag, and huma treats a query parameter as optional
+  unless told otherwise — so the read was handed the zero value and had no way
+  to tell it from a caller who meant midnight on the first of January year one.
+  The observed failure was a 200 carrying rows nobody asked for, which is worse
+  than the 422 that replaces it.
+
+  Listed here because a deployed client that was omitting such a parameter now
+  gets a refusal. It is not a change to the *declared* contract: the parameter
+  was already neither nullable nor defaulted, `restcompat` has always recorded
+  it as required, and `sqlb impact` reports nothing because nothing about the
+  schema moved. What moved is that the server stopped being more permissive
+  than the contract it publishes — which is why no contract diff can announce
+  it, and why it is written down here instead.
+
+  The mechanical edit, if a caller was relying on the old behaviour: declare
+  the parameter `.Nullable()`, or give it a `.Default(...)`. Either says in the
+  schema what the server used to do by accident.
 
 One behavioural change landed with cursors and is worth stating plainly, because
 it affects requests that do not use them: **every list is now ordered
