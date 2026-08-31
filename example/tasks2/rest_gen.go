@@ -97,6 +97,17 @@ func (c TaskCreate) Row() (*Task, error) {
 	return row, nil
 }
 
+// Explicit names the columns this request carried, so that a sent zero value
+// is written rather than being read as "absent, use the default". It satisfies
+// rest.CreateExplicit.
+func (c TaskCreate) Explicit() []string {
+	var cols []string
+	if c.Status != nil {
+		cols = append(cols, "status")
+	}
+	return cols
+}
+
 // TaskPatch is the request body for patching a Task.
 //
 // Every field is a pointer and every field is optional, so a request writes
@@ -202,10 +213,12 @@ type Actions struct {
 
 // OverdueTaskParams is the query parameters for /tasks/overdue.
 //
-// A property with a default or one that may be null is a pointer, so that
-// omitting it from the query string is distinguishable from its zero value.
+// No property is a pointer: huma refuses one on a query parameter. A
+// parameter that may be omitted arrives as its zero value, and one that
+// may not is tagged required, so omitting it is a 422 rather than a call
+// the func cannot distinguish from a deliberate zero.
 type OverdueTaskParams struct {
-	AsOf time.Time `query:"as_of"` // Tasks due before this time are overdue.
+	AsOf time.Time `query:"as_of" required:"true"` // Tasks due before this time are overdue.
 }
 
 // Queries carries the domain funcs the declared queries call.

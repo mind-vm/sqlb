@@ -365,7 +365,7 @@ description = "What to run before pushing. There is no server-side CI at all, so
 run = '''
 set -e
 # Nothing gates a push or a pull request server-side (CLAUDE.md, "The gate")
-# — this is what does. `mise run ci` is the full fourteen-stage run, which is
+# — this is what does. `mise run ci` is the full run, which is
 # what to run before a tag rather than before every push: measured at 90s
 # warm on an idle machine, seven containers of its own, for parts whose
 # answer does not need Docker, Node or Dart most of the time anyway. What is
@@ -614,6 +614,13 @@ go run ./example/withsqlc/gen -check
 # the larger example's committed output free to drift, which is the exact
 # failure this gate exists to catch.
 cd "$MISE_PROJECT_ROOT/example/tasks" && go run github.com/mind-vm/sqlb/cmd/sqlb check ./taskschema
+# tasks2 is its own module too, and was missed when this list was written. It is
+# the only schema in the repository that declares a query, so it is the one
+# artefact that exercises the query emitter -- and it had drifted twice before
+# anything noticed: once on Explicit(), once on the query-parameter fix that
+# stopped huma panicking on a pointer. A gate that omits the only example of a
+# feature is the gate that feature needed.
+cd "$MISE_PROJECT_ROOT/example/tasks2" && go run github.com/mind-vm/sqlb/cmd/sqlb check ./tasks2schema
 # example/fxapp, likewise its own module. Its generated package also holds one
 # hand-written file (store/module.go), which the check ignores: it compares the
 # artefacts the emitters own and says nothing about their neighbours.
@@ -1119,7 +1126,7 @@ echo "every commit builds, vets and tests green in isolation"
 '''
 
 [tasks.ci]
-description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, skill-check, lint-check, adr-check, test-race, test-auth-workos, test-auth-supabase, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — fourteen stages is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
+description = "The full gate: vet, lint, tidy-check, deps-check, generate-check, impact-check, eject-check, tagline-check, column-check, skill-check, lint-check, adr-check, test-race, test-auth-workos, test-auth-supabase, test-ts, test-dart, dart-sdk-check, test-cli, test-pg, test-demo, test-fx. Formatting is checked inside lint, by the gofmt formatter in .golangci.yml, rather than by a gate of its own — docs/architecture.md, \"Tooling scoped to tracked files\". Needs the test databases, which test-pg starts. Does not include bisect-check — run it by hand with `mise run bisect-check` if a commit-by-commit history matters for what you're doing. NOTE: this is what to run before tagging a release, not before every push — the full set is a slower loop than routine development needs. `mise run preflight` is what belongs in the push path."
 run = '''
 set -e
 mise run vet

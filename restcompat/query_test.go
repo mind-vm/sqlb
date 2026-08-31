@@ -160,25 +160,35 @@ func TestNarrowingAQueryParamEnumIsBreaking(t *testing.T) {
 	}
 }
 
-// Reads is neutral, and the summary earns its place by naming the direction:
-// widening leaves a deployed client's cache stale, narrowing costs it a
-// refetch. A finding that said only "changed" would leave a reviewer to work
-// out which of those happened.
-func TestWideningReadsSaysTheCacheGoesStale(t *testing.T) {
+// The two directions are classified apart, and the summary names which one
+// happened: widening leaves a deployed client's cache stale, narrowing costs it
+// a refetch. A finding that said only "changed" would leave a reviewer to work
+// out which.
+//
+// Widening was neutral until the TypeScript emitter shipped, on the argument
+// that nothing consumed Query.Reads yet. Something does now, so "no client is
+// affected" — which is what LevelNeutral means — stopped being true: a client
+// generated before the widening never refetches on the new table. Unknown
+// rather than breaking, because whether it bites depends on which emitter built
+// the deployed client (#316).
+func TestWideningReadsIsUnknownBecauseTheClientMayUnderInvalidate(t *testing.T) {
 	reads := func(r *schema.Registry) schema.Query {
 		return schema.Query{Name: "overdue", Reads: []*schema.TableDef{r.Get("lists")}}
 	}
 	breaks := restcompat.Diff(withQueries(overdue), withQueries(reads))
 
 	b := find(t, breaks, "declared read set changed")
-	if b.Level != restcompat.LevelNeutral {
-		t.Errorf("level = %s, want neutral", b.Level)
+	if b.Level != restcompat.LevelUnknown {
+		t.Errorf("level = %s, want unknown — a TypeScript client generated before this widening under-invalidates", b.Level)
 	}
 	if !strings.Contains(b.Summary, "goes stale") {
 		t.Errorf("summary does not name the widening consequence: %s", b.Summary)
 	}
 }
 
+// Narrowing stays neutral, and that is a claim rather than a leftover: the
+// client keeps invalidating on a table the query no longer reads, which costs
+// one refetch and changes nothing it displays.
 func TestNarrowingReadsSaysNothingBreaks(t *testing.T) {
 	reads := func(r *schema.Registry) schema.Query {
 		return schema.Query{Name: "overdue", Reads: []*schema.TableDef{r.Get("lists")}}

@@ -77,7 +77,7 @@ release. The one workflow that does run is `site`, which builds the docs and
 deploys them to Pages; it is deliberately not a Go gate, so a red site build
 never claims the library is broken.
 `mise run preflight` is the push path: heal, build, database-free tests, about
-fifteen seconds. `mise run ci` is the full fourteen-stage set — everything
+fifteen seconds. `mise run ci` is the full set — everything
 `preflight` skips, plus the database-backed and multi-toolchain suites — and
 is what to run before a tag, since nothing runs it for you any more. The
 database-backed suites read a DSN and start nothing; `mise run pg-up` provides
