@@ -121,6 +121,19 @@ they rot on any edit and tell a reader nothing they could not get by grepping
 the name — so what is cited is a file and a symbol, which is what the check can
 actually verify. See "Keeping it honest".
 
+## Links have to survive the install
+
+A skill is copied into a consumer's `.claude/skills/`, so a relative link that
+escapes that directory resolves against *their* repository rather than this one.
+`sqlb-authoring` carried four — `../../db.go`, `../../rest/rest.go` and two into
+`docs/architecture.md` — which were correct when read from a checkout of sqlb
+and pointed at nothing everywhere else, which is where the file spends its life.
+
+A link to a sibling skill is fine, because siblings install together. Anything
+further out is written as a full `https://github.com/mind-vm/sqlb/blob/main/…`
+URL, the same spelling the Go doc comments already use for ADR references and
+for the same reason.
+
 ## Keeping it honest
 
 Every code sample in `sqlb-queries/SKILL.md` was compiled and rendered against

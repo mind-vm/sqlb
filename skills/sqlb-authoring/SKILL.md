@@ -12,7 +12,7 @@ same question every session pays a source read to answer, because prose in
 It is **not** the *consuming* direction: which columns *this project's*
 schema actually declared `Filterable` on is a different, per-project question,
 answered by the generated `sqlb-schema` skill (`Options.SkillDir`,
-[ADR-0049](../../docs/architecture.md#the-skill-is-generated)) — load that one
+[ADR-0049](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#the-skill-is-generated)) — load that one
 instead when the question is "can I filter `tasks.author_id`", not "does
 `Filterable` exist". This skill can be hand-maintained where that one cannot:
 the DSL's vocabulary is the same in every repository, so there is no
@@ -148,7 +148,7 @@ operator doesn't accept), not a missing method.
 `Scoped()` (`field.go`) is a declaration that the
 column confines the table's rows to one tenant. It **writes no predicate
 itself** — same as `SoftDelete` — what it changes is what happens when the
-confining predicate is *missing*: [`rest.Resource`](../../rest/rest.go)
+confining predicate is *missing*: [`rest.Resource`](https://github.com/mind-vm/sqlb/blob/main/rest/rest.go)
 refuses to mount the resource at startup rather than serve every tenant's
 rows with a 200 (ADR-0030). The check is at `rest/scope.go` and the
 refusal fires from `rest/rest.go` (`"%s exposes %s but %s declares no
@@ -196,7 +196,7 @@ wire (filter grammar 400s on it), not application code.
 ### An unhooked handle inside a hook
 
 A hook's signature hands it only its own model — no `*DB`, no `Executor` — so
-[`sqlb.TxFrom(ctx)`](../../db.go) is how it reaches
+[`sqlb.TxFrom(ctx)`](https://github.com/mind-vm/sqlb/blob/main/db.go) is how it reaches
 another model in the same transaction. The handle it returns carries **the
 current request's registry**, so a write through it still runs that
 request's hooks — including, if writing a *different* model, that model's
@@ -210,7 +210,7 @@ tx.WithHooks(system)
 ```
 
 Documented at `db.go` and demonstrated in
-[the transaction-scoped-handle decision](../../docs/architecture.md#transaction-scoped-handle)
+[the transaction-scoped-handle decision](https://github.com/mind-vm/sqlb/blob/main/docs/architecture.md#transaction-scoped-handle)
 (`tenant := db.WithHooks(sqlb.NewRegistry()) // hooks: scoped to this
 handle`). `db.go` prefers `Update.One` over `Update.Exec` on the escalated
 handle so that matching nothing refuses rather than silently committing
