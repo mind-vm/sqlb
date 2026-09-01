@@ -113,6 +113,13 @@ expressible" entries had shipped in the meantime (`sqlb.Near` for a vector
 column, `AddExclude` for an exclusion constraint). A minor-release cadence is
 slow enough to feel safe and fast enough to be wrong within one.
 
+The claims about *refusals* are pinned separately, because no grep can check
+one: `schema/skillclaims_test.go` builds each declaration the skill calls
+refused and asserts the validator refuses it, naming the column. Every claim in
+the file today is executed rather than believed — they were all correct when
+that test was written, which is exactly what the citation rot looked like for
+months beforehand.
+
 So `mise run skill-check` now enumerates `Field`'s methods after all. Forward: a
 method the DSL declares and the skill does not name fails the gate, unless it is
 in the accessors list, which makes the omission a decision. Reverse: a table row

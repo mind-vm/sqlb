@@ -19,7 +19,9 @@ the DSL's vocabulary is the same in every repository, so there is no
 per-project fact to drift out from under it the way capability lists drift.
 Every symbol below is checked rather than trusted: `mise run skill-check`
 fails if a name here is not declared where this file says it is, and if a
-declaration method exists that no table below mentions. It said "grounded at a
+declaration method exists that no table below mentions. Every *refusal* it
+promises is checked too, by `schema/skillclaims_test.go`, which builds each
+declaration called refused here and asserts the validator refuses it. It said "grounded at a
 file:line" for months, and by the time anyone looked almost every line number
 was wrong — `Filterable()` pointed at a blank line, `Hidden()` at
 `Field.Comment` — while a fifth of the vocabulary was missing outright. Line

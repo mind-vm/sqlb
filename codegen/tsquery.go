@@ -149,16 +149,23 @@ func tsQueryRowType(t *schema.TableDef, q schema.Query) string {
 	return TypeName(t)
 }
 
-// tsQueryParamsOptional reports whether every declared parameter may be
-// omitted, in which case the function's params argument gets a default and the
-// call is `overdueTasks(request)`.
-func tsQueryParamsOptional(q schema.Query) bool {
+// tsQueryParamsArg is the params argument as it appears in a signature: the
+// type, plus a default where every declared parameter may be omitted, so that
+// the call is `overdueTasks(request)`.
+//
+// The transport function and the TanStack factory both take this argument and
+// must agree about it — one defaulting where the other does not is a wrapper
+// whose signature cannot satisfy the function it wraps.
+func tsQueryParamsArg(t *schema.TableDef, q schema.Query) string {
+	name := tsQueryParamsName(t, q)
 	for _, f := range q.Params {
+		// One parameter the read cannot answer without is enough: there is no
+		// default that stands for it, so the caller has to pass the object.
 		if !optionalOnCreate(f.Desc()) {
-			return false
+			return name
 		}
 	}
-	return true
+	return name + " = {}"
 }
 
 // tsQueryFunctions emits the transport function for each declared read.
@@ -171,12 +178,8 @@ func tsQueryFunctions(b *bytes.Buffer, r tsResource) {
 		}
 		fmt.Fprintf(b, "\n/** `GET %s` — %s. */\n", path, strings.ToLower(summary[:1])+summary[1:])
 
-		params := tsQueryParamsName(r.table, q)
-		if tsQueryParamsOptional(q) {
-			params += " = {}"
-		}
 		fmt.Fprintf(b, "export function %s(request: Transport, params: %s, signal?: AbortSignal): Promise<%s[]> {\n",
-			tsQueryName(r.table, q), params, tsQueryRowType(r.table, q))
+			tsQueryName(r.table, q), tsQueryParamsArg(r.table, q), tsQueryRowType(r.table, q))
 		// encodeQueryParams rather than encodeListQuery: a declared read's
 		// parameters are its own — no operator grammar, no paging, no
 		// projection — so each property is one query parameter under the name
@@ -243,6 +246,17 @@ func tsQueryReaches(resources []tsResource) tsQueryReach {
 	return reach
 }
 
+// key is this read's cache key expression, as the table it reaches has to spell
+// it: under the declaring resource's factory, never under the reached table's.
+//
+// Written once because the two callers below would otherwise each carry a copy
+// of the key's *shape*, and a shape that changed in one of them would emit a
+// client whose change feed invalidates a key nothing registers — which
+// typechecks, since both are strings.
+func (q tsReachedQuery) key() string {
+	return fmt.Sprintf("%sKeys.query('%s')", q.ident, q.name)
+}
+
 // keysFor renders the key expressions a change to table invalidates, for the
 // branch that names one row.
 //
@@ -252,7 +266,7 @@ func tsQueryReaches(resources []tsResource) tsQueryReach {
 func (reach tsQueryReach) keysFor(table string) []string {
 	var out []string
 	for _, q := range reach[table] {
-		out = append(out, fmt.Sprintf("%sKeys.query('%s')", q.ident, q.name))
+		out = append(out, q.key())
 	}
 	return out
 }
@@ -266,7 +280,7 @@ func (reach tsQueryReach) foreignKeysFor(table string) []string {
 		if q.ownedBy {
 			continue
 		}
-		out = append(out, fmt.Sprintf("%sKeys.query('%s')", q.ident, q.name))
+		out = append(out, q.key())
 	}
 	return out
 }
@@ -306,11 +320,7 @@ func unservedReads(resources []tsResource) []string {
 // tsQueryOptions emits the TanStack read factory's declared-read entries.
 func tsQueryOptions(b *bytes.Buffer, r tsResource) {
 	for _, q := range r.table.Queries() {
-		params := tsQueryParamsName(r.table, q)
-		if tsQueryParamsOptional(q) {
-			params += " = {}"
-		}
-		fmt.Fprintf(b, "    %s: (params: %s) =>\n", tsQueryProp(q), params)
+		fmt.Fprintf(b, "    %s: (params: %s) =>\n", tsQueryProp(q), tsQueryParamsArg(r.table, q))
 		fmt.Fprint(b, "      queryOptions({\n")
 		fmt.Fprintf(b, "        queryKey: %sKeys.query('%s', params),\n", r.ident, q.Name)
 		fmt.Fprintf(b, "        queryFn: ({ signal }) => %s(request, params, signal),\n", tsQueryName(r.table, q))
