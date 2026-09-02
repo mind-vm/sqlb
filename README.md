@@ -1,3 +1,11 @@
+> **Archived.** Development continues in `mind-vm/platform`, where this library
+> lives as `sqlb/`. This repository is read-only and its history is preserved
+> there.
+>
+> Everything released here — up to and including **v0.23.0** — stays MIT and
+> remains forkable; that is not retracted. New versions come from the platform
+> module, which is private (platform ADR-0001).
+
 # sqlb
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/mind-vm/sqlb.svg)](https://pkg.go.dev/github.com/mind-vm/sqlb)
